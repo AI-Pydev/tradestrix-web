@@ -1,0 +1,29 @@
+# Local editor state
+.claude/settings.local.json
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies and builds
+node_modules/
+.next/
+out/
+build/
+dist/
+.vercel/
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
