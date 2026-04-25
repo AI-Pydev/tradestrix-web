@@ -86,7 +86,7 @@ export function MultiStockMonitorShell() {
   }, []);
 
   const todayKey = localDateKey(new Date());
-  const trades = data?.trades ?? [];
+  const trades = useMemo(() => data?.trades ?? [], [data?.trades]);
   const visibleTrades = useMemo(() => {
     const rows = view === "today"
       ? trades.filter((trade) => {
