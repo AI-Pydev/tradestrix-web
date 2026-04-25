@@ -141,7 +141,7 @@ export function MultiStockMonitorShell() {
           <div className="hero-header">
             <h1 className="hero-title">Multi-Stock Trade Monitor</h1>
             <p className="hero-subtitle">
-              Dedicated view for the legacy multi-stock trade feed, open positions, and realized paper P/L.
+              Dedicated view for trades created by the legacy multi-stock service via signal ingestion or manual trade entry.
             </p>
           </div>
           <div className="p-3">
@@ -165,7 +165,7 @@ export function MultiStockMonitorShell() {
         <section className="dashboard-panel">
           <h2 className="panel-title">{view === "today" ? "Today's Trades" : "All Multi-Stock Trades"}</h2>
           <div className="p-3 pb-0 small muted">
-            Data comes from `/api/v1/multi-stock/trades`. This page is intentionally separate from bot launch controls.
+            Data comes from `/api/v1/multi-stock/trades`. Rows appear here only when the backend receives `/api/v1/multi-stock/signals` or `/api/v1/multi-stock/trades/manual` requests. This page is separate from Multi-Bot launcher jobs.
           </div>
           <div className="table-responsive">
             <table className="table table-dark-shell align-middle">

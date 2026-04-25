@@ -43,10 +43,10 @@ const navGroups: NavGroup[] = [
         monogram: "ED",
       },
       {
-        href: "/multi-stock-monitor",
-        label: "Profit / Loss",
-        caption: "Multi-stock monitor",
-        monogram: "PL",
+        href: "/multi-bot-launcher",
+        label: "Multi-Bot",
+        caption: "Batch launcher",
+        monogram: "MB",
       },
       {
         href: "/brokers",
@@ -85,6 +85,18 @@ const navGroups: NavGroup[] = [
         monogram: "PB",
       },
       {
+        href: "/execution-dashboard",
+        label: "Execution Accordion",
+        caption: "Multi-bot and monitor",
+        monogram: "EA",
+      },
+      {
+        href: "/multi-stock-monitor",
+        label: "Multi-Stock Monitor",
+        caption: "Signal and manual trade feed",
+        monogram: "MS",
+      },
+      {
         href: "/upstox-backtest",
         label: "Backtest",
         caption: "Option-chain replay",
@@ -102,12 +114,6 @@ const navGroups: NavGroup[] = [
     monogram: "MK",
     title: "Markets",
     items: [
-      {
-        href: "/multi-bot-launcher",
-        label: "Multi-Bot",
-        caption: "Batch launcher",
-        monogram: "MB",
-      },
       {
         href: "/index-auto-launch",
         label: "Index Auto",
@@ -158,6 +164,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
     title: "Execution Desk",
     subtitle: "Focused surface for bot launch, managed jobs, and trade operations",
+  },
+  "/execution-dashboard": {
+    title: "Execution Accordion",
+    subtitle: "Unified accordion surface for multi-bot launcher and monitor workflows",
   },
   "/multi-stock-monitor": {
     title: "Multi-Stock Monitor",

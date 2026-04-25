@@ -4,10 +4,10 @@ import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 
 import {
+    DashboardSnapshot,
     fetchDashboardData,
     fetchUpstoxManagedBotJobs,
     fetchUpstoxManagedBotTrades,
-    DashboardSnapshot,
     InstrumentCatalogResponse,
     previewUpstoxOptionChainBot,
     runUpstoxOptionChainBot,
@@ -582,15 +582,12 @@ export function DashboardShell() {
             <a className="hero-tab" href="#bot-control-panel">
               Bot Control
             </a>
-            <Link className="hero-tab" href="/multi-stock-monitor">
-              Profit / Loss
-            </Link>
           </div>
           <div className="hero-header">
             <h1 className="hero-title">Execution Desk</h1>
             <p className="hero-subtitle">
-              Focused surface for launching option-chain bots, reviewing managed jobs, and checking the trade monitor.
-              Platform summary counters now live on Platform Home.
+              Focused surface for launching option-chain bots and reviewing managed jobs. Platform summary counters now
+              live on Platform Home.
             </p>
           </div>
           <div className="p-3">
@@ -598,10 +595,6 @@ export function DashboardShell() {
             {error && <div className="alert alert-danger mb-0">{error}</div>}
             {!error && !loading && !managedBotsLoading && (
               <>
-                <div className="small muted mb-3">
-                  This page tracks live bot runtime state and managed jobs. Multi-stock trade monitoring now has its
-                  own dedicated page.
-                </div>
                 <div className="row g-3">
                   {executionMetrics.map((metric) => (
                     <div className="col-12 col-sm-6 col-lg-4 col-xl-3" key={metric.label}>
@@ -1256,42 +1249,6 @@ export function DashboardShell() {
               </div>
             </section>
 
-          </div>
-
-          <div className="col-12">
-            <section className="dashboard-panel">
-              <h2 className="panel-title">Multi-Stock Monitor</h2>
-              <div className="p-3">
-                <div className="row g-3">
-                  <div className="col-12 col-md-4">
-                    <div className={`metric-card ${Number(data?.dashboard.open_trades || 0) > 0 ? "positive" : ""} p-3`}>
-                      <div className="metric-label">Open Multi-Stock Trades</div>
-                      <div className="metric-value mt-2">{fmtNumber(data?.dashboard.open_trades ?? 0)}</div>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className={`metric-card ${Number(data?.dashboard.realized_pnl || 0) > 0 ? "positive" : Number(data?.dashboard.realized_pnl || 0) < 0 ? "negative" : ""} p-3`}>
-                      <div className="metric-label">Realized Multi-Stock P/L</div>
-                      <div className="metric-value mt-2">{fmtMoney(data?.dashboard.realized_pnl ?? 0)}</div>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className="metric-card p-3">
-                      <div className="metric-label">Signals Processed</div>
-                      <div className="metric-value mt-2">{fmtNumber(data?.dashboard.signals_processed ?? 0)}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
-                  <div className="small muted">
-                    Trade rows and P/L review now live in the dedicated multi-stock monitor.
-                  </div>
-                  <Link className="btn btn-primary" href="/multi-stock-monitor">
-                    Open Monitor
-                  </Link>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
       </div>
