@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
@@ -339,7 +339,7 @@ export function McxMarketShell() {
     setForm((prev) => (prev.instrument_key === trimmedInstrumentKey ? prev : { ...prev, instrument_key: trimmedInstrumentKey }));
   }
 
-  function applyCommoditySelection(nextCommodity: InstrumentItem) {
+  const applyCommoditySelection = useCallback((nextCommodity: InstrumentItem) => {
     const nextSymbol = commoditySymbol(nextCommodity);
     const preset = presetForCommodity(nextCommodity);
     setSelectedCommodity(nextSymbol);
@@ -356,7 +356,7 @@ export function McxMarketShell() {
     }));
     setManagedJobName((prev) => (prev.trim() ? prev : `mcx-${nextSymbol.toLowerCase()}`));
     setPreview(null);
-  }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -393,7 +393,7 @@ export function McxMarketShell() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [applyCommoditySelection, selectedCommodity]);
 
   useEffect(() => {
     let active = true;
@@ -1015,7 +1015,7 @@ export function McxMarketShell() {
                 )}
 
                 <div className="alert alert-secondary mt-4 mb-0">
-                  The selected commodity's configured MCX key is used when available. Current launch key:{" "}
+                  The selected commodity&apos;s configured MCX key is used when available. Current launch key:{" "}
                   <code>{launchInstrumentKey || "MCX_FO|..."}</code>.
                 </div>
 
