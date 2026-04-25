@@ -43,9 +43,9 @@ const navGroups: NavGroup[] = [
         monogram: "ED",
       },
       {
-        href: "/dashboard#trades-panel",
+        href: "/multi-stock-monitor",
         label: "Profit / Loss",
-        caption: "Trade and P/L board",
+        caption: "Multi-stock monitor",
         monogram: "PL",
       },
       {
@@ -158,6 +158,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
     title: "Execution Desk",
     subtitle: "Focused surface for bot launch, managed jobs, and trade operations",
+  },
+  "/multi-stock-monitor": {
+    title: "Multi-Stock Monitor",
+    subtitle: "Dedicated surface for multi-stock trades, P/L, and signal-driven positions",
   },
   "/brokers": {
     title: "Brokers",
@@ -393,7 +397,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             </div>
           </div>
           <div className="platform-topbar-right">
-            <Link className="platform-topbar-link" href="/dashboard#trades-panel">
+            <Link className="platform-topbar-link" href="/multi-stock-monitor">
               P/L
             </Link>
             <a className="platform-topbar-link" href={`${BACKEND_BASE_URL}/docs`} rel="noreferrer" target="_blank">

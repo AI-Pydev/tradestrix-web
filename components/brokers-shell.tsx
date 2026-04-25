@@ -298,7 +298,7 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
             <section className="dashboard-panel">
               <h2 className="panel-title">Quick Links</h2>
               <div className="p-3 d-grid gap-2">
-                <Link className="btn btn-outline-light text-start" href="/dashboard#trades-panel">
+                <Link className="btn btn-outline-light text-start" href="/multi-stock-monitor">
                   Open Profit / Loss Board
                 </Link>
                 <Link className="btn btn-outline-light text-start" href="/dashboard#bot-control-panel">

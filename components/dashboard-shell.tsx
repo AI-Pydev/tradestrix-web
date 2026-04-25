@@ -7,6 +7,7 @@ import {
     fetchDashboardData,
     fetchUpstoxManagedBotJobs,
     fetchUpstoxManagedBotTrades,
+    DashboardSnapshot,
     InstrumentCatalogResponse,
     previewUpstoxOptionChainBot,
     runUpstoxOptionChainBot,
@@ -23,6 +24,7 @@ import {
 
 
 type DashboardState = {
+  dashboard: DashboardSnapshot;
   trades: TradeRecord[];
   instruments: InstrumentCatalogResponse;
 };
@@ -517,10 +519,6 @@ export function DashboardShell() {
   const todayManagedBots = managedBots
     .filter((job) => matchesManagedBotTodayDesk(job, todayKey))
     .sort(compareManagedBotsForTodayDesk);
-  const todayTradeMonitorRows = (data?.trades ?? []).filter((trade) => {
-    const openedAt = parseIsoDate(trade.opened_at);
-    return openedAt ? localDateKey(openedAt) === todayKey : false;
-  });
   const allHistoricalManagedBots = managedBots
     .filter((job) => !matchesManagedBotTodayDesk(job, todayKey))
     .sort(compareManagedBotsByStartedDesc);
@@ -584,9 +582,9 @@ export function DashboardShell() {
             <a className="hero-tab" href="#bot-control-panel">
               Bot Control
             </a>
-            <a className="hero-tab" href="#trades-panel">
+            <Link className="hero-tab" href="/multi-stock-monitor">
               Profit / Loss
-            </a>
+            </Link>
           </div>
           <div className="hero-header">
             <h1 className="hero-title">Execution Desk</h1>
@@ -601,8 +599,8 @@ export function DashboardShell() {
             {!error && !loading && !managedBotsLoading && (
               <>
                 <div className="small muted mb-3">
-                  This page tracks live bot runtime state and the legacy trade monitor. Broader multi-stock summary
-                  cards now sit on the landing page to avoid empty-state confusion here.
+                  This page tracks live bot runtime state and managed jobs. Multi-stock trade monitoring now has its
+                  own dedicated page.
                 </div>
                 <div className="row g-3">
                   {executionMetrics.map((metric) => (
@@ -1261,55 +1259,37 @@ export function DashboardShell() {
           </div>
 
           <div className="col-12">
-            <section className="dashboard-panel" id="trades-panel">
-              <h2 className="panel-title">Multi-Stock Trade Monitor</h2>
-              <div className="p-3 pb-0 small muted">
-                This table reads from the legacy `/api/v1/multi-stock/trades` flow and shows only today&apos;s entries
-                from that feed.
-              </div>
-              <div className="table-responsive">
-                <table className="table table-dark-shell align-middle">
-                  <thead>
-                    <tr>
-                      <th>Symbol</th>
-                      <th>Direction</th>
-                      <th>Qty</th>
-                      <th>Entry Price</th>
-                      <th>Status</th>
-                      <th>Mode</th>
-                      <th>Opened</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {todayTradeMonitorRows.length ? (
-                      todayTradeMonitorRows.map((trade) => (
-                        <tr key={trade.trade_id}>
-                          <td>{trade.symbol}</td>
-                          <td>
-                            <span className={`badge-soft ${trade.direction === "LONG" ? "green" : "red"}`}>
-                              {trade.direction}
-                            </span>
-                          </td>
-                          <td>{fmtNumber(trade.quantity)}</td>
-                          <td>{fmtMoney(trade.entry_price)}</td>
-                          <td>
-                            <span className={`badge-soft ${trade.status === "OPEN" ? "blue" : "gold"}`}>
-                              {trade.status}
-                            </span>
-                          </td>
-                          <td>{trade.mode}</td>
-                          <td>{fmtDate(trade.opened_at)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="empty-state">
-                          No multi-stock trades recorded for today yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            <section className="dashboard-panel">
+              <h2 className="panel-title">Multi-Stock Monitor</h2>
+              <div className="p-3">
+                <div className="row g-3">
+                  <div className="col-12 col-md-4">
+                    <div className={`metric-card ${Number(data?.dashboard.open_trades || 0) > 0 ? "positive" : ""} p-3`}>
+                      <div className="metric-label">Open Multi-Stock Trades</div>
+                      <div className="metric-value mt-2">{fmtNumber(data?.dashboard.open_trades ?? 0)}</div>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <div className={`metric-card ${Number(data?.dashboard.realized_pnl || 0) > 0 ? "positive" : Number(data?.dashboard.realized_pnl || 0) < 0 ? "negative" : ""} p-3`}>
+                      <div className="metric-label">Realized Multi-Stock P/L</div>
+                      <div className="metric-value mt-2">{fmtMoney(data?.dashboard.realized_pnl ?? 0)}</div>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <div className="metric-card p-3">
+                      <div className="metric-label">Signals Processed</div>
+                      <div className="metric-value mt-2">{fmtNumber(data?.dashboard.signals_processed ?? 0)}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
+                  <div className="small muted">
+                    Trade rows and P/L review now live in the dedicated multi-stock monitor.
+                  </div>
+                  <Link className="btn btn-primary" href="/multi-stock-monitor">
+                    Open Monitor
+                  </Link>
+                </div>
               </div>
             </section>
           </div>

@@ -19,8 +19,8 @@ const landingCards: LandingCard[] = [
   },
   {
     title: "Profit / Loss",
-    href: "/dashboard#trades-panel",
-    description: "Jump straight to trade tracking and realized P/L.",
+    href: "/multi-stock-monitor",
+    description: "Review multi-stock trades, open positions, and realized P/L.",
     cta: "Open",
   },
   {
