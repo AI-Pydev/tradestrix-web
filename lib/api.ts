@@ -1,3 +1,5 @@
+import { buildAuthorizedHeaders, throwIfApiError } from "@/lib/auth";
+
 export type DashboardSnapshot = {
   total_strategies: number;
   active_strategies: number;
@@ -1144,92 +1146,60 @@ const BACKEND_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function getBackendJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     cache: "no-store",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function postBackendJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function postBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
+    headers: buildAuthorizedHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function patchBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "PATCH",
-    headers: {
+    headers: buildAuthorizedHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function deleteBackend(path: string): Promise<void> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "DELETE",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
 }
 
 export async function fetchDashboardData() {
