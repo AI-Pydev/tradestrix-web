@@ -595,6 +595,7 @@ export function MultiBotLauncherShell() {
       risk_model: settings.risk_model,
       risk_amount: settings.risk_amount ?? null,
       use_time_windows: settings.use_time_windows,
+      use_ema20_entry_filter: true,
       sl_premium_pct: settings.sl_premium_pct,
       target_premium_pct: settings.target_premium_pct,
       min_hold_sec_before_underlying_exit: settings.min_hold_sec_before_underlying_exit,
