@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
+import { AuthProvider } from "@/components/auth-provider";
 import { PlatformAppShell } from "@/components/platform-app-shell";
 
 const inter = Inter({
@@ -34,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
-        <PlatformAppShell>{children}</PlatformAppShell>
+        <AuthProvider>
+          <PlatformAppShell>{children}</PlatformAppShell>
+        </AuthProvider>
       </body>
     </html>
   );

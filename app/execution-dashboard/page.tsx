@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import styles from './execution-dashboard.module.css';
 
+import { buildAuthorizedHeaders, throwIfApiError } from '@/lib/auth';
+
 interface ExecutionStatus {
   mode: string;
   real_trading_approved: boolean;
@@ -16,6 +18,8 @@ interface ExecutionStatus {
   allowed_indices: string[];
 }
 
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://127.0.0.1:8000';
+
 export default function ExecutionDashboard() {
   const [status, setStatus] = useState<ExecutionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,8 +29,10 @@ export default function ExecutionDashboard() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/execution/status');
-      if (!response.ok) throw new Error('Failed to fetch execution status');
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/execution/status`, {
+        headers: buildAuthorizedHeaders(),
+      });
+      await throwIfApiError(response);
       const data: ExecutionStatus = await response.json();
       setStatus(data);
       setError(null);
@@ -66,19 +72,16 @@ export default function ExecutionDashboard() {
 
     setToggling(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/execution/toggle', {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/execution/toggle`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthorizedHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           mode: targetMode,
           reason: `User toggled from ${status.mode} to ${targetMode}`,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Toggle failed');
-      }
+      await throwIfApiError(response);
 
       await fetchStatus();
       setError(null);
@@ -94,19 +97,16 @@ export default function ExecutionDashboard() {
 
     setApproving(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/execution/approve-real-trading', {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/execution/approve-real-trading`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthorizedHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           approved,
           reason: `User ${approved ? 'approved' : 'disapproved'} real trading`,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Approval action failed');
-      }
+      await throwIfApiError(response);
 
       await fetchStatus();
       setError(null);
