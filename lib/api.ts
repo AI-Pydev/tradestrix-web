@@ -420,6 +420,7 @@ export type UpstoxOptionChainBotRunRequest = {
   risk_model: "dynamic" | "fixed" | "risk_amount";
   risk_amount?: number | null;
   use_time_windows: boolean;
+  use_ema20_entry_filter: boolean;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -468,6 +469,7 @@ export type UpstoxManagedBotStartRequest = {
   risk_model: "dynamic" | "fixed" | "risk_amount";
   risk_amount?: number | null;
   use_time_windows: boolean;
+  use_ema20_entry_filter: boolean;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
