@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
     createTradingViewAlertTemplate,
+    deleteTradingViewAlertTemplate,
     fetchInstrumentCatalog,
     fetchTradingViewAlertTemplateEvents,
     InstrumentItem,
@@ -58,6 +59,12 @@ type ModeSummary = {
   grossProfit: number;
   grossLoss: number;
 };
+type DeleteDialogState = {
+  templateId: string;
+  alertName: string;
+  instrumentKey: string;
+  side: "call" | "put";
+} | null;
 
 function safeJson(obj: unknown) {
   try {
@@ -174,6 +181,9 @@ export function TradingViewAlertsShell() {
   const [activityEvents, setActivityEvents] = useState<TradingViewWebhookEvent[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const indices = useMemo(() => catalog.filter((item) => item.kind === "index"), [catalog]);
   const activityRows = useMemo(() => {
@@ -484,6 +494,60 @@ export function TradingViewAlertsShell() {
     }
   }
 
+  function openDeleteDialog(template: TradingViewAlertTemplate) {
+    setDeleteDialog({
+      templateId: template.template_id,
+      alertName: template.alert_name,
+      instrumentKey: template.instrument_key,
+      side: template.side,
+    });
+    setDeleteConfirmText("");
+  }
+
+  function closeDeleteDialog() {
+    if (deletingId) {
+      return;
+    }
+    setDeleteDialog(null);
+    setDeleteConfirmText("");
+  }
+
+  async function handleDeleteTemplate() {
+    if (!deleteDialog || deleteConfirmText.trim().toLowerCase() !== "confirm") {
+      return;
+    }
+
+    try {
+      setDeletingId(deleteDialog.templateId);
+      setError("");
+      setMessage("");
+      await deleteTradingViewAlertTemplate(deleteDialog.templateId);
+      setTemplates((prev) => prev.filter((item) => item.template_id !== deleteDialog.templateId));
+      setLotDrafts((prev) => {
+        const next = { ...prev };
+        delete next[deleteDialog.templateId];
+        return next;
+      });
+      setExpandedSetupIds((prev) => {
+        const next = { ...prev };
+        delete next[deleteDialog.templateId];
+        return next;
+      });
+      if (activityTemplate?.template_id === deleteDialog.templateId) {
+        closeActivity();
+      }
+      setDeleteDialog(null);
+      setDeleteConfirmText("");
+      setMessage(`Deleted template ${deleteDialog.alertName}.`);
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to delete template");
+      setMessageTone("error");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function closeActivity() {
     setActivityTemplate(null);
     setPayloadExpanded(false);
@@ -725,7 +789,10 @@ export function TradingViewAlertsShell() {
                 const messageJson = safeJson(template.generated.message);
                 const pineId = template.generated.pine_strategy_id;
                 const label = instrumentLabel(template.instrument_key, catalog);
-                const isBusy = testingId === template.template_id || rotatingId === template.template_id;
+                const isBusy =
+                  testingId === template.template_id ||
+                  rotatingId === template.template_id ||
+                  deletingId === template.template_id;
                 const lotSize = instrumentLotSize(template.instrument_key, catalog);
                 const lotDraft = lotDrafts[template.template_id] ?? String(template.lots);
                 const parsedLots = toInt(lotDraft, template.lots);
@@ -923,6 +990,14 @@ export function TradingViewAlertsShell() {
                               type="button"
                             >
                               History
+                            </button>
+                            <button
+                              className="btn btn-outline-danger"
+                              disabled={isBusy}
+                              onClick={() => openDeleteDialog(template)}
+                              type="button"
+                            >
+                              {deletingId === template.template_id ? "Deleting..." : "Delete"}
                             </button>
                           </div>
                         </div>
@@ -1170,6 +1245,61 @@ export function TradingViewAlertsShell() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {deleteDialog ? (
+        <div className="dashboard-trades-modal-backdrop" onClick={closeDeleteDialog} role="presentation">
+          <div
+            className="dashboard-trades-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete TradingView alert template"
+          >
+            <div className="dashboard-trades-modal-header">
+              <div>
+                <div className="dashboard-trades-modal-title">Delete Template</div>
+                <div className="dashboard-trades-modal-subtitle">
+                  {deleteDialog.alertName} | {instrumentLabel(deleteDialog.instrumentKey, catalog)} |{" "}
+                  {deleteDialog.side.toUpperCase()}
+                </div>
+              </div>
+              <button className="dashboard-trades-close" onClick={closeDeleteDialog} type="button">
+                Close
+              </button>
+            </div>
+
+            <div className="alert alert-danger mb-3">
+              This will permanently delete the template and its stored TradingView alert history.
+            </div>
+
+            <label className="form-label" htmlFor="tv-delete-confirm">
+              Type <code>confirm</code> to delete
+            </label>
+            <input
+              autoFocus
+              className="form-control"
+              id="tv-delete-confirm"
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder="confirm"
+            />
+
+            <div className="d-flex flex-wrap justify-content-end gap-2 mt-3">
+              <button className="btn btn-outline-light" disabled={Boolean(deletingId)} onClick={closeDeleteDialog} type="button">
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={deleteConfirmText.trim().toLowerCase() !== "confirm" || Boolean(deletingId)}
+                onClick={() => void handleDeleteTemplate()}
+                type="button"
+              >
+                {deletingId ? "Deleting..." : "Delete Template"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

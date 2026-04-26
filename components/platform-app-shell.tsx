@@ -278,7 +278,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   }, [pathname, currentHash]);
 
   const meta = routeMeta[pathname] ?? {
-    title: "TradeKotakAPI",
+    title: "TradeStrix",
     subtitle: "Operator surface",
   };
 
@@ -289,7 +289,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
           <Link className="platform-brand" href="/">
             <span className="platform-brand-mark">TK</span>
             <span className="platform-brand-copy">
-              <span className="platform-brand-title">TradeKotakAPI</span>
+              <span className="platform-brand-title">TradeStrix</span>
               <span className="platform-brand-subtitle">Performance-first desk</span>
             </span>
           </Link>

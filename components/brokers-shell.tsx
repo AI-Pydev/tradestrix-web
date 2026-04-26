@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   BrokerConnection,
@@ -29,6 +30,7 @@ type BrokersShellProps = {
 };
 
 export function BrokersShell({ brokerQuery }: BrokersShellProps) {
+  const router = useRouter();
   const [brokers, setBrokers] = useState<BrokerConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -79,6 +81,34 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     setBrokerNoticeTone(status === "success" ? "success" : "error");
   }, [brokerQuery]);
 
+  useEffect(() => {
+    function handleBrokerAuthMessage(event: MessageEvent) {
+      const payload = event.data as
+        | {
+            type?: string;
+            broker?: string;
+            broker_status?: string;
+            message?: string;
+          }
+        | undefined;
+      if (!payload || payload.type !== "broker-auth-complete" || !payload.broker) {
+        return;
+      }
+
+      void refreshBrokers();
+      if (payload.broker_status && payload.message) {
+        setBrokerNotice(`${payload.broker.toUpperCase()}: ${payload.message}`);
+        setBrokerNoticeTone(payload.broker_status === "success" ? "success" : "error");
+        router.replace(
+          `/brokers?broker=${encodeURIComponent(payload.broker)}&broker_status=${encodeURIComponent(payload.broker_status)}&message=${encodeURIComponent(payload.message)}`,
+        );
+      }
+    }
+
+    window.addEventListener("message", handleBrokerAuthMessage);
+    return () => window.removeEventListener("message", handleBrokerAuthMessage);
+  }, [router]);
+
   async function refreshBrokers() {
     const result = await fetchBrokerConnections();
     setBrokers(result);
@@ -99,6 +129,29 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
         setBrokerNoticeTone("error");
         return;
       }
+
+      const pollId = window.setInterval(async () => {
+        if (!authWindow.closed) {
+          return;
+        }
+
+        window.clearInterval(pollId);
+        try {
+          const refreshed = await fetchBrokerConnections();
+          setBrokers(refreshed);
+          setError("");
+          const updatedBroker = refreshed.find((item) => item.broker_id === brokerId);
+          if (updatedBroker?.connected) {
+            setBrokerNotice(`${brokerId.toUpperCase()} connected successfully.`);
+            setBrokerNoticeTone("success");
+            router.replace(`/brokers?broker=${encodeURIComponent(brokerId)}&broker_status=success&message=${encodeURIComponent(`${brokerId.toUpperCase()} account connected successfully.`)}`);
+          }
+        } catch (err) {
+          setBrokerNotice(err instanceof Error ? err.message : "Failed to refresh broker connections");
+          setBrokerNoticeTone("error");
+        }
+      }, 1000);
+
       setBrokerNotice(`Continue the ${brokerId.toUpperCase()} login in the opened window. You will return here after authentication.`);
       setBrokerNoticeTone("success");
     } catch (err) {
