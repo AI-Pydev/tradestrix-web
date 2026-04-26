@@ -365,7 +365,7 @@ export function DashboardShell() {
         expiry: botForm.expiry?.trim() ? botForm.expiry.trim() : null,
       };
       const result = await runUpstoxOptionChainBot(payload);
-      setBotMessage(`${result.message} DB: ${result.store_path}`);
+      setBotMessage(result.message);
       setBotMessageTone("success");
       setBotLogs(result.logs ?? []);
     } catch (err) {
@@ -413,7 +413,7 @@ export function DashboardShell() {
         once: false,
       };
       const result = await startUpstoxManagedBot(payload);
-      setBotMessage(`Managed bot started: ${result.job_name} (${result.job_id}) DB: ${result.store_path}`);
+      setBotMessage(`Managed bot started: ${result.job_name} (${result.job_id})`);
       setBotMessageTone("success");
       setManagedJobName("");
       setManagedBots(await fetchUpstoxManagedBotJobs());
