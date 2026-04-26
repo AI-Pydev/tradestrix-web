@@ -264,6 +264,9 @@ export function DashboardShell() {
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
+    market_data_broker: "upstox",
+    fallback_broker: "kite",
+    force_fallback_for_test: false,
     side: "call",
     strategy_id: "tv_ha_call_v2",
     candle_unit: "minutes",
@@ -382,6 +385,9 @@ export function DashboardShell() {
         auto_store_path: managedAutoStorePath,
         instrument_key: botForm.instrument_key,
         expiry: botForm.expiry?.trim() ? botForm.expiry.trim() : null,
+        market_data_broker: botForm.market_data_broker,
+        fallback_broker: botForm.fallback_broker ?? null,
+        force_fallback_for_test: botForm.force_fallback_for_test,
         side: botForm.side,
         strategy_id: botForm.strategy_id,
         candle_unit: botForm.candle_unit,
@@ -693,6 +699,69 @@ export function DashboardShell() {
                       {botForm.strategy_id === "nc_ha_call_entry"
                         ? "HA-based early-entry engine from NC-CALL-ENTRY.pine."
                         : "Classic TV-HA engine for the selected side."}
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Data Broker</label>
+                    <select
+                      className="form-select"
+                      value={botForm.market_data_broker}
+                      onChange={(e) =>
+                        setBotForm((prev) => {
+                          const marketDataBroker = e.target.value as "upstox" | "kite";
+                          const fallbackBroker =
+                            prev.fallback_broker === marketDataBroker ? null : prev.fallback_broker;
+                          return {
+                            ...prev,
+                            market_data_broker: marketDataBroker,
+                            fallback_broker: fallbackBroker,
+                          };
+                        })
+                      }
+                    >
+                      <option value="upstox">Upstox</option>
+                      <option value="kite">Kite</option>
+                    </select>
+                    <div className="small muted mt-1">Kotak Neo stays the execution broker.</div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Fallback Broker</label>
+                    <select
+                      className="form-select"
+                      value={botForm.fallback_broker ?? ""}
+                      onChange={(e) =>
+                        setBotForm((prev) => ({
+                          ...prev,
+                          fallback_broker: e.target.value
+                            ? (e.target.value as "upstox" | "kite")
+                            : null,
+                        }))
+                      }
+                    >
+                      <option value="">None</option>
+                      <option value="upstox" disabled={botForm.market_data_broker === "upstox"}>
+                        Upstox
+                      </option>
+                      <option value="kite" disabled={botForm.market_data_broker === "kite"}>
+                        Kite
+                      </option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
+                    <div className="form-check mb-2">
+                      <input
+                        checked={botForm.force_fallback_for_test}
+                        className="form-check-input"
+                        id="bot-force-fallback-for-test"
+                        onChange={(e) =>
+                          setBotForm((prev) => ({ ...prev, force_fallback_for_test: e.target.checked }))
+                        }
+                        type="checkbox"
+                      />
+                      <label className="form-check-label" htmlFor="bot-force-fallback-for-test">
+                        Force Fallback Test
+                        <div className="small text-muted">Skips the primary data broker once to test failover.</div>
+                      </label>
                     </div>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
