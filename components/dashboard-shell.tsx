@@ -277,6 +277,7 @@ export function DashboardShell() {
     risk_model: "dynamic",
     risk_amount: null,
     use_time_windows: true,
+    use_ema20_entry_filter: true,
     sl_premium_pct: 0.2,
     target_premium_pct: 0.36,
     min_hold_sec_before_underlying_exit: 60,
@@ -398,6 +399,7 @@ export function DashboardShell() {
         risk_model: botForm.risk_model,
         risk_amount: botForm.risk_amount ?? null,
         use_time_windows: botForm.use_time_windows,
+        use_ema20_entry_filter: botForm.use_ema20_entry_filter,
         sl_premium_pct: botForm.sl_premium_pct,
         target_premium_pct: botForm.target_premium_pct,
         min_hold_sec_before_underlying_exit: botForm.min_hold_sec_before_underlying_exit,
@@ -865,6 +867,23 @@ export function DashboardShell() {
                       <label className="form-check-label" htmlFor="useTimeWindowsDash">
                         Time Windows
                         <div className="small text-muted">ORB / FII / MOM · EOD 15:30</div>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
+                    <div className="form-check mb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="useEma20EntryFilterDash"
+                        checked={botForm.use_ema20_entry_filter}
+                        onChange={(e) =>
+                          setBotForm((prev) => ({ ...prev, use_ema20_entry_filter: e.target.checked }))
+                        }
+                      />
+                      <label className="form-check-label" htmlFor="useEma20EntryFilterDash">
+                        EMA20 Entry Filter
+                        <div className="small text-muted">Fresh entries must align with EMA20 direction.</div>
                       </label>
                     </div>
                   </div>
