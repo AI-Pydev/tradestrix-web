@@ -112,6 +112,7 @@ export type InstrumentCatalogResponse = {
 };
 
 export type OpportunityScannerRequest = {
+  broker_id: "upstox" | "kite";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -140,6 +141,7 @@ export type OpportunityScannerSummary = {
   actionable_indices: number;
   actionable_stocks: number;
   duration_seconds: number;
+  broker_id: "upstox" | "kite";
   best_setup?: string | null;
   scan_basis: "daily";
   snapshot_date: string;
