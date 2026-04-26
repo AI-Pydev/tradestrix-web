@@ -1,3 +1,5 @@
+import { buildAuthorizedHeaders, throwIfApiError } from "@/lib/auth";
+
 export type DashboardSnapshot = {
   total_strategies: number;
   active_strategies: number;
@@ -112,6 +114,7 @@ export type InstrumentCatalogResponse = {
 };
 
 export type OpportunityScannerRequest = {
+  broker_id: "upstox" | "kite";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -140,6 +143,7 @@ export type OpportunityScannerSummary = {
   actionable_indices: number;
   actionable_stocks: number;
   duration_seconds: number;
+  broker_id: "upstox" | "kite";
   best_setup?: string | null;
   scan_basis: "daily";
   snapshot_date: string;
@@ -402,6 +406,9 @@ export type UpstoxOptionChainBotRunRequest = {
   instrument_key: string;
   commodity_symbol?: string | null;
   expiry?: string | null;
+  market_data_broker: "upstox" | "kite";
+  fallback_broker?: "upstox" | "kite" | null;
+  force_fallback_for_test: boolean;
   side: "call" | "put";
   strategy_id: string;
   candle_unit: string;
@@ -447,6 +454,9 @@ export type UpstoxManagedBotStartRequest = {
   instrument_key: string;
   commodity_symbol?: string | null;
   expiry?: string | null;
+  market_data_broker: "upstox" | "kite";
+  fallback_broker?: "upstox" | "kite" | null;
+  force_fallback_for_test: boolean;
   side: "call" | "put";
   strategy_id: string;
   candle_unit: string;
@@ -1136,77 +1146,60 @@ const BACKEND_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function getBackendJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     cache: "no-store",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function postBackendJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
+    headers: buildAuthorizedHeaders(),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function postBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
+    headers: buildAuthorizedHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 
 async function patchBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "PATCH",
-    headers: {
+    headers: buildAuthorizedHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
+}
+
+async function deleteBackend(path: string): Promise<void> {
+  const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: buildAuthorizedHeaders(),
+  });
+  await throwIfApiError(response);
 }
 
 export async function fetchDashboardData() {
@@ -1258,6 +1251,11 @@ export async function updateTradingViewAlertTemplate(templateId: string, payload
     `/api/v1/tradingview-alert-templates/${encoded}`,
     payload,
   );
+}
+
+export async function deleteTradingViewAlertTemplate(templateId: string) {
+  const encoded = encodeURIComponent(templateId);
+  return deleteBackend(`/api/v1/tradingview-alert-templates/${encoded}`);
 }
 
 export async function regenerateTradingViewAlertTemplateToken(templateId: string) {

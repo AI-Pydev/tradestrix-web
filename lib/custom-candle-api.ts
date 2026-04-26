@@ -1,3 +1,5 @@
+import { buildAuthorizedHeaders, throwIfApiError } from "@/lib/auth";
+
 export type CandleLabScenario = "trend_up" | "trend_down" | "range" | "volatile" | "whipsaw";
 export type CandleLabKind = "time" | "tick" | "volume" | "range";
 export type CandleLabSourceMode = "simulated_replay" | "broker_intraday" | "broker_live_ticks";
@@ -107,20 +109,12 @@ const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127
 async function postBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
+    headers: buildAuthorizedHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
-    }
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
-  }
+  await throwIfApiError(response);
   return (await response.json()) as T;
 }
 

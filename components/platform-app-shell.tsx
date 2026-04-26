@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { useAuth } from "@/components/auth-provider";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
@@ -25,7 +27,7 @@ type NavGroup = {
 const SIDEBAR_STORAGE_KEY = "tradekotak.sidebar.collapsed";
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 
-const navGroups: NavGroup[] = [
+const baseNavGroups: NavGroup[] = [
   {
     monogram: "OV",
     title: "Overview",
@@ -156,6 +158,21 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const adminNavGroup: NavGroup = {
+  monogram: "AD",
+  title: "Admin",
+  items: [
+    {
+      href: "/admin",
+      label: "Approvals",
+      caption: "Gmail access control",
+      monogram: "AU",
+    },
+  ],
+};
+
+const adminNavGroups: NavGroup[] = [...baseNavGroups, adminNavGroup];
+
 const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/": {
     title: "Platform Home",
@@ -213,6 +230,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
     title: "Opportunity Scanner",
     subtitle: "Ranked market scanning and scanner paper-lab workflow",
   },
+  "/admin": {
+    title: "Admin Approval Desk",
+    subtitle: "Review Gmail signups, approve users, and manage access states",
+  },
 };
 
 function basePath(href: string) {
@@ -237,16 +258,22 @@ function isGroupActive(group: NavGroup, pathname: string, currentHash: string) {
   return group.items.some((item) => isActive(item.href, pathname, currentHash));
 }
 
-function activeGroupTitle(pathname: string, currentHash: string) {
-  return navGroups.find((group) => isGroupActive(group, pathname, currentHash))?.title ?? navGroups[0]?.title ?? "";
+function activeGroupTitle(groups: NavGroup[], pathname: string, currentHash: string) {
+  return groups.find((group) => isGroupActive(group, pathname, currentHash))?.title ?? groups[0]?.title ?? "";
 }
 
 export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
-  const [expandedGroup, setExpandedGroup] = useState(() => activeGroupTitle("/", ""));
+  const isPublicPath = pathname === "/login";
+  const navGroups = user?.role === "ADMIN" ? adminNavGroups : baseNavGroups;
+  const [expandedGroup, setExpandedGroup] = useState(() =>
+    activeGroupTitle(navGroups, "/", ""),
+  );
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
@@ -274,13 +301,39 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   }, [pathname]);
 
   useEffect(() => {
-    setExpandedGroup(activeGroupTitle(pathname, currentHash));
-  }, [pathname, currentHash]);
+    setExpandedGroup(activeGroupTitle(navGroups, pathname, currentHash));
+  }, [currentHash, navGroups, pathname]);
+
+  useEffect(() => {
+    if (!loading && !isPublicPath && user?.status !== "APPROVED") {
+      router.replace("/login");
+    }
+  }, [isPublicPath, loading, router, user]);
 
   const meta = routeMeta[pathname] ?? {
-    title: "TradeKotakAPI",
+    title: "TradeStrix",
     subtitle: "Operator surface",
   };
+
+  if (isPublicPath) {
+    return <>{children}</>;
+  }
+
+  if (loading || user?.status !== "APPROVED") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(180deg, #07131f 0%, #0c1f34 100%)",
+          color: "#e7eef8",
+        }}
+      >
+        <div className="muted">Checking operator access...</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`platform-layout ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -289,7 +342,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
           <Link className="platform-brand" href="/">
             <span className="platform-brand-mark">TK</span>
             <span className="platform-brand-copy">
-              <span className="platform-brand-title">TradeKotakAPI</span>
+              <span className="platform-brand-title">TradeStrix</span>
               <span className="platform-brand-subtitle">Performance-first desk</span>
             </span>
           </Link>
@@ -407,12 +460,28 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             </div>
           </div>
           <div className="platform-topbar-right">
+            {user.role === "ADMIN" ? (
+              <Link className="platform-topbar-link" href="/admin">
+                Admin
+              </Link>
+            ) : null}
             <Link className="platform-topbar-link" href="/multi-stock-monitor">
               P/L
             </Link>
             <a className="platform-topbar-link" href={`${BACKEND_BASE_URL}/docs`} rel="noreferrer" target="_blank">
               API Docs
             </a>
+            <span className="platform-topbar-link">{user.email}</span>
+            <button
+              className="platform-topbar-link"
+              onClick={() => {
+                signOut();
+                router.replace("/login");
+              }}
+              type="button"
+            >
+              Logout
+            </button>
           </div>
         </header>
         <div className="platform-content">{children}</div>

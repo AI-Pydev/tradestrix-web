@@ -104,6 +104,7 @@ function metricTone(label: string) {
 }
 
 type ScannerFormState = {
+  broker_id: "upstox" | "kite";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -146,6 +147,7 @@ export function OpportunityScannerShell() {
   const [paperHistoryFrom, setPaperHistoryFrom] = useState("");
   const [paperHistoryTo, setPaperHistoryTo] = useState("");
   const [form, setForm] = useState<ScannerFormState>({
+    broker_id: "upstox",
     include_indices: true,
     include_stocks: true,
     max_indices: 6,
@@ -160,6 +162,25 @@ export function OpportunityScannerShell() {
     max_option_ltp: "",
     workers: 6,
   });
+
+  useEffect(() => {
+    if (form.broker_id !== "kite") {
+      return;
+    }
+    setForm((prev) => {
+      const next = { ...prev };
+      if (next.max_indices > 4) {
+        next.max_indices = 4;
+      }
+      if (next.max_stocks > 8) {
+        next.max_stocks = 8;
+      }
+      if (next.workers > 2) {
+        next.workers = 2;
+      }
+      return next;
+    });
+  }, [form.broker_id]);
 
   useEffect(() => {
     let active = true;
@@ -224,6 +245,7 @@ export function OpportunityScannerShell() {
       setScanRunning(true);
       setError("");
       const response = await runOpportunityScanner({
+        broker_id: form.broker_id,
         include_indices: form.include_indices,
         include_stocks: form.include_stocks,
         max_indices: form.max_indices,
@@ -302,6 +324,7 @@ export function OpportunityScannerShell() {
 
   const summaryCards = result
     ? [
+        { label: "Broker", value: result.summary.broker_id.toUpperCase() },
         { label: "Snapshot Date", value: result.summary.snapshot_date },
         { label: "Scanned", value: result.summary.scanned_instruments },
         { label: "Actionable", value: result.summary.actionable_count },
@@ -317,6 +340,7 @@ export function OpportunityScannerShell() {
   const recommendedRow = result
     ? result.rows.find((row) => row.status === "ACTIONABLE") ??
       result.rows.find((row) => row.status === "WATCHLIST") ??
+      result.rows.find((row) => row.status === "REJECTED") ??
       null
     : null;
 
@@ -457,6 +481,19 @@ export function OpportunityScannerShell() {
                           type="number"
                           value={form.max_stocks}
                         />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Broker</label>
+                        <select
+                          className="form-select"
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, broker_id: e.target.value as ScannerFormState["broker_id"] }))
+                          }
+                          value={form.broker_id}
+                        >
+                          <option value="upstox">Upstox</option>
+                          <option value="kite">Kite</option>
+                        </select>
                       </div>
                       <div className="col-md-3">
                         <label className="form-label">Scan Basis</label>
@@ -601,6 +638,10 @@ export function OpportunityScannerShell() {
                       `Long Premium Only` returns only `BUY CE` and `BUY PE` ideas, which is usually the safer capital
                       profile for this scanner. `Mixed` keeps sell setups available if you still want option-writing ideas.
                     </div>
+                    <div className="mt-3">
+                      Kite runs can take longer than Upstox, especially on the first scan. For quick testing, keep the
+                      universe small and workers low so the response stays readable and predictable.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -628,6 +669,12 @@ export function OpportunityScannerShell() {
 
         {result && (
           <>
+            {result.summary.broker_id === "kite" && result.summary.actionable_count === 0 && result.summary.watchlist_count === 0 ? (
+              <div className="alert alert-warning" role="alert">
+                Kite scan completed, but no setup qualified under the current filters. The ranked table below still shows
+                the rejected rows and their reasons so you can inspect what came back.
+              </div>
+            ) : null}
             <div className="row g-3 mb-3">
               {summaryCards.map((metric) => (
                 <div className="col-sm-6 col-xl-3" key={metric.label}>
@@ -690,6 +737,9 @@ export function OpportunityScannerShell() {
                   <div className="muted mt-3">
                     <strong>Reason:</strong> {recommendedRow.status_reason}
                   </div>
+                  {recommendedRow.status === "REJECTED" ? (
+                    <div className="muted">This is the highest-ranked rejected setup from the current run.</div>
+                  ) : null}
                   {recommendedRow.option_symbol ? (
                     <div className="muted">
                       <strong>Option:</strong> {recommendedRow.option_symbol}{" "}
