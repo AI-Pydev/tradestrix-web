@@ -1209,6 +1209,21 @@ async function patchBackendJsonWithBody<T, TBody>(path: string, body: TBody): Pr
   return (await response.json()) as T;
 }
 
+async function deleteBackend(path: string): Promise<void> {
+  const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as { detail?: string };
+      throw new Error(payload.detail || `API request failed: ${response.status} ${response.statusText}`);
+    }
+    const detail = await response.text();
+    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
+  }
+}
+
 export async function fetchDashboardData() {
   const [dashboard, strategies, trades, signals, watchlists, alerts, brokers, instruments] = await Promise.all([
     getJson<DashboardSnapshot>("/dashboard"),
@@ -1258,6 +1273,11 @@ export async function updateTradingViewAlertTemplate(templateId: string, payload
     `/api/v1/tradingview-alert-templates/${encoded}`,
     payload,
   );
+}
+
+export async function deleteTradingViewAlertTemplate(templateId: string) {
+  const encoded = encodeURIComponent(templateId);
+  return deleteBackend(`/api/v1/tradingview-alert-templates/${encoded}`);
 }
 
 export async function regenerateTradingViewAlertTemplateToken(templateId: string) {

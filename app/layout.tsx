@@ -21,8 +21,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 
 export const metadata: Metadata = {
-  title: "TradeKotakAPI Platform",
-  description: "Landing page and operator surfaces for the TradeKotakAPI trading platform.",
+  title: "TradeStrix Platform",
+  description: "Landing page and operator surfaces for the TradeStrix trading platform.",
 };
 
 
