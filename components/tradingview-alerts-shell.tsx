@@ -27,6 +27,7 @@ type FormState = {
   instrument_key: string;
   side: "call" | "put";
   paper_trade: boolean;
+  trade_mode: 1 | 3;
   lots: string;
   option_offset: string;
   pine_strategy_id: string;
@@ -186,6 +187,8 @@ export function TradingViewAlertsShell() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const indices = useMemo(() => catalog.filter((item) => item.kind === "index"), [catalog]);
+  const commodities = useMemo(() => catalog.filter((item) => item.kind === "commodity"), [catalog]);
+  const indicesAndCommodities = useMemo(() => [...indices, ...commodities], [indices, commodities]);
   const activityRows = useMemo(() => {
     const ascending = [...activityEvents].reverse();
     let runningTotal = 0;
@@ -205,6 +208,9 @@ export function TradingViewAlertsShell() {
         totalPnl = runningTotal;
       } else if (totalPnl != null) {
         runningTotal = totalPnl;
+      } else {
+        // Keep a stable cumulative value visible even on entry-only rows.
+        totalPnl = runningTotal;
       }
 
       return {
@@ -296,7 +302,7 @@ export function TradingViewAlertsShell() {
     const live = makeSummary("Live");
 
     for (const template of templates) {
-      const targets = [total, template.paper_trade ? paper : live];
+    const targets = [total, template.trade_mode === 3 ? live : paper];
       for (const summary of targets) {
         summary.templateCount += 1;
         summary.totalTrades += template.stats_all.total_trades;
@@ -311,7 +317,7 @@ export function TradingViewAlertsShell() {
     return [total, paper, live];
   }, [templates]);
   const visibleTemplates = useMemo(
-    () => templates.filter((template) => (templateModeFilter === "paper" ? template.paper_trade : !template.paper_trade)),
+    () => templates.filter((template) => (templateModeFilter === "paper" ? template.trade_mode !== 3 : template.trade_mode === 3)),
     [templateModeFilter, templates],
   );
 
@@ -320,6 +326,7 @@ export function TradingViewAlertsShell() {
     instrument_key: "NSE_INDEX|Nifty 50",
     side: "call",
     paper_trade: true,
+    trade_mode: 1,
     lots: "1",
     option_offset: "0",
     pine_strategy_id: "",
@@ -387,7 +394,8 @@ export function TradingViewAlertsShell() {
         alert_name: form.alert_name.trim(),
         instrument_key: form.instrument_key,
         side: form.side,
-        paper_trade: form.paper_trade,
+        paper_trade: form.trade_mode !== 3,
+        trade_mode: form.trade_mode,
         lots: Math.max(toInt(form.lots, 1), 1),
         quantity: null,
         option_offset: Math.max(toInt(form.option_offset, 0), 0),
@@ -615,7 +623,7 @@ export function TradingViewAlertsShell() {
                     value={form.instrument_key}
                     onChange={(event) => setForm((prev) => ({ ...prev, instrument_key: event.target.value }))}
                   >
-                    {(indices.length ? indices : catalog).map((item) => (
+                    {(indicesAndCommodities.length ? indicesAndCommodities : catalog).map((item) => (
                       <option key={item.instrument_key} value={item.instrument_key}>
                         {item.label} ({item.instrument_key})
                       </option>
@@ -693,17 +701,29 @@ export function TradingViewAlertsShell() {
                 </div>
 
                 <div className="d-flex align-items-end">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      id="tv-paper-trade"
-                      type="checkbox"
-                      checked={form.paper_trade}
-                      onChange={(event) => setForm((prev) => ({ ...prev, paper_trade: event.target.checked }))}
-                    />
-                    <label className="form-check-label" htmlFor="tv-paper-trade">
-                      Paper trade
-                    </label>
+                  <div>
+                    <label className="form-label">Execution Mode</label>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${form.trade_mode === 1 ? "btn-warning" : "btn-outline-secondary"}`}
+                        onClick={() => setForm((prev) => ({ ...prev, trade_mode: 1, paper_trade: true }))}
+                        title="Mode 1: Selects option & calculates price using Kite API. No real order placed."
+                      >
+                        Mode 1 — Paper
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${form.trade_mode === 3 ? "btn-primary" : "btn-outline-secondary"}`}
+                        onClick={() => setForm((prev) => ({ ...prev, trade_mode: 3, paper_trade: false }))}
+                        title="Mode 3: Places real order via Kotak Neo API."
+                      >
+                        Mode 3 — Live
+                      </button>
+                    </div>
+                    <div className="muted small mt-1">
+                      {form.trade_mode === 1 ? "Price check via Kite, no order" : "Real order via Kotak Neo"}
+                    </div>
                   </div>
                 </div>
 
@@ -816,8 +836,8 @@ export function TradingViewAlertsShell() {
                         </div>
                         <div className="d-flex gap-2">
                           {template.listening ? <span className="badge-soft green">LISTENING</span> : null}
-                          <span className={`badge-soft ${template.paper_trade ? "gold" : "blue"}`}>
-                            {template.paper_trade ? "PAPER" : "LIVE"}
+                          <span className={`badge-soft ${template.trade_mode === 3 ? "blue" : "gold"}`}>
+                            {template.trade_mode === 3 ? "MODE 3 — LIVE" : "MODE 1 — PAPER"}
                           </span>
                           <span className="badge-soft blue">
                             {template.lots} lot{template.lots === 1 ? "" : "s"} / {template.quantity} qty
@@ -1127,7 +1147,8 @@ export function TradingViewAlertsShell() {
                         <th>Exec</th>
                         <th>Entry LTP</th>
                         <th>Exit LTP</th>
-                        <th>PnL</th>
+                        <th>Trade PnL</th>
+                        <th>Running PnL</th>
                         <th>India VIX</th>
                         <th>Detail</th>
                       </tr>
@@ -1136,6 +1157,7 @@ export function TradingViewAlertsShell() {
                       {activityTradeRows.map((row) => {
                         const primary = row.exit ?? row.entry ?? row.standalone;
                         const pnl = row.exit?.pnl ?? row.standalone?.pnl ?? null;
+                        const runningPnl = row.exit?.totalPnl ?? row.entry?.totalPnl ?? row.standalone?.totalPnl ?? null;
                         const indiaVix = row.exit?.indiaVix ?? row.entry?.indiaVix ?? row.standalone?.indiaVix ?? null;
 
                         return (
@@ -1189,6 +1211,9 @@ export function TradingViewAlertsShell() {
                             <td className="mono">{fmtPrice(row.exit?.exitLtp ?? row.standalone?.exitLtp)}</td>
                             <td className={`mono ${pnl != null ? (pnl >= 0 ? "text-success" : "text-danger") : ""}`}>
                               {fmtPnl(pnl)}
+                            </td>
+                            <td className={`mono ${runningPnl != null ? (runningPnl >= 0 ? "text-success" : "text-danger") : ""}`}>
+                              {fmtPnl(runningPnl)}
                             </td>
                             <td className="mono">{indiaVix != null ? indiaVix.toFixed(2) : "-"}</td>
                             <td className="small">
