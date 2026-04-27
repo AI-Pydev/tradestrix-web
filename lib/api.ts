@@ -84,6 +84,7 @@ export type BrokerConnection = {
   redirect_uri?: string | null;
   access_token_present: boolean;
   refresh_token_present: boolean;
+  access_token?: string | null;
   notes: string;
 };
 

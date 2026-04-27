@@ -37,6 +37,7 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   const [brokerNotice, setBrokerNotice] = useState("");
   const [brokerNoticeTone, setBrokerNoticeTone] = useState<"success" | "error">("success");
   const [brokerAction, setBrokerAction] = useState("");
+  const [copiedBrokerId, setCopiedBrokerId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -177,6 +178,19 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     }
   }
 
+  async function handleCopyAccessToken(brokerId: string, accessToken: string) {
+    try {
+      await navigator.clipboard.writeText(accessToken);
+      setCopiedBrokerId(brokerId);
+      window.setTimeout(() => {
+        setCopiedBrokerId((current) => (current === brokerId ? null : current));
+      }, 1500);
+    } catch (err) {
+      setBrokerNotice(err instanceof Error ? err.message : "Failed to copy access token");
+      setBrokerNoticeTone("error");
+    }
+  }
+
   const connectedCount = brokers.filter((broker) => broker.connected).length;
   const configuredCount = brokers.filter((broker) => broker.configured).length;
   const webReadyCount = brokers.filter((broker) => brokerSupportsWebAuth(broker)).length;
@@ -279,6 +293,27 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
                             Tokens: access {broker.access_token_present ? "present" : "missing"} / refresh{" "}
                             {broker.refresh_token_present ? "present" : "missing"}
                           </div>
+                          {broker.connected && broker.access_token ? (
+                            <div className="mt-3">
+                              <label className="form-label small muted mb-1">Access Token</label>
+                              <div className="d-flex flex-wrap gap-2 align-items-start">
+                                <textarea
+                                  className="form-control form-control-sm font-monospace"
+                                  readOnly
+                                  value={broker.access_token}
+                                  rows={3}
+                                  style={{ minWidth: 0, flex: "1 1 320px" }}
+                                />
+                                <button
+                                  className="btn btn-outline-light btn-sm"
+                                  type="button"
+                                  onClick={() => handleCopyAccessToken(broker.broker_id, broker.access_token!)}
+                                >
+                                  {copiedBrokerId === broker.broker_id ? "Copied" : "Copy"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
                           {!!broker.missing_config.length && (
                             <div className="mt-2 small" style={{ color: "#fbb6c2" }}>
                               Missing: {broker.missing_config.join(", ")}

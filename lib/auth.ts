@@ -112,6 +112,16 @@ export async function throwIfApiError(response: Response): Promise<void> {
   throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
 }
 
+export async function loginWithBypassToken(email: string, bypassToken: string) {
+  const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/bypass-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, bypass_token: bypassToken }),
+  });
+  await throwIfApiError(response);
+  return (await response.json()) as GoogleLoginResponse;
+}
+
 export async function loginWithGoogleCredential(credential: string) {
   const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/google-login`, {
     method: "POST",
