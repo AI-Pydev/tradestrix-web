@@ -7,6 +7,7 @@ import {
   fetchAuthSession,
   getStoredAuthToken,
   listenForAuthChanges,
+  loginWithBypassToken,
   loginWithGoogleCredential,
   setStoredAuthToken,
   type AuthUser,
@@ -17,6 +18,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   signInWithGoogle: (credential: string) => Promise<GoogleLoginResponse>;
+  signInWithBypass: (email: string, bypassToken: string) => Promise<GoogleLoginResponse>;
   refreshSession: () => Promise<void>;
   signOut: () => void;
 };
@@ -58,6 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }
 
+  async function signInWithBypass(email: string, bypassToken: string) {
+    const result = await loginWithBypassToken(email, bypassToken);
+    if (result.access_token) {
+      setStoredAuthToken(result.access_token);
+      setUser(result.user);
+    } else {
+      clearStoredAuthToken();
+      setUser(null);
+    }
+    return result;
+  }
+
   function signOut() {
     clearStoredAuthToken();
     setUser(null);
@@ -76,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         signInWithGoogle,
+        signInWithBypass,
         refreshSession,
         signOut,
       }}

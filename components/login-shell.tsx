@@ -29,6 +29,7 @@ declare global {
 }
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+const GOOGLE_LOGIN_AVAILABLE = GOOGLE_CLIENT_ID.trim().length > 0;
 
 function statusTone(status?: GoogleLoginResponse["status"]) {
   if (status === "APPROVED") {
@@ -42,12 +43,16 @@ function statusTone(status?: GoogleLoginResponse["status"]) {
 
 export function LoginShell() {
   const router = useRouter();
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, signInWithGoogle, signInWithBypass } = useAuth();
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<GoogleLoginResponse | null>(null);
   const [error, setError] = useState("");
+
+  // Bypass login form state
+  const [bypassEmail, setBypassEmail] = useState("");
+  const [bypassToken, setBypassToken] = useState("");
 
   useEffect(() => {
     if (!loading && user?.status === "APPROVED") {
@@ -65,6 +70,9 @@ export function LoginShell() {
   };
 
   useEffect(() => {
+    if (!GOOGLE_LOGIN_AVAILABLE) {
+      return;
+    }
     if (!scriptReady || !GOOGLE_CLIENT_ID || !buttonRef.current || !window.google?.accounts?.id) {
       return;
     }
@@ -104,7 +112,9 @@ export function LoginShell() {
 
   return (
     <>
-      <Script src="https://accounts.google.com/gsi/client" onLoad={() => setScriptReady(true)} strategy="afterInteractive" />
+      {GOOGLE_LOGIN_AVAILABLE ? (
+        <Script src="https://accounts.google.com/gsi/client" onLoad={() => setScriptReady(true)} strategy="afterInteractive" />
+      ) : null}
       <main
         style={{
           minHeight: "100vh",
@@ -162,11 +172,7 @@ export function LoginShell() {
               {"Access flow: Gmail sign-in -> email verification -> pending approval -> approved access"}
             </div>
 
-            {!GOOGLE_CLIENT_ID ? (
-              <div className="alert alert-danger mb-0">
-                <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> is missing. Add the Google web client ID in the frontend env before testing.
-              </div>
-            ) : (
+            {GOOGLE_LOGIN_AVAILABLE ? (
               <div style={{ display: "grid", gap: "12px", justifyItems: "center" }}>
                 <div ref={buttonRef} />
                 <button
@@ -185,9 +191,87 @@ export function LoginShell() {
                   Choose another Google account
                 </button>
               </div>
+            ) : (
+              <div className="alert alert-warning mb-0" style={{ fontSize: "0.88rem" }}>
+                <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> is missing, so Google login is unavailable on this frontend right now.
+              </div>
             )}
 
-            {busy ? <div style={{ marginTop: "14px", color: "#9db4d2" }}>Verifying Google login and checking approval status...</div> : null}
+            <div
+              style={{
+                marginTop: "16px",
+                paddingTop: "16px",
+                borderTop: "1px solid rgba(157, 180, 210, 0.14)",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <div style={{ fontSize: "0.9rem", color: "#9db4d2" }}>
+                Admin bypass fallback
+              </div>
+              <input
+                type="email"
+                placeholder="Your email"
+                value={bypassEmail}
+                onChange={(e) => setBypassEmail(e.target.value)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(157, 180, 210, 0.3)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#e7eef8",
+                  fontSize: "0.95rem",
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Bypass token"
+                value={bypassToken}
+                onChange={(e) => setBypassToken(e.target.value)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(157, 180, 210, 0.3)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#e7eef8",
+                  fontSize: "0.95rem",
+                }}
+              />
+              <button
+                type="button"
+                disabled={busy || !bypassEmail || !bypassToken}
+                onClick={async () => {
+                  try {
+                    setBusy(true);
+                    setError("");
+                    const next = await signInWithBypass(bypassEmail, bypassToken);
+                    setResult(next);
+                    if (next.status === "APPROVED") {
+                      router.replace("/");
+                    }
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Bypass login failed.");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                style={{
+                  padding: "11px 20px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "rgba(54, 210, 163, 0.18)",
+                  color: "#8df0d0",
+                  fontWeight: 600,
+                  fontSize: "0.95rem",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                {busy ? "Signing in…" : "Sign in with bypass token"}
+              </button>
+            </div>
+
+            {busy ? <div style={{ marginTop: "14px", color: "#9db4d2" }}>Checking login and approval status...</div> : null}
             {error ? <div className="alert alert-danger mt-3 mb-0">{error}</div> : null}
             {activeResult ? (
               <div className={`alert alert-${statusTone(activeResult.status)} mt-3 mb-0`}>
