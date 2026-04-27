@@ -1083,6 +1083,7 @@ export type TradingViewAlertTemplate = {
   instrument_key: string;
   side: "call" | "put";
   paper_trade: boolean;
+  trade_mode: 1 | 3;
   lots: number;
   quantity: number;
   option_offset: number;
@@ -1103,6 +1104,7 @@ export type TradingViewAlertTemplateCreateRequest = {
   instrument_key: string;
   side: "call" | "put";
   paper_trade: boolean;
+  trade_mode: 1 | 3;
   lots: number;
   quantity?: number | null;
   option_offset: number;
