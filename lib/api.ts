@@ -1142,6 +1142,13 @@ export type TradingViewWebhookEvent = {
   payload?: Record<string, unknown> | null;
 };
 
+export type TradingViewAlertTemplateDiagnostics = {
+  store_backend: string;
+  database_url: string;
+  template_count: number | null;
+  error?: string;
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1/multi-stock";
 const BACKEND_BASE_URL =
@@ -1241,6 +1248,10 @@ export async function fetchInstrumentCatalog() {
 
 export async function listTradingViewAlertTemplates() {
   return getBackendJson<TradingViewAlertTemplate[]>("/api/v1/tradingview-alert-templates");
+}
+
+export async function fetchTradingViewAlertTemplateDiagnostics() {
+  return getBackendJson<TradingViewAlertTemplateDiagnostics>("/api/v1/tradingview-alert-templates/diagnostics");
 }
 
 export async function createTradingViewAlertTemplate(payload: TradingViewAlertTemplateCreateRequest) {

@@ -6,6 +6,7 @@ import {
     createTradingViewAlertTemplate,
     deleteTradingViewAlertTemplate,
     fetchInstrumentCatalog,
+    fetchTradingViewAlertTemplateDiagnostics,
     fetchTradingViewAlertTemplateEvents,
     InstrumentItem,
     listTradingViewAlertTemplates,
@@ -14,6 +15,7 @@ import {
     testTradingViewAlertTemplateWebhook,
     TradingViewAlertTemplate,
     TradingViewAlertTemplateCreateRequest,
+    TradingViewAlertTemplateDiagnostics,
     TradingViewAlertTemplateStats,
     TradingViewAlertTemplateTestResponse,
     TradingViewWebhookEvent,
@@ -165,6 +167,7 @@ function cleanActivityDetail(value?: string | null) {
 export function TradingViewAlertsShell() {
   const [templates, setTemplates] = useState<TradingViewAlertTemplate[]>([]);
   const [catalog, setCatalog] = useState<InstrumentItem[]>([]);
+  const [diagnostics, setDiagnostics] = useState<TradingViewAlertTemplateDiagnostics | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -340,12 +343,24 @@ export function TradingViewAlertsShell() {
       try {
         setLoading(true);
         const [catalogResp, templatesResp] = await Promise.all([fetchInstrumentCatalog(), listTradingViewAlertTemplates()]);
+        let diagnosticsResp: TradingViewAlertTemplateDiagnostics | null = null;
+        try {
+          diagnosticsResp = await fetchTradingViewAlertTemplateDiagnostics();
+        } catch (err) {
+          diagnosticsResp = {
+            store_backend: "unknown",
+            database_url: "",
+            template_count: null,
+            error: err instanceof Error ? err.message : "Diagnostics request failed",
+          };
+        }
         if (!active) {
           return;
         }
         const instruments = [...catalogResp.indices, ...catalogResp.stocks, ...catalogResp.commodities];
         setCatalog(instruments);
         setTemplates(templatesResp);
+        setDiagnostics(diagnosticsResp);
         setError("");
         setForm((prev) => ({
           ...prev,
@@ -597,6 +612,18 @@ export function TradingViewAlertsShell() {
             ) : null}
             {error ? <div className="alert alert-danger">{error}</div> : null}
             {loading ? <div className="muted">Loading templates...</div> : null}
+            {diagnostics && !loading ? (
+              <div className="muted small mt-2">
+                API: <code>{BACKEND_BASE_URL}</code> | store <strong>{diagnostics.store_backend}</strong> | templates{" "}
+                <strong>{diagnostics.template_count ?? "-"}</strong>
+                {diagnostics.database_url ? (
+                  <>
+                    {" "}
+                    | db <code>{diagnostics.database_url}</code>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="dashboard-panel p-3 mt-3">
               <div className="d-flex flex-wrap align-items-end gap-2">
