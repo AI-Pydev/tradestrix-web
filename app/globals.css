@@ -1834,6 +1834,84 @@ a {
   z-index: 2;
 }
 
+.broker-auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 10, 18, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.broker-auth-modal {
+  width: min(460px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(241, 178, 77, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(10, 22, 39, 0.99), rgba(7, 15, 27, 0.99));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.broker-auth-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.broker-auth-modal-title {
+  color: #fff0c8;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.broker-auth-modal-subtitle {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.broker-auth-close {
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 999px;
+  padding: 0.5rem 0.85rem;
+  background: rgba(10, 24, 43, 0.94);
+  color: #dce8f7;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.broker-auth-input {
+  min-height: 48px;
+  border-radius: 12px;
+  background: rgba(10, 24, 43, 0.94);
+  border-color: rgba(96, 165, 250, 0.18);
+  color: #e6eef8;
+}
+
+.broker-auth-input::placeholder {
+  color: #94a7c2;
+}
+
+.broker-auth-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.broker-auth-toggle {
+  min-width: 72px;
+}
+
 @media (max-width: 992px) {
   .platform-layout,
   .platform-layout.sidebar-collapsed {
@@ -1942,6 +2020,15 @@ a {
   .candle-lab-modal {
     width: 100%;
     max-height: calc(100vh - 20px);
+  }
+
+  .broker-auth-modal {
+    width: min(420px, 100%);
+    padding: 18px;
+  }
+
+  .broker-auth-modal-header {
+    flex-direction: column;
   }
 }
 

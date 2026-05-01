@@ -86,6 +86,7 @@ export type BrokerConnection = {
   refresh_token_present: boolean;
   access_token?: string | null;
   notes: string;
+  login_defaults: Record<string, string | null>;
 };
 
 export type BrokerAuthStartResponse = {
@@ -94,6 +95,20 @@ export type BrokerAuthStartResponse = {
   auth_url: string;
   redirect_uri: string;
   instructions: string;
+};
+
+export type BrokerCallbackResult = {
+  broker_id: string;
+  success: boolean;
+  message: string;
+  redirect_url: string;
+};
+
+export type KotakManualAuthRequest = {
+  client_id: string;
+  mobile_number: string;
+  totp: string;
+  mpin: string;
 };
 
 export type InstrumentItem = {
@@ -1319,6 +1334,13 @@ export async function startBrokerAuth(brokerId: string) {
 
 export async function disconnectBroker(brokerId: string) {
   return postBackendJson<BrokerConnection>(`/api/v1/brokers/${brokerId}/disconnect`);
+}
+
+export async function authenticateKotakBroker(payload: KotakManualAuthRequest) {
+  return postBackendJsonWithBody<BrokerCallbackResult, KotakManualAuthRequest>(
+    "/api/v1/brokers/kotakneo/manual/json",
+    payload,
+  );
 }
 
 export async function runUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRequest) {
