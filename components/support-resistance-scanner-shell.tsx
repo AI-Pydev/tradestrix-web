@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, startTransition, useEffect, useState } from "react";
+import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
@@ -9,12 +9,16 @@ import {
     fetchInstrumentCatalog,
     fetchSupportResistanceTradeLabDashboard,
     InstrumentCatalogResponse,
+    runSupportResistanceAutoEntryNow,
     runSupportResistanceScanner,
+    SupportResistanceAutoEntrySettings,
+    SupportResistanceAutoEntryStatus,
     SupportResistanceScannerResponse,
     SupportResistanceScannerRow,
     SupportResistanceTradeActionRequest,
     SupportResistanceTradeLabDashboard,
     SupportResistanceTradeRecord,
+    updateSupportResistanceAutoEntrySettings,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
 
@@ -180,8 +184,23 @@ export function SupportResistanceScannerShell() {
   const [tradeLabError, setTradeLabError] = useState("");
   const [trackActionKey, setTrackActionKey] = useState("");
   const [closeActionKey, setCloseActionKey] = useState("");
+  const [autoEntrySaving, setAutoEntrySaving] = useState(false);
+  const [autoEntryRunning, setAutoEntryRunning] = useState(false);
   const [entryActions, setEntryActions] = useState<Record<string, SupportResistanceTradeActionRequest["action"]>>({});
   const [exitInputs, setExitInputs] = useState<Record<string, string>>({});
+  const [autoEntryConfig, setAutoEntryConfig] = useState<{
+    enabled: boolean;
+    action_mode: SupportResistanceAutoEntrySettings["action_mode"];
+    min_readiness: SupportResistanceAutoEntrySettings["min_readiness"];
+    cooldown_minutes: number;
+  }>({
+    enabled: false,
+    action_mode: "auto",
+    min_readiness: "strong",
+    cooldown_minutes: 30,
+  });
+  const [autoEntryStatus, setAutoEntryStatus] = useState<SupportResistanceAutoEntryStatus | null>(null);
+  const autoEntryHydrated = useRef(false);
   const [paperView, setPaperView] = useState<HistoryView>("today");
   const [paperHistoryPreset, setPaperHistoryPreset] = useState<HistoryPreset>("last7");
   const [paperHistoryFrom, setPaperHistoryFrom] = useState("");
@@ -275,6 +294,38 @@ export function SupportResistanceScannerShell() {
           return;
         }
         setTradeLab(response);
+        setAutoEntryStatus(response.auto_entry_status);
+        if (!autoEntryHydrated.current) {
+          const settings = response.auto_entry_settings;
+          setForm((prev) => ({
+            ...prev,
+            broker_id: settings.broker_id,
+            include_indices: settings.include_indices,
+            include_stocks: settings.include_stocks,
+            max_indices: settings.max_indices,
+            max_stocks: settings.max_stocks,
+            verified_only: settings.verified_only,
+            intraday_history_days: settings.intraday_history_days,
+            daily_history_days: settings.daily_history_days,
+            require_close_above_ema10: settings.require_close_above_ema10,
+            entry_lots: settings.lots,
+            min_quality: settings.min_quality,
+            max_entry_ltp: settings.max_entry_ltp,
+            max_total_entry_amount: settings.max_total_entry_amount ?? null,
+            risk_model: settings.risk_model,
+            risk_amount: settings.risk_amount ?? null,
+            sl_premium_pct: settings.sl_premium_pct,
+            target_premium_pct: settings.target_premium_pct,
+            workers: settings.workers,
+          }));
+          setAutoEntryConfig({
+            enabled: settings.enabled,
+            action_mode: settings.action_mode,
+            min_readiness: settings.min_readiness,
+            cooldown_minutes: settings.cooldown_minutes,
+          });
+          autoEntryHydrated.current = true;
+        }
         setTradeLabError("");
       } catch (err) {
         if (!active) {
@@ -314,6 +365,64 @@ export function SupportResistanceScannerShell() {
   async function refreshTradeLab() {
     const response = await fetchSupportResistanceTradeLabDashboard();
     setTradeLab(response);
+    setAutoEntryStatus(response.auto_entry_status);
+  }
+
+  async function handleSaveAutoEntrySettings() {
+    try {
+      setAutoEntrySaving(true);
+      setTradeLabError("");
+      const saved = await updateSupportResistanceAutoEntrySettings({
+        enabled: autoEntryConfig.enabled,
+        broker_id: form.broker_id,
+        include_indices: form.include_indices,
+        include_stocks: form.include_stocks,
+        max_indices: form.max_indices,
+        max_stocks: form.max_stocks,
+        verified_only: form.verified_only,
+        intraday_history_days: form.intraday_history_days,
+        daily_history_days: form.daily_history_days,
+        require_close_above_ema10: form.require_close_above_ema10,
+        workers: form.workers,
+        action_mode: autoEntryConfig.action_mode,
+        min_readiness: autoEntryConfig.min_readiness,
+        lots: form.entry_lots,
+        min_quality: form.min_quality,
+        max_entry_ltp: form.max_entry_ltp,
+        max_total_entry_amount: form.max_total_entry_amount,
+        risk_model: form.risk_model,
+        risk_amount: form.risk_amount,
+        sl_premium_pct: form.sl_premium_pct,
+        target_premium_pct: form.target_premium_pct,
+        cooldown_minutes: autoEntryConfig.cooldown_minutes,
+      });
+      setAutoEntryConfig((prev) => ({
+        ...prev,
+        enabled: saved.enabled,
+        action_mode: saved.action_mode,
+        min_readiness: saved.min_readiness,
+        cooldown_minutes: saved.cooldown_minutes,
+      }));
+      await refreshTradeLab();
+    } catch (err) {
+      setTradeLabError(err instanceof Error ? err.message : "Failed to save S/R auto-entry settings");
+    } finally {
+      setAutoEntrySaving(false);
+    }
+  }
+
+  async function handleRunAutoEntryNow() {
+    try {
+      setAutoEntryRunning(true);
+      setTradeLabError("");
+      const status = await runSupportResistanceAutoEntryNow();
+      setAutoEntryStatus(status);
+      await refreshTradeLab();
+    } catch (err) {
+      setTradeLabError(err instanceof Error ? err.message : "Failed to run S/R auto-entry cycle");
+    } finally {
+      setAutoEntryRunning(false);
+    }
   }
 
   async function handleCreateEntry(row: SupportResistanceScannerRow) {
@@ -742,6 +851,121 @@ export function SupportResistanceScannerShell() {
                               ? `${fmtPrice(form.max_total_entry_amount)} maximum total entry`
                               : "no max total entry cap"}
                             .
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-12">
+                        <div className="border rounded p-3" style={{ borderColor: "var(--line)" }}>
+                          <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                              <div className="fw-semibold">Auto Entry</div>
+                              <div className="small muted mt-1">
+                                Runs the 3-minute S/R scan in the background after 9:40 AM IST and opens paper
+                                entries only when the row is near a strong zone and the Greek-filtered option
+                                candidate passes the current quality and premium caps. OTM selection is biased toward
+                                farther strikes only when delta remains healthy.
+                              </div>
+                            </div>
+                            <span className={`badge-soft ${autoEntryConfig.enabled ? "green" : "gold"}`}>
+                              {autoEntryConfig.enabled ? "Enabled" : "Disabled"}
+                            </span>
+                          </div>
+                          <div className="row g-3">
+                            <div className="col-md-3">
+                              <div className="form-check mt-2">
+                                <input
+                                  checked={autoEntryConfig.enabled}
+                                  className="form-check-input"
+                                  id="sr-auto-entry-enabled"
+                                  onChange={(e) =>
+                                    setAutoEntryConfig((prev) => ({ ...prev, enabled: e.target.checked }))
+                                  }
+                                  type="checkbox"
+                                />
+                                <label className="form-check-label" htmlFor="sr-auto-entry-enabled">
+                                  Enable Auto Entry
+                                </label>
+                              </div>
+                            </div>
+                            <div className="col-md-3">
+                              <label className="form-label">Action Mode</label>
+                              <select
+                                className="form-select"
+                                value={autoEntryConfig.action_mode}
+                                onChange={(e) =>
+                                  setAutoEntryConfig((prev) => ({
+                                    ...prev,
+                                    action_mode: e.target.value as SupportResistanceAutoEntrySettings["action_mode"],
+                                  }))
+                                }
+                              >
+                                <option value="auto">Auto</option>
+                                <option value="buy_ce">BUY CE</option>
+                                <option value="buy_pe">BUY PE</option>
+                              </select>
+                            </div>
+                            <div className="col-md-3">
+                              <label className="form-label">Minimum Readiness</label>
+                              <select
+                                className="form-select"
+                                value={autoEntryConfig.min_readiness}
+                                onChange={(e) =>
+                                  setAutoEntryConfig((prev) => ({
+                                    ...prev,
+                                    min_readiness: e.target.value as SupportResistanceAutoEntrySettings["min_readiness"],
+                                  }))
+                                }
+                              >
+                                <option value="tradable">Tradable</option>
+                                <option value="strong">Strong</option>
+                              </select>
+                            </div>
+                            <div className="col-md-3">
+                              <label className="form-label">Cooldown Minutes</label>
+                              <input
+                                className="form-control"
+                                max={1440}
+                                min={0}
+                                type="number"
+                                value={autoEntryConfig.cooldown_minutes}
+                                onChange={(e) =>
+                                  setAutoEntryConfig((prev) => ({
+                                    ...prev,
+                                    cooldown_minutes: Math.max(Number(e.target.value) || 0, 0),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="col-12 d-flex flex-wrap gap-2">
+                              <button
+                                className="btn btn-outline-light"
+                                disabled={autoEntrySaving}
+                                onClick={handleSaveAutoEntrySettings}
+                              >
+                                {autoEntrySaving ? "Saving..." : "Save Auto Entry Settings"}
+                              </button>
+                              <button
+                                className="btn btn-warning"
+                                disabled={autoEntryRunning}
+                                onClick={handleRunAutoEntryNow}
+                              >
+                                {autoEntryRunning ? "Running..." : "Run Auto Check Now"}
+                              </button>
+                            </div>
+                            <div className="col-12">
+                              <div className="small muted">
+                                Last run: {autoEntryStatus?.last_run_at ? fmtDateTime(autoEntryStatus.last_run_at) : "-"}
+                                {" | "}
+                                State: {autoEntryStatus?.last_run_state ?? "idle"}
+                                {" | "}
+                                Considered: {autoEntryStatus?.last_candidates_considered ?? 0}
+                                {" | "}
+                                Opened: {autoEntryStatus?.last_entries_opened ?? 0}
+                              </div>
+                              <div className="small muted mt-1">
+                                {autoEntryStatus?.last_run_message || "No auto-entry run recorded yet."}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

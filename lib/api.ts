@@ -352,9 +352,46 @@ export type SupportResistanceTradeLabSummary = {
   tracked_instruments: number;
 };
 
+export type SupportResistanceAutoEntrySettings = {
+  enabled: boolean;
+  broker_id: "upstox" | "kite";
+  include_indices: boolean;
+  include_stocks: boolean;
+  max_indices: number;
+  max_stocks: number;
+  verified_only: boolean;
+  intraday_history_days: number;
+  daily_history_days: number;
+  require_close_above_ema10: boolean;
+  workers: number;
+  action_mode: "auto" | "buy_ce" | "buy_pe";
+  min_readiness: "tradable" | "strong";
+  lots: number;
+  min_quality: "A" | "B" | "C";
+  max_entry_ltp: number;
+  max_total_entry_amount?: number | null;
+  risk_model: "dynamic" | "fixed" | "risk_amount";
+  risk_amount?: number | null;
+  sl_premium_pct: number;
+  target_premium_pct: number;
+  cooldown_minutes: number;
+};
+
+export type SupportResistanceAutoEntryStatus = {
+  last_run_at?: string | null;
+  last_run_state: "idle" | "ok" | "error";
+  last_run_message: string;
+  last_scan_duration_seconds?: number | null;
+  last_rows_scanned: number;
+  last_candidates_considered: number;
+  last_entries_opened: number;
+};
+
 export type SupportResistanceTradeLabDashboard = {
   summary: SupportResistanceTradeLabSummary;
   trades: SupportResistanceTradeRecord[];
+  auto_entry_settings: SupportResistanceAutoEntrySettings;
+  auto_entry_status: SupportResistanceAutoEntryStatus;
 };
 
 export type ScannerPaperTrade = {
@@ -1240,6 +1277,18 @@ async function patchBackendJsonWithBody<T, TBody>(path: string, body: TBody): Pr
   return (await response.json()) as T;
 }
 
+async function putBackendJsonWithBody<T, TBody>(path: string, body: TBody): Promise<T> {
+  const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    method: "PUT",
+    headers: buildAuthorizedHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(body),
+  });
+  await throwIfApiError(response);
+  return (await response.json()) as T;
+}
+
 async function deleteBackend(path: string): Promise<void> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "DELETE",
@@ -1530,6 +1579,17 @@ export async function runSupportResistanceScanner(payload: SupportResistanceScan
 
 export async function fetchSupportResistanceTradeLabDashboard() {
   return getBackendJson<SupportResistanceTradeLabDashboard>("/api/v1/support-resistance-scanner/trade-lab/dashboard");
+}
+
+export async function updateSupportResistanceAutoEntrySettings(payload: SupportResistanceAutoEntrySettings) {
+  return putBackendJsonWithBody<SupportResistanceAutoEntrySettings, SupportResistanceAutoEntrySettings>(
+    "/api/v1/support-resistance-scanner/trade-lab/auto-entry",
+    payload,
+  );
+}
+
+export async function runSupportResistanceAutoEntryNow() {
+  return postBackendJson<SupportResistanceAutoEntryStatus>("/api/v1/support-resistance-scanner/trade-lab/auto-entry/run");
 }
 
 export async function createSupportResistanceTrade(payload: SupportResistanceTradeActionRequest) {
