@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import {
     DashboardSnapshot,
+    deleteUpstoxManagedBot,
     fetchDashboardData,
     fetchUpstoxManagedBotDashboardJobs,
     fetchUpstoxManagedBotDashboardSummary,
@@ -224,6 +225,31 @@ function matchesManagedBotHistoryWindow(
   return withinInclusiveDateRange(startedKey, customFrom || undefined, customTo || undefined);
 }
 
+function managedBotHistoryRange(
+  preset: ManagedJobsHistoryPreset,
+  customFrom: string,
+  customTo: string,
+) {
+  const now = new Date();
+  const yesterdayKey = localDateKey(shiftLocalDate(now, -1));
+  const last7StartKey = localDateKey(shiftLocalDate(now, -7));
+  const last30StartKey = localDateKey(shiftLocalDate(now, -30));
+
+  if (preset === "yesterday") {
+    return { startedFrom: yesterdayKey, startedTo: yesterdayKey };
+  }
+  if (preset === "last7") {
+    return { startedFrom: last7StartKey, startedTo: yesterdayKey };
+  }
+  if (preset === "last30") {
+    return { startedFrom: last30StartKey, startedTo: yesterdayKey };
+  }
+  return {
+    startedFrom: customFrom || undefined,
+    startedTo: customTo || undefined,
+  };
+}
+
 function managedBotSortTime(job: UpstoxManagedBotJob) {
   return parseIsoDate(job.started_at)?.getTime() ?? 0;
 }
@@ -267,7 +293,9 @@ export function DashboardShell() {
   const [managedJobsHistoryTo, setManagedJobsHistoryTo] = useState("");
   const [managedJobsStrategyFilter, setManagedJobsStrategyFilter] = useState("all");
   const [managedBotsTotalCount, setManagedBotsTotalCount] = useState(0);
-  const [managedBotsNextCursor, setManagedBotsNextCursor] = useState<string | null>(null);
+  const [managedBotsCurrentPage, setManagedBotsCurrentPage] = useState(1);
+  const [managedBotsTotalPages, setManagedBotsTotalPages] = useState(1);
+  const [managedBotsPageSize, setManagedBotsPageSize] = useState(20);
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
@@ -382,6 +410,14 @@ export function DashboardShell() {
     let active = true;
     let loadingRequest = false;
     const status_group = managedJobsView === "today" ? "active" : "history";
+    const historyRange =
+      managedJobsView === "history"
+        ? managedBotHistoryRange(
+            managedJobsHistoryPreset,
+            managedJobsHistoryFrom,
+            managedJobsHistoryTo,
+          )
+        : { startedFrom: undefined, startedTo: undefined };
 
     async function loadManagedBots() {
       if (loadingRequest) {
@@ -391,15 +427,19 @@ export function DashboardShell() {
         loadingRequest = true;
         const result = await fetchUpstoxManagedBotDashboardJobs({
           status_group,
-          limit: 100,
+          limit: managedBotsPageSize,
+          page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
+          started_from: historyRange.startedFrom,
+          started_to: historyRange.startedTo,
         });
         if (!active) {
           return;
         }
         setManagedBots(result.items);
         setManagedBotsTotalCount(result.total_count);
-        setManagedBotsNextCursor(result.next_cursor ?? null);
+        setManagedBotsCurrentPage(result.page);
+        setManagedBotsTotalPages(result.total_pages);
       } catch (err) {
         if (!active) {
           return;
@@ -421,7 +461,26 @@ export function DashboardShell() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [managedJobsStrategyFilter, managedJobsView]);
+  }, [
+    managedBotsCurrentPage,
+    managedBotsPageSize,
+    managedJobsHistoryFrom,
+    managedJobsHistoryPreset,
+    managedJobsHistoryTo,
+    managedJobsStrategyFilter,
+    managedJobsView,
+  ]);
+
+  useEffect(() => {
+    setManagedBotsCurrentPage(1);
+  }, [
+    managedBotsPageSize,
+    managedJobsHistoryFrom,
+    managedJobsHistoryPreset,
+    managedJobsHistoryTo,
+    managedJobsStrategyFilter,
+    managedJobsView,
+  ]);
 
   async function handleRunUpstoxBot() {
     try {
@@ -483,18 +542,23 @@ export function DashboardShell() {
       setBotMessage(`Managed bot started: ${result.job_name} (${result.job_id})`);
       setBotMessageTone("success");
       setManagedJobName("");
+      setManagedBotsCurrentPage(1);
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
           status_group: managedJobsView === "today" ? "active" : "history",
-          limit: 100,
+          limit: managedBotsPageSize,
+          page: 1,
           strategy_id: managedJobsStrategyFilter,
+          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
+          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
       setManagedBots(jobsPage.items);
       setManagedBotsTotalCount(jobsPage.total_count);
-      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
       setExpandedBotJobId(result.job_id);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to start managed bot");
@@ -514,14 +578,18 @@ export function DashboardShell() {
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
           status_group: managedJobsView === "today" ? "active" : "history",
-          limit: 100,
+          limit: managedBotsPageSize,
+          page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
+          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
+          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
       setManagedBots(jobsPage.items);
       setManagedBotsTotalCount(jobsPage.total_count);
-      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to stop managed bot");
       setBotMessageTone("error");
@@ -542,17 +610,65 @@ export function DashboardShell() {
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
           status_group: managedJobsView === "today" ? "active" : "history",
-          limit: 100,
+          limit: managedBotsPageSize,
+          page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
+          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
+          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
       setManagedBots(jobsPage.items);
       setManagedBotsTotalCount(jobsPage.total_count);
-      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
       setExpandedBotJobId(jobId);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to square off managed bot trade");
+      setBotMessageTone("error");
+    } finally {
+      setManagedBotAction("");
+    }
+  }
+
+  async function handleDeleteManagedBot(job: UpstoxManagedBotJob) {
+    const confirmed = window.confirm(
+      `Delete historical job "${job.job_name}" and remove its persisted runtime/trade history?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setManagedBotAction(`delete:${job.job_id}`);
+      const result = await deleteUpstoxManagedBot(job.job_id);
+      setBotMessage(
+        result.deleted_store_file
+          ? `Deleted history for ${result.job_name} and removed its managed DB file.`
+          : `Deleted history for ${result.job_name}.`,
+      );
+      setBotMessageTone("success");
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          status_group: managedJobsView === "today" ? "active" : "history",
+          limit: managedBotsPageSize,
+          page: managedBotsCurrentPage,
+          strategy_id: managedJobsStrategyFilter,
+          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
+          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
+      if (expandedBotJobId === job.job_id) {
+        setExpandedBotJobId("");
+      }
+    } catch (err) {
+      setBotMessage(err instanceof Error ? err.message : "Failed to delete managed bot history");
       setBotMessageTone("error");
     } finally {
       setManagedBotAction("");
@@ -622,22 +738,17 @@ export function DashboardShell() {
   const fleetRealizedPnl = managedBotsSummary?.fleet_realized_pnl ?? managedBots.reduce((sum, job) => sum + job.total_realized_pnl, 0);
   const trackedExecutionSymbols = instruments.indices.length + instruments.stocks.length;
   const todayKey = localDateKey(new Date());
+  const managedJobsHistoryRange = managedBotHistoryRange(
+    managedJobsHistoryPreset,
+    managedJobsHistoryFrom,
+    managedJobsHistoryTo,
+  );
   const todayManagedBots = managedJobsView === "today"
     ? [...managedBots].sort(compareManagedBotsForTodayDesk)
     : [];
-  const allHistoricalManagedBots = managedJobsView === "history"
+  const historicalManagedBots = managedJobsView === "history"
     ? [...managedBots].sort(compareManagedBotsByStartedDesc)
     : [];
-  const historicalManagedBots = allHistoricalManagedBots
-    .filter((job) =>
-      matchesManagedBotHistoryWindow(
-        job,
-        managedJobsHistoryPreset,
-        managedJobsHistoryFrom,
-        managedJobsHistoryTo,
-      ),
-    )
-    .sort(compareManagedBotsByStartedDesc);
   const managedJobsStrategyOptions = Array.from(
     new Map(
       managedBots.map((job) => [job.strategy_id, job.strategy_label || job.strategy_id]),
@@ -645,11 +756,8 @@ export function DashboardShell() {
   )
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
-  const managedBotMatchesStrategy = (job: UpstoxManagedBotJob) =>
-    managedJobsStrategyFilter === "all" || job.strategy_id === managedJobsStrategyFilter;
-  const filteredTodayManagedBots = todayManagedBots.filter(managedBotMatchesStrategy);
-  const filteredAllHistoricalManagedBots = allHistoricalManagedBots.filter(managedBotMatchesStrategy);
-  const filteredHistoricalManagedBots = historicalManagedBots.filter(managedBotMatchesStrategy);
+  const filteredTodayManagedBots = todayManagedBots;
+  const filteredHistoricalManagedBots = historicalManagedBots;
   const visibleManagedBots = managedJobsView === "today" ? filteredTodayManagedBots : filteredHistoricalManagedBots;
   const todayStartedManagedBots = filteredTodayManagedBots.filter((job) => managedBotStartedKey(job) === todayKey).length;
   const carryForwardManagedBots = filteredTodayManagedBots.filter(
@@ -1135,7 +1243,7 @@ export function DashboardShell() {
                       <strong>
                         {managedBotsSummary
                           ? Math.max(0, managedBotsSummary.managed_jobs - managedBotsSummary.active_jobs)
-                          : filteredAllHistoricalManagedBots.length}
+                          : managedBotsTotalCount}
                       </strong>
                     </button>
                   </div>
@@ -1146,23 +1254,28 @@ export function DashboardShell() {
                       </div>
                       <div className="small muted">
                         {managedJobsView === "today"
-                          ? "Dashboard loads only the hot active set so the desk stays responsive at larger fleet sizes."
-                          : "History is loaded as a bounded recent page instead of the full fleet archive."}
+                          ? "Active jobs are paged so the desk stays responsive even with a larger live fleet."
+                          : "History is filtered on the backend first, then paged so counts stay aligned with what you see."}
                       </div>
                       <div className="d-flex flex-wrap gap-2 mt-2">
                         {managedJobsView === "today" ? (
                           <>
                             <span className="badge-soft blue">Started today {todayStartedManagedBots}</span>
                             <span className="badge-soft gold">Carry-forward live {carryForwardManagedBots}</span>
+                            <span className="badge-soft blue">
+                              Showing {visibleManagedBots.length} of {managedBotsTotalCount} active jobs
+                            </span>
                           </>
                         ) : (
-                          <span className="badge-soft blue">
-                            Showing {filteredHistoricalManagedBots.length} of {managedBotsTotalCount} loaded historical matches
-                          </span>
+                          <>
+                            <span className="badge-soft blue">
+                              Showing {visibleManagedBots.length} of {managedBotsTotalCount} historical jobs
+                            </span>
+                          </>
                         )}
-                        {managedBotsNextCursor ? (
-                          <span className="badge-soft gold">Showing first 100 rows</span>
-                        ) : null}
+                        <span className="badge-soft gold">
+                          Page {managedBotsCurrentPage} of {managedBotsTotalPages}
+                        </span>
                         <span className={`badge-soft ${pnlTone(visibleManagedRealizedPnl)}`}>
                           Realized P/L {fmtMoney(visibleManagedRealizedPnl)}
                         </span>
@@ -1188,6 +1301,20 @@ export function DashboardShell() {
                               {option.label}
                             </option>
                           ))}
+                        </select>
+                      </label>
+                      <label className="execution-jobs-filter-field">
+                        <span>Rows</span>
+                        <select
+                          className="execution-jobs-filter-input"
+                          onChange={(e) => setManagedBotsPageSize(Number(e.target.value))}
+                          value={managedBotsPageSize}
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                          <option value={0}>All</option>
                         </select>
                       </label>
                       {managedJobsView === "history" && (
@@ -1237,6 +1364,33 @@ export function DashboardShell() {
                             </label>
                           </div>
                       )}
+                    </div>
+                  </div>
+                  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div className="small muted">
+                      {managedBotsTotalCount === 0
+                        ? "No jobs in this view."
+                        : `Page ${managedBotsCurrentPage} of ${managedBotsTotalPages} • ${managedBotsTotalCount} total job(s)`}
+                    </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        className="btn btn-outline-light btn-sm"
+                        disabled={managedBotsLoading || managedBotsCurrentPage <= 1}
+                        onClick={() => setManagedBotsCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        type="button"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        className="btn btn-outline-light btn-sm"
+                        disabled={managedBotsLoading || managedBotsCurrentPage >= managedBotsTotalPages}
+                        onClick={() =>
+                          setManagedBotsCurrentPage((prev) => Math.min(prev + 1, managedBotsTotalPages))
+                        }
+                        type="button"
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
                   <div className="table-responsive">
@@ -1363,6 +1517,16 @@ export function DashboardShell() {
                                         onClick={() => handleStopManagedBot(job.job_id)}
                                       >
                                         {managedBotAction === `stop:${job.job_id}` ? "Stopping..." : "Stop"}
+                                      </button>
+                                    )}
+                                    {managedJobsView === "history" && !job.has_open_trade && (
+                                      <button
+                                        className="btn btn-outline-danger btn-sm"
+                                        disabled={managedBotAction === `delete:${job.job_id}`}
+                                        onClick={() => handleDeleteManagedBot(job)}
+                                        type="button"
+                                      >
+                                        {managedBotAction === `delete:${job.job_id}` ? "Deleting..." : "Delete"}
                                       </button>
                                     )}
                                   </div>

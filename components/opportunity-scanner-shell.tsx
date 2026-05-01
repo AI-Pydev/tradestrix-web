@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, startTransition, useEffect, useState } from "react";
+import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
@@ -10,8 +10,11 @@ import {
     fetchScannerPaperLabDashboard,
     InstrumentCatalogResponse,
     OpportunityScannerResponse,
+    runScannerPaperAutoEntryNow,
     runOpportunityScanner,
+    ScannerPaperAutoEntryStatus,
     ScannerPaperLabDashboard,
+    updateScannerPaperAutoEntrySettings,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
 
@@ -118,7 +121,11 @@ type ScannerFormState = {
   min_option_ltp: string;
   max_option_ltp: string;
   workers: number;
+  entry_lots: number;
+  auto_scan_interval_seconds: number;
 };
+
+const PAPER_LAB_REFRESH_MS = 15000;
 
 function parseOptionalNumber(value: string) {
   const trimmed = value.trim();
@@ -142,6 +149,12 @@ export function OpportunityScannerShell() {
   const [closeActionKey, setCloseActionKey] = useState("");
   const [exitInputs, setExitInputs] = useState<Record<string, string>>({});
   const [paperRiskCapInput, setPaperRiskCapInput] = useState("1500");
+  const [autoEntrySaving, setAutoEntrySaving] = useState(false);
+  const [autoEntryRunning, setAutoEntryRunning] = useState(false);
+  const [autoEntryEnabled, setAutoEntryEnabled] = useState(false);
+  const [autoEntryCooldownMinutes, setAutoEntryCooldownMinutes] = useState(12);
+  const [autoEntryStatus, setAutoEntryStatus] = useState<ScannerPaperAutoEntryStatus | null>(null);
+  const autoEntryHydrated = useRef(false);
   const [paperView, setPaperView] = useState<HistoryView>("today");
   const [paperHistoryPreset, setPaperHistoryPreset] = useState<HistoryPreset>("last7");
   const [paperHistoryFrom, setPaperHistoryFrom] = useState("");
@@ -161,6 +174,8 @@ export function OpportunityScannerShell() {
     min_option_ltp: "",
     max_option_ltp: "",
     workers: 6,
+    entry_lots: 1,
+    auto_scan_interval_seconds: 60,
   });
 
   useEffect(() => {
@@ -216,12 +231,41 @@ export function OpportunityScannerShell() {
 
     async function loadPaperLab() {
       try {
-        setLoadingPaperLab(true);
+        if (!autoEntryHydrated.current) {
+          setLoadingPaperLab(true);
+        }
         const response = await fetchScannerPaperLabDashboard();
         if (!active) {
           return;
         }
         setPaperLab(response);
+        setAutoEntryStatus(response.auto_entry_status);
+        if (!autoEntryHydrated.current) {
+          const settings = response.auto_entry_settings;
+          setForm((prev) => ({
+            ...prev,
+            broker_id: settings.broker_id,
+            include_indices: settings.include_indices,
+            include_stocks: settings.include_stocks,
+            max_indices: settings.max_indices,
+            max_stocks: settings.max_stocks,
+            daily_history_days: settings.daily_history_days,
+            trade_mode: settings.trade_mode,
+            use_greek_filters: settings.use_greek_filters,
+            ema_bias_mode: settings.ema_bias_mode,
+            min_quality: settings.min_quality,
+            min_option_ltp: settings.min_option_ltp != null ? String(settings.min_option_ltp) : "",
+            max_option_ltp: settings.max_option_ltp != null ? String(settings.max_option_ltp) : "",
+            workers: settings.workers,
+            entry_lots: settings.lots,
+            auto_scan_interval_seconds: settings.scan_interval_seconds,
+          }));
+          setPaperRiskCapInput(String(settings.risk_cap_amount));
+          setAutoEntryEnabled(settings.enabled);
+          setAutoEntryCooldownMinutes(settings.cooldown_minutes);
+          autoEntryHydrated.current = true;
+        }
+        setPaperLabError("");
       } catch (err) {
         if (!active) {
           return;
@@ -235,8 +279,12 @@ export function OpportunityScannerShell() {
     }
 
     loadPaperLab();
+    const interval = window.setInterval(() => {
+      loadPaperLab().catch(() => undefined);
+    }, PAPER_LAB_REFRESH_MS);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -273,6 +321,61 @@ export function OpportunityScannerShell() {
   async function refreshPaperLab() {
     const response = await fetchScannerPaperLabDashboard();
     setPaperLab(response);
+    setAutoEntryStatus(response.auto_entry_status);
+  }
+
+  async function handleSaveAutoEntrySettings() {
+    try {
+      setAutoEntrySaving(true);
+      setPaperLabError("");
+      const response = await updateScannerPaperAutoEntrySettings({
+        enabled: autoEntryEnabled,
+        broker_id: form.broker_id,
+        include_indices: form.include_indices,
+        include_stocks: form.include_stocks,
+        max_indices: form.max_indices,
+        max_stocks: form.max_stocks,
+        daily_history_days: form.daily_history_days,
+        trade_mode: form.trade_mode,
+        use_greek_filters: form.use_greek_filters,
+        ema_bias_mode: form.ema_bias_mode,
+        min_quality: form.min_quality,
+        min_option_ltp: parseOptionalNumber(form.min_option_ltp),
+        max_option_ltp: parseOptionalNumber(form.max_option_ltp),
+        workers: form.workers,
+        lots: form.entry_lots,
+        risk_cap_amount: Math.min(Math.max(parseOptionalNumber(paperRiskCapInput) ?? 1500, 1), 2000),
+        cooldown_minutes: autoEntryCooldownMinutes,
+        scan_interval_seconds: Math.max(15, form.auto_scan_interval_seconds),
+      });
+      setAutoEntryEnabled(response.enabled);
+      setAutoEntryCooldownMinutes(response.cooldown_minutes);
+      setPaperRiskCapInput(String(response.risk_cap_amount));
+      setForm((prev) => ({
+        ...prev,
+        entry_lots: response.lots,
+        auto_scan_interval_seconds: response.scan_interval_seconds,
+      }));
+      await refreshPaperLab();
+    } catch (err) {
+      setPaperLabError(err instanceof Error ? err.message : "Failed to save scanner auto-run settings");
+    } finally {
+      setAutoEntrySaving(false);
+    }
+  }
+
+  async function handleRunAutoEntryNow() {
+    try {
+      setAutoEntryRunning(true);
+      setPaperLabError("");
+      const response = await runScannerPaperAutoEntryNow();
+      setAutoEntryStatus(response);
+      await refreshPaperLab();
+    } catch (err) {
+      setPaperLabError(err instanceof Error ? err.message : "Failed to run scanner auto-check");
+    } finally {
+      setAutoEntryRunning(false);
+    }
   }
 
   async function handleTrackRow(row: OpportunityScannerResponse["rows"][number]) {
@@ -879,8 +982,9 @@ export function OpportunityScannerShell() {
           <h2 className="panel-title">Scanner Paper Lab</h2>
           <div className="p-3">
             <div className="muted mb-3">
-              Track only daily-basis scanner ideas as paper trades. Open trades are monitored for automatic stop-loss,
-              target, underlying-strategy, and time-exit closes, and manual close remains available as an override.
+              Track daily-basis scanner ideas as paper trades, or let the page auto-run a stricter bullish momentum gate.
+              Auto-run waits for daily, 1H, 15m, and 3m alignment, then requires a 3-minute Heikin-Ashi red-to-green flip
+              before it opens a BUY CE paper trade.
             </div>
             <div className="row g-3 align-items-end mb-3">
               <div className="col-md-3 col-lg-2">
@@ -898,6 +1002,100 @@ export function OpportunityScannerShell() {
                 <div className="muted">
                   Paper-lab stop-loss is recalculated from the row&apos;s R:R and capped at this rupee amount. Default is{" "}
                   {fmtMoney(1500)}, and we clamp anything above {fmtMoney(2000)} back to the max.
+                </div>
+              </div>
+            </div>
+
+            <div className="row g-3 align-items-end mb-4">
+              <div className="col-md-3 col-lg-2">
+                <label className="form-label">Auto Run</label>
+                <div className="form-check form-switch">
+                  <input
+                    checked={autoEntryEnabled}
+                    className="form-check-input"
+                    id="scanner-auto-entry-enabled"
+                    onChange={(e) => setAutoEntryEnabled(e.target.checked)}
+                    type="checkbox"
+                  />
+                  <label className="form-check-label" htmlFor="scanner-auto-entry-enabled">
+                    Enabled
+                  </label>
+                </div>
+              </div>
+              <div className="col-md-3 col-lg-2">
+                <label className="form-label">Lots</label>
+                <input
+                  className="form-control"
+                  min={1}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, entry_lots: Math.max(1, Number(e.target.value) || 1) }))
+                  }
+                  type="number"
+                  value={form.entry_lots}
+                />
+              </div>
+              <div className="col-md-3 col-lg-2">
+                <label className="form-label">Cooldown Min</label>
+                <input
+                  className="form-control"
+                  min={0}
+                  onChange={(e) => setAutoEntryCooldownMinutes(Math.max(0, Number(e.target.value) || 0))}
+                  type="number"
+                  value={autoEntryCooldownMinutes}
+                />
+              </div>
+              <div className="col-md-3 col-lg-2">
+                <label className="form-label">Scan Every (s)</label>
+                <input
+                  className="form-control"
+                  min={15}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      auto_scan_interval_seconds: Math.max(15, Number(e.target.value) || 15),
+                    }))
+                  }
+                  type="number"
+                  value={form.auto_scan_interval_seconds}
+                />
+              </div>
+              <div className="col-lg-4">
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    className="btn btn-outline-light"
+                    disabled={autoEntrySaving}
+                    onClick={handleSaveAutoEntrySettings}
+                    type="button"
+                  >
+                    {autoEntrySaving ? "Saving..." : "Save Auto Run"}
+                  </button>
+                  <button
+                    className="btn btn-warning"
+                    disabled={autoEntryRunning}
+                    onClick={handleRunAutoEntryNow}
+                    type="button"
+                  >
+                    {autoEntryRunning ? "Running..." : "Run Auto Check Now"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-panel subtle mb-4">
+              <div className="p-3">
+                <div className="d-flex flex-wrap gap-2 align-items-center mb-2">
+                  <span className={`badge-soft ${autoEntryStatus?.last_run_state === "error" ? "red" : autoEntryEnabled ? "green" : "gold"}`}>
+                    {autoEntryStatus?.last_run_state?.toUpperCase() ?? "IDLE"}
+                  </span>
+                  <span className="muted small">Auto-run opens only bullish BUY CE paper trades after 9:40 AM IST.</span>
+                </div>
+                <div className="muted">
+                  {autoEntryStatus?.last_run_message || "Save the auto-run settings to let the background monitor use the current scanner filters plus the momentum gate."}
+                </div>
+                <div className="muted small mt-2">
+                  Last run {fmtDateTime(autoEntryStatus?.last_run_at)} | Rows {autoEntryStatus?.last_rows_scanned ?? 0} | Candidates{" "}
+                  {autoEntryStatus?.last_candidates_considered ?? 0} | Momentum Ready {autoEntryStatus?.last_momentum_ready ?? 0} | Opened{" "}
+                  {autoEntryStatus?.last_entries_opened ?? 0}
                 </div>
               </div>
             </div>
