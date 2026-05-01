@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  authenticateKotakBroker,
   BrokerConnection,
   disconnectBroker,
   fetchBrokerConnections,
@@ -19,6 +20,10 @@ function brokerSupportsWebAuth(broker: BrokerConnection) {
 
 function brokerPrimaryActionLabel(broker: BrokerConnection) {
   return broker.connected ? "Reconnect" : "Connect";
+}
+
+function isKotakManualBroker(broker: BrokerConnection) {
+  return broker.broker_id === "kotakneo" && broker.auth_mode === "manual";
 }
 
 type BrokersShellProps = {
@@ -38,6 +43,16 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   const [brokerNoticeTone, setBrokerNoticeTone] = useState<"success" | "error">("success");
   const [brokerAction, setBrokerAction] = useState("");
   const [copiedBrokerId, setCopiedBrokerId] = useState<string | null>(null);
+  const [kotakModalBroker, setKotakModalBroker] = useState<BrokerConnection | null>(null);
+  const [kotakSubmitting, setKotakSubmitting] = useState(false);
+  const [showKotakTotp, setShowKotakTotp] = useState(false);
+  const [showKotakMpin, setShowKotakMpin] = useState(false);
+  const [kotakForm, setKotakForm] = useState({
+    client_id: "",
+    mobile_number: "",
+    totp: "",
+    mpin: "",
+  });
 
   useEffect(() => {
     let active = true;
@@ -116,9 +131,36 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     setError("");
   }
 
+  function openKotakModal(broker: BrokerConnection) {
+    setKotakModalBroker(broker);
+    setShowKotakTotp(false);
+    setShowKotakMpin(false);
+    setKotakForm({
+      client_id: broker.login_defaults.client_id ?? "",
+      mobile_number: broker.login_defaults.mobile_number ?? "",
+      totp: "",
+      mpin: "",
+    });
+  }
+
+  function closeKotakModal() {
+    if (kotakSubmitting) {
+      return;
+    }
+    setKotakModalBroker(null);
+    setShowKotakTotp(false);
+    setShowKotakMpin(false);
+  }
+
   async function handleConnectBroker(brokerId: string) {
     try {
       setBrokerAction(brokerId);
+      const broker = brokers.find((item) => item.broker_id === brokerId);
+      if (broker && isKotakManualBroker(broker)) {
+        openKotakModal(broker);
+        return;
+      }
+
       const result = await startBrokerAuth(brokerId);
       const authWindow = window.open(
         result.auth_url,
@@ -163,6 +205,33 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     }
   }
 
+  function updateKotakField(field: "client_id" | "mobile_number" | "totp" | "mpin", value: string) {
+    setKotakForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleKotakSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setKotakSubmitting(true);
+      const result = await authenticateKotakBroker(kotakForm);
+      setBrokerNotice(`KOTAKNEO: ${result.message}`);
+      setBrokerNoticeTone(result.success ? "success" : "error");
+
+      if (result.success) {
+        await refreshBrokers();
+        closeKotakModal();
+        router.replace(
+          `/brokers?broker=${encodeURIComponent(result.broker_id)}&broker_status=success&message=${encodeURIComponent(result.message)}`,
+        );
+      }
+    } catch (err) {
+      setBrokerNotice(err instanceof Error ? err.message : "Failed to authenticate Kotak Neo");
+      setBrokerNoticeTone("error");
+    } finally {
+      setKotakSubmitting(false);
+    }
+  }
+
   async function handleDisconnectBroker(brokerId: string) {
     try {
       setBrokerAction(brokerId);
@@ -204,7 +273,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   ];
 
   return (
-    <main className="app-shell">
+    <>
+      <main className="app-shell">
       <div className="app-frame">
         <section className="app-hero mb-4">
           <div id="brokers-top" />
@@ -403,6 +473,129 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
           </div>
         </div>
       </div>
-    </main>
+      </main>
+
+      {kotakModalBroker ? (
+        <div className="broker-auth-modal-backdrop" onClick={closeKotakModal} role="presentation">
+          <div
+            className="broker-auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kotak-auth-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="broker-auth-modal-header">
+              <div>
+                <div className="broker-auth-modal-title" id="kotak-auth-title">
+                  Enter Kotak credentials
+                </div>
+                <div className="broker-auth-modal-subtitle">
+                  Uses the same TOTP and MPIN flow as your Kotak script. Client ID maps to `UCC`, while the backend still uses `CONSUMER_KEY` from env.
+                </div>
+              </div>
+              <button className="broker-auth-close" type="button" onClick={closeKotakModal} disabled={kotakSubmitting}>
+                Close
+              </button>
+            </div>
+
+            <form className="d-grid gap-3" onSubmit={handleKotakSubmit}>
+              <div>
+                <label className="form-label small muted mb-2" htmlFor="kotak-client-id">
+                  Client ID
+                </label>
+                <input
+                  id="kotak-client-id"
+                  className="form-control broker-auth-input"
+                  autoComplete="off"
+                  value={kotakForm.client_id}
+                  onChange={(event) => updateKotakField("client_id", event.target.value)}
+                  placeholder="Enter Client ID"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label small muted mb-2" htmlFor="kotak-mobile-number">
+                  Registered Phone Number
+                </label>
+                <input
+                  id="kotak-mobile-number"
+                  className="form-control broker-auth-input"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  value={kotakForm.mobile_number}
+                  onChange={(event) => updateKotakField("mobile_number", event.target.value)}
+                  placeholder="Enter mobile number"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label small muted mb-2" htmlFor="kotak-totp">
+                  TOTP
+                </label>
+                <div className="broker-auth-field-row">
+                  <input
+                    id="kotak-totp"
+                    className="form-control broker-auth-input"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    type={showKotakTotp ? "text" : "password"}
+                    value={kotakForm.totp}
+                    onChange={(event) => updateKotakField("totp", event.target.value)}
+                    placeholder="Enter TOTP"
+                    required
+                  />
+                  <button
+                    className="btn btn-outline-light btn-sm broker-auth-toggle"
+                    type="button"
+                    onClick={() => setShowKotakTotp((current) => !current)}
+                  >
+                    {showKotakTotp ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label small muted mb-2" htmlFor="kotak-mpin">
+                  MPIN
+                </label>
+                <div className="broker-auth-field-row">
+                  <input
+                    id="kotak-mpin"
+                    className="form-control broker-auth-input"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    type={showKotakMpin ? "text" : "password"}
+                    value={kotakForm.mpin}
+                    onChange={(event) => updateKotakField("mpin", event.target.value)}
+                    placeholder="Enter MPIN"
+                    required
+                  />
+                  <button
+                    className="btn btn-outline-light btn-sm broker-auth-toggle"
+                    type="button"
+                    onClick={() => setShowKotakMpin((current) => !current)}
+                  >
+                    {showKotakMpin ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="d-flex justify-content-end gap-2 pt-2">
+                <button className="btn btn-outline-light" type="button" onClick={closeKotakModal} disabled={kotakSubmitting}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" type="submit" disabled={kotakSubmitting}>
+                  {kotakSubmitting ? "Logging in..." : "Login with Kotak"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
