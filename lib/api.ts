@@ -648,6 +648,19 @@ export type UpstoxManagedBotDeleteResponse = {
   deleted_store_file: boolean;
 };
 
+export type UpstoxManagedBotBulkDeleteFailure = {
+  job_id: string;
+  error: string;
+};
+
+export type UpstoxManagedBotBulkDeleteResponse = {
+  requested_count: number;
+  deleted_count: number;
+  failed_count: number;
+  deleted: UpstoxManagedBotDeleteResponse[];
+  failed: UpstoxManagedBotBulkDeleteFailure[];
+};
+
 export type UpstoxManagedBotTrade = {
   id: number;
   created_at: string;
@@ -1582,6 +1595,15 @@ export async function deleteUpstoxManagedBot(jobId: string) {
   return deleteBackendJson<UpstoxManagedBotDeleteResponse>(
     `/api/v1/upstox/option-chain-bot/jobs/${encodeURIComponent(jobId)}`,
   );
+}
+
+export async function bulkDeleteUpstoxManagedBots(jobIds: string[]) {
+  return postBackendJsonWithBody<
+    UpstoxManagedBotBulkDeleteResponse,
+    { job_ids: string[] }
+  >("/api/v1/upstox/option-chain-bot/jobs/bulk-delete", {
+    job_ids: jobIds,
+  });
 }
 
 export async function previewUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRequest) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 
 import {
+    bulkDeleteUpstoxManagedBots,
     DashboardSnapshot,
     deleteUpstoxManagedBot,
     fetchDashboardData,
@@ -266,6 +267,10 @@ function compareManagedBotsForTodayDesk(a: UpstoxManagedBotJob, b: UpstoxManaged
   return compareManagedBotsByStartedDesc(a, b);
 }
 
+function isManagedBotDeletable(job: UpstoxManagedBotJob) {
+  return !managedBotIsLive(job) && !job.has_open_trade;
+}
+
 export function DashboardShell() {
   const [data, setData] = useState<DashboardState | null>(null);
   const [error, setError] = useState<string>("");
@@ -296,6 +301,7 @@ export function DashboardShell() {
   const [managedBotsCurrentPage, setManagedBotsCurrentPage] = useState(1);
   const [managedBotsTotalPages, setManagedBotsTotalPages] = useState(1);
   const [managedBotsPageSize, setManagedBotsPageSize] = useState(20);
+  const [selectedManagedBotIds, setSelectedManagedBotIds] = useState<string[]>([]);
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
@@ -474,6 +480,18 @@ export function DashboardShell() {
   useEffect(() => {
     setManagedBotsCurrentPage(1);
   }, [
+    managedBotsPageSize,
+    managedJobsHistoryFrom,
+    managedJobsHistoryPreset,
+    managedJobsHistoryTo,
+    managedJobsStrategyFilter,
+    managedJobsView,
+  ]);
+
+  useEffect(() => {
+    setSelectedManagedBotIds([]);
+  }, [
+    managedBotsCurrentPage,
     managedBotsPageSize,
     managedJobsHistoryFrom,
     managedJobsHistoryPreset,
@@ -664,11 +682,57 @@ export function DashboardShell() {
       setManagedBotsTotalCount(jobsPage.total_count);
       setManagedBotsCurrentPage(jobsPage.page);
       setManagedBotsTotalPages(jobsPage.total_pages);
+      setSelectedManagedBotIds((prev) => prev.filter((jobId) => jobId !== job.job_id));
       if (expandedBotJobId === job.job_id) {
         setExpandedBotJobId("");
       }
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to delete managed bot history");
+      setBotMessageTone("error");
+    } finally {
+      setManagedBotAction("");
+    }
+  }
+
+  async function handleBulkDeleteManagedBots() {
+    if (!selectedManagedBotIds.length) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete history for ${selectedManagedBotIds.length} selected job(s)? Active jobs and jobs with open trades will be skipped.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setManagedBotAction("bulk-delete");
+      const result = await bulkDeleteUpstoxManagedBots(selectedManagedBotIds);
+      const message =
+        result.failed_count > 0
+          ? `Bulk delete finished: deleted ${result.deleted_count}, failed ${result.failed_count}.`
+          : `Bulk delete finished: deleted ${result.deleted_count} job(s).`;
+      setBotMessage(message);
+      setBotMessageTone(result.failed_count > 0 ? "error" : "success");
+      setSelectedManagedBotIds([]);
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          status_group: managedJobsView === "today" ? "active" : "history",
+          limit: managedBotsPageSize,
+          page: managedBotsCurrentPage,
+          strategy_id: managedJobsStrategyFilter,
+          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
+          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
+    } catch (err) {
+      setBotMessage(err instanceof Error ? err.message : "Failed to bulk delete managed bot history");
       setBotMessageTone("error");
     } finally {
       setManagedBotAction("");
@@ -759,6 +823,12 @@ export function DashboardShell() {
   const filteredTodayManagedBots = todayManagedBots;
   const filteredHistoricalManagedBots = historicalManagedBots;
   const visibleManagedBots = managedJobsView === "today" ? filteredTodayManagedBots : filteredHistoricalManagedBots;
+  const deletableVisibleManagedBotIds = visibleManagedBots
+    .filter((job) => isManagedBotDeletable(job))
+    .map((job) => job.job_id);
+  const allVisibleManagedBotsSelected =
+    deletableVisibleManagedBotIds.length > 0 &&
+    deletableVisibleManagedBotIds.every((jobId) => selectedManagedBotIds.includes(jobId));
   const todayStartedManagedBots = filteredTodayManagedBots.filter((job) => managedBotStartedKey(job) === todayKey).length;
   const carryForwardManagedBots = filteredTodayManagedBots.filter(
     (job) => managedBotIsLive(job) && managedBotStartedKey(job) !== todayKey,
@@ -1373,6 +1443,34 @@ export function DashboardShell() {
                         : `Page ${managedBotsCurrentPage} of ${managedBotsTotalPages} • ${managedBotsTotalCount} total job(s)`}
                     </div>
                     <div className="d-flex flex-wrap gap-2">
+                      {managedJobsView === "history" ? (
+                        <>
+                          <button
+                            className="btn btn-outline-light btn-sm"
+                            disabled={!deletableVisibleManagedBotIds.length}
+                            onClick={() =>
+                              setSelectedManagedBotIds((prev) =>
+                                allVisibleManagedBotsSelected
+                                  ? prev.filter((jobId) => !deletableVisibleManagedBotIds.includes(jobId))
+                                  : Array.from(new Set([...prev, ...deletableVisibleManagedBotIds])),
+                              )
+                            }
+                            type="button"
+                          >
+                            {allVisibleManagedBotsSelected ? "Clear Page Selection" : "Select Page"}
+                          </button>
+                          <button
+                            className="btn btn-outline-danger btn-sm"
+                            disabled={!selectedManagedBotIds.length || managedBotAction === "bulk-delete"}
+                            onClick={handleBulkDeleteManagedBots}
+                            type="button"
+                          >
+                            {managedBotAction === "bulk-delete"
+                              ? "Deleting..."
+                              : `Delete Selected (${selectedManagedBotIds.length})`}
+                          </button>
+                        </>
+                      ) : null}
                       <button
                         className="btn btn-outline-light btn-sm"
                         disabled={managedBotsLoading || managedBotsCurrentPage <= 1}
@@ -1397,6 +1495,7 @@ export function DashboardShell() {
                     <table className="table table-dark-shell align-middle">
                       <thead>
                         <tr>
+                          {managedJobsView === "history" ? <th>Select</th> : null}
                           <th>Status</th>
                           <th>Job</th>
                           <th>Instrument</th>
@@ -1411,7 +1510,7 @@ export function DashboardShell() {
                       <tbody>
                         {managedBotsLoading ? (
                           <tr>
-                            <td colSpan={9} className="empty-state">
+                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                               Loading managed bot jobs...
                             </td>
                           </tr>
@@ -1419,6 +1518,25 @@ export function DashboardShell() {
                           visibleManagedBots.map((job) => (
                             <Fragment key={job.job_id}>
                               <tr>
+                                {managedJobsView === "history" ? (
+                                  <td>
+                                    {isManagedBotDeletable(job) ? (
+                                      <input
+                                        checked={selectedManagedBotIds.includes(job.job_id)}
+                                        onChange={(e) =>
+                                          setSelectedManagedBotIds((prev) =>
+                                            e.target.checked
+                                              ? Array.from(new Set([...prev, job.job_id]))
+                                              : prev.filter((jobId) => jobId !== job.job_id),
+                                          )
+                                        }
+                                        type="checkbox"
+                                      />
+                                    ) : (
+                                      <span className="muted">-</span>
+                                    )}
+                                  </td>
+                                ) : null}
                                 <td>
                                   <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
                                 </td>
@@ -1519,7 +1637,7 @@ export function DashboardShell() {
                                         {managedBotAction === `stop:${job.job_id}` ? "Stopping..." : "Stop"}
                                       </button>
                                     )}
-                                    {managedJobsView === "history" && !job.has_open_trade && (
+                                    {managedJobsView === "history" && isManagedBotDeletable(job) && (
                                       <button
                                         className="btn btn-outline-danger btn-sm"
                                         disabled={managedBotAction === `delete:${job.job_id}`}
@@ -1534,7 +1652,7 @@ export function DashboardShell() {
                               </tr>
                               {expandedBotJobId === job.job_id && (
                                 <tr>
-                                  <td colSpan={9}>
+                                  <td colSpan={managedJobsView === "history" ? 10 : 9}>
                                     <div className="row g-3">
                                       <div className="col-12 col-xl-4">
                                         <div className="small muted">
@@ -1592,7 +1710,7 @@ export function DashboardShell() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={9} className="empty-state">
+                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                               {managedJobsView === "today"
                                 ? "No jobs are active for today yet."
                                 : "No historical jobs match the selected date range."}
