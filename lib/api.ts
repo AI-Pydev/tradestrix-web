@@ -437,9 +437,43 @@ export type ScannerPaperLabSummary = {
   tracked_instruments: number;
 };
 
+export type ScannerPaperAutoEntrySettings = {
+  enabled: boolean;
+  broker_id: "upstox" | "kite";
+  include_indices: boolean;
+  include_stocks: boolean;
+  max_indices: number;
+  max_stocks: number;
+  daily_history_days: number;
+  trade_mode: "buy-only" | "mixed";
+  use_greek_filters: boolean;
+  ema_bias_mode: "off" | "score" | "strict";
+  min_quality: "A" | "B" | "C";
+  min_option_ltp?: number | null;
+  max_option_ltp?: number | null;
+  workers: number;
+  lots: number;
+  risk_cap_amount: number;
+  cooldown_minutes: number;
+  scan_interval_seconds: number;
+};
+
+export type ScannerPaperAutoEntryStatus = {
+  last_run_at?: string | null;
+  last_run_state: "idle" | "ok" | "error";
+  last_run_message: string;
+  last_scan_duration_seconds?: number | null;
+  last_rows_scanned: number;
+  last_candidates_considered: number;
+  last_momentum_ready: number;
+  last_entries_opened: number;
+};
+
 export type ScannerPaperLabDashboard = {
   summary: ScannerPaperLabSummary;
   trades: ScannerPaperTrade[];
+  auto_entry_settings: ScannerPaperAutoEntrySettings;
+  auto_entry_status: ScannerPaperAutoEntryStatus;
 };
 
 export type ScannerPaperTradeCreateRequest = {
@@ -601,7 +635,17 @@ export type UpstoxManagedBotDashboardSummary = {
 export type UpstoxManagedBotPage = {
   items: UpstoxManagedBotJob[];
   total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
   next_cursor?: string | null;
+};
+
+export type UpstoxManagedBotDeleteResponse = {
+  job_id: string;
+  job_name: string;
+  store_path: string;
+  deleted_store_file: boolean;
 };
 
 export type UpstoxManagedBotTrade = {
@@ -1297,6 +1341,15 @@ async function deleteBackend(path: string): Promise<void> {
   await throwIfApiError(response);
 }
 
+async function deleteBackendJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: buildAuthorizedHeaders(),
+  });
+  await throwIfApiError(response);
+  return (await response.json()) as T;
+}
+
 export async function fetchDashboardData() {
   const [dashboard, trades, instruments] = await Promise.all([
     getJson<DashboardSnapshot>("/dashboard"),
@@ -1410,8 +1463,11 @@ export async function fetchUpstoxManagedBotDashboardSummary() {
 export async function fetchUpstoxManagedBotDashboardJobs(params?: {
   status_group?: "active" | "history";
   limit?: number;
+  page?: number;
   cursor?: string | null;
   strategy_id?: string;
+  started_from?: string;
+  started_to?: string;
 }) {
   const search = new URLSearchParams();
   if (params?.status_group) {
@@ -1420,11 +1476,20 @@ export async function fetchUpstoxManagedBotDashboardJobs(params?: {
   if (params?.limit != null) {
     search.set("limit", String(params.limit));
   }
+  if (params?.page != null) {
+    search.set("page", String(params.page));
+  }
   if (params?.cursor) {
     search.set("cursor", params.cursor);
   }
   if (params?.strategy_id && params.strategy_id !== "all") {
     search.set("strategy_id", params.strategy_id);
+  }
+  if (params?.started_from) {
+    search.set("started_from", params.started_from);
+  }
+  if (params?.started_to) {
+    search.set("started_to", params.started_to);
   }
   const suffix = search.size ? `?${search.toString()}` : "";
   return getBackendJson<UpstoxManagedBotPage>(`/api/v1/upstox/option-chain-bot/dashboard/jobs${suffix}`);
@@ -1511,6 +1576,12 @@ export async function stopUpstoxManagedBot(jobId: string) {
 
 export async function squareOffUpstoxManagedBot(jobId: string) {
   return postBackendJson<UpstoxManagedBotJob>(`/api/v1/upstox/option-chain-bot/jobs/${jobId}/square-off`);
+}
+
+export async function deleteUpstoxManagedBot(jobId: string) {
+  return deleteBackendJson<UpstoxManagedBotDeleteResponse>(
+    `/api/v1/upstox/option-chain-bot/jobs/${encodeURIComponent(jobId)}`,
+  );
 }
 
 export async function previewUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRequest) {
@@ -1608,6 +1679,17 @@ export async function closeSupportResistanceTrade(tradeId: string, payload: Supp
 
 export async function fetchScannerPaperLabDashboard() {
   return getBackendJson<ScannerPaperLabDashboard>("/api/v1/scanner-paper-lab/dashboard");
+}
+
+export async function updateScannerPaperAutoEntrySettings(payload: ScannerPaperAutoEntrySettings) {
+  return putBackendJsonWithBody<ScannerPaperAutoEntrySettings, ScannerPaperAutoEntrySettings>(
+    "/api/v1/scanner-paper-lab/auto-entry",
+    payload,
+  );
+}
+
+export async function runScannerPaperAutoEntryNow() {
+  return postBackendJson<ScannerPaperAutoEntryStatus>("/api/v1/scanner-paper-lab/auto-entry/run");
 }
 
 export async function createScannerPaperTrade(payload: ScannerPaperTradeCreateRequest) {
