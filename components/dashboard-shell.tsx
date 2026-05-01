@@ -6,7 +6,8 @@ import { Fragment, useEffect, useState } from "react";
 import {
     DashboardSnapshot,
     fetchDashboardData,
-    fetchUpstoxManagedBotJobs,
+    fetchUpstoxManagedBotDashboardJobs,
+    fetchUpstoxManagedBotDashboardSummary,
     fetchUpstoxManagedBotTrades,
     InstrumentCatalogResponse,
     previewUpstoxOptionChainBot,
@@ -15,6 +16,7 @@ import {
     startUpstoxManagedBot,
     stopUpstoxManagedBot,
     TradeRecord,
+    UpstoxManagedBotDashboardSummary,
     UpstoxManagedBotJob,
     UpstoxManagedBotStartRequest,
     UpstoxManagedBotTrade,
@@ -31,6 +33,8 @@ type DashboardState = {
 
 type ManagedJobsView = "today" | "history";
 type ManagedJobsHistoryPreset = "yesterday" | "last7" | "last30" | "custom";
+const DASHBOARD_REFRESH_MS = 15000;
+const MANAGED_BOTS_REFRESH_MS = 15000;
 
 function executionMetricTone(label: string, value: number) {
   if ((label === "Active Jobs" || label === "Open Bot Trades") && value > 0) {
@@ -249,6 +253,7 @@ export function DashboardShell() {
   const [managedJobName, setManagedJobName] = useState("");
   const [managedAutoStorePath, setManagedAutoStorePath] = useState(true);
   const [managedBots, setManagedBots] = useState<UpstoxManagedBotJob[]>([]);
+  const [managedBotsSummary, setManagedBotsSummary] = useState<UpstoxManagedBotDashboardSummary | null>(null);
   const [managedBotsLoading, setManagedBotsLoading] = useState(true);
   const [managedBotAction, setManagedBotAction] = useState<string>("");
   const [expandedBotJobId, setExpandedBotJobId] = useState<string>("");
@@ -261,6 +266,8 @@ export function DashboardShell() {
   const [managedJobsHistoryFrom, setManagedJobsHistoryFrom] = useState("");
   const [managedJobsHistoryTo, setManagedJobsHistoryTo] = useState("");
   const [managedJobsStrategyFilter, setManagedJobsStrategyFilter] = useState("all");
+  const [managedBotsTotalCount, setManagedBotsTotalCount] = useState(0);
+  const [managedBotsNextCursor, setManagedBotsNextCursor] = useState<string | null>(null);
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
@@ -297,10 +304,18 @@ export function DashboardShell() {
 
   useEffect(() => {
     let active = true;
+    let initialLoad = true;
+    let loadingRequest = false;
 
     async function load() {
+      if (loadingRequest) {
+        return;
+      }
       try {
-        setLoading(true);
+        loadingRequest = true;
+        if (initialLoad) {
+          setLoading(true);
+        }
         const result = await fetchDashboardData();
         if (!active) {
           return;
@@ -313,14 +328,16 @@ export function DashboardShell() {
         }
         setError(err instanceof Error ? err.message : "Failed to load execution desk");
       } finally {
+        loadingRequest = false;
         if (active) {
           setLoading(false);
         }
+        initialLoad = false;
       }
     }
 
     load();
-    const intervalId = window.setInterval(load, 10000);
+    const intervalId = window.setInterval(load, DASHBOARD_REFRESH_MS);
     return () => {
       active = false;
       window.clearInterval(intervalId);
@@ -329,14 +346,60 @@ export function DashboardShell() {
 
   useEffect(() => {
     let active = true;
+    let loadingRequest = false;
 
-    async function loadManagedBots() {
+    async function loadManagedBotSummary() {
+      if (loadingRequest) {
+        return;
+      }
       try {
-        const result = await fetchUpstoxManagedBotJobs();
+        loadingRequest = true;
+        const result = await fetchUpstoxManagedBotDashboardSummary();
         if (!active) {
           return;
         }
-        setManagedBots(result);
+        setManagedBotsSummary(result);
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+        setBotMessage(err instanceof Error ? err.message : "Failed to load managed bot summary");
+        setBotMessageTone("error");
+      } finally {
+        loadingRequest = false;
+      }
+    }
+
+    loadManagedBotSummary();
+    const intervalId = window.setInterval(loadManagedBotSummary, MANAGED_BOTS_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let loadingRequest = false;
+    const status_group = managedJobsView === "today" ? "active" : "history";
+
+    async function loadManagedBots() {
+      if (loadingRequest) {
+        return;
+      }
+      try {
+        loadingRequest = true;
+        const result = await fetchUpstoxManagedBotDashboardJobs({
+          status_group,
+          limit: 100,
+          strategy_id: managedJobsStrategyFilter,
+        });
+        if (!active) {
+          return;
+        }
+        setManagedBots(result.items);
+        setManagedBotsTotalCount(result.total_count);
+        setManagedBotsNextCursor(result.next_cursor ?? null);
       } catch (err) {
         if (!active) {
           return;
@@ -344,19 +407,21 @@ export function DashboardShell() {
         setBotMessage(err instanceof Error ? err.message : "Failed to load managed bot jobs");
         setBotMessageTone("error");
       } finally {
+        loadingRequest = false;
         if (active) {
           setManagedBotsLoading(false);
         }
       }
     }
 
+    setManagedBotsLoading(true);
     loadManagedBots();
-    const intervalId = window.setInterval(loadManagedBots, 5000);
+    const intervalId = window.setInterval(loadManagedBots, MANAGED_BOTS_REFRESH_MS);
     return () => {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [managedJobsStrategyFilter, managedJobsView]);
 
   async function handleRunUpstoxBot() {
     try {
@@ -418,7 +483,18 @@ export function DashboardShell() {
       setBotMessage(`Managed bot started: ${result.job_name} (${result.job_id})`);
       setBotMessageTone("success");
       setManagedJobName("");
-      setManagedBots(await fetchUpstoxManagedBotJobs());
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          status_group: managedJobsView === "today" ? "active" : "history",
+          limit: 100,
+          strategy_id: managedJobsStrategyFilter,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
       setExpandedBotJobId(result.job_id);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to start managed bot");
@@ -434,7 +510,18 @@ export function DashboardShell() {
       const result = await stopUpstoxManagedBot(jobId);
       setBotMessage(`Managed bot stop requested: ${result.job_name} (${result.job_id})`);
       setBotMessageTone("success");
-      setManagedBots(await fetchUpstoxManagedBotJobs());
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          status_group: managedJobsView === "today" ? "active" : "history",
+          limit: 100,
+          strategy_id: managedJobsStrategyFilter,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to stop managed bot");
       setBotMessageTone("error");
@@ -451,7 +538,18 @@ export function DashboardShell() {
         `Trade squared off for ${result.job_name} (${result.job_id}) at ${result.current_option_ltp ?? "latest quote"}.`,
       );
       setBotMessageTone("success");
-      setManagedBots(await fetchUpstoxManagedBotJobs());
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          status_group: managedJobsView === "today" ? "active" : "history",
+          limit: 100,
+          strategy_id: managedJobsStrategyFilter,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsNextCursor(jobsPage.next_cursor ?? null);
       setExpandedBotJobId(jobId);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to square off managed bot trade");
@@ -503,33 +601,33 @@ export function DashboardShell() {
     }
   }
 
-  const activeManagedBots = managedBots.filter((job) =>
+  const activeManagedBots = managedBotsSummary?.active_jobs ?? managedBots.filter((job) =>
     job.status === "starting" || job.status === "running" || job.status === "stopping",
   ).length;
-  const openManagedTrades = managedBots.filter((job) => job.has_open_trade).length;
-  const totalManagedInvestment = managedBots.reduce(
+  const openManagedTrades = managedBotsSummary?.open_bot_trades ?? managedBots.filter((job) => job.has_open_trade).length;
+  const totalManagedInvestment = managedBotsSummary?.total_investment ?? managedBots.reduce(
     (sum, job) =>
       sum + (job.has_open_trade ? Number(job.open_trade_entry_ltp || 0) * Number(job.open_trade_quantity || 0) : 0),
     0,
   );
-  const grossProfit = managedBots.reduce((sum, job) => {
+  const grossProfit = managedBotsSummary?.gross_profit ?? managedBots.reduce((sum, job) => {
     const total = Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0);
     return total > 0 ? sum + total : sum;
   }, 0);
-  const grossLoss = managedBots.reduce((sum, job) => {
+  const grossLoss = managedBotsSummary?.gross_loss ?? managedBots.reduce((sum, job) => {
     const total = Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0);
     return total < 0 ? sum + Math.abs(total) : sum;
   }, 0);
-  const todayRealizedPnl = managedBots.reduce((sum, job) => sum + Number(job.today_realized_pnl || 0), 0);
-  const fleetRealizedPnl = managedBots.reduce((sum, job) => sum + job.total_realized_pnl, 0);
+  const todayRealizedPnl = managedBotsSummary?.today_realized_pnl ?? managedBots.reduce((sum, job) => sum + Number(job.today_realized_pnl || 0), 0);
+  const fleetRealizedPnl = managedBotsSummary?.fleet_realized_pnl ?? managedBots.reduce((sum, job) => sum + job.total_realized_pnl, 0);
   const trackedExecutionSymbols = instruments.indices.length + instruments.stocks.length;
   const todayKey = localDateKey(new Date());
-  const todayManagedBots = managedBots
-    .filter((job) => matchesManagedBotTodayDesk(job, todayKey))
-    .sort(compareManagedBotsForTodayDesk);
-  const allHistoricalManagedBots = managedBots
-    .filter((job) => !matchesManagedBotTodayDesk(job, todayKey))
-    .sort(compareManagedBotsByStartedDesc);
+  const todayManagedBots = managedJobsView === "today"
+    ? [...managedBots].sort(compareManagedBotsForTodayDesk)
+    : [];
+  const allHistoricalManagedBots = managedJobsView === "history"
+    ? [...managedBots].sort(compareManagedBotsByStartedDesc)
+    : [];
   const historicalManagedBots = allHistoricalManagedBots
     .filter((job) =>
       matchesManagedBotHistoryWindow(
@@ -567,7 +665,7 @@ export function DashboardShell() {
     return total < 0 ? sum + Math.abs(total) : sum;
   }, 0);
   const executionMetrics: Array<{ label: string; value: number; display: string }> = [
-    { label: "Managed Jobs", value: managedBots.length, display: String(managedBots.length) },
+    { label: "Managed Jobs", value: managedBotsSummary?.managed_jobs ?? managedBotsTotalCount, display: String(managedBotsSummary?.managed_jobs ?? managedBotsTotalCount) },
     { label: "Active Jobs", value: activeManagedBots, display: String(activeManagedBots) },
     { label: "Open Bot Trades", value: openManagedTrades, display: String(openManagedTrades) },
     { label: "Total Investment", value: totalManagedInvestment, display: fmtMoney(totalManagedInvestment) },
@@ -1026,7 +1124,7 @@ export function DashboardShell() {
                       type="button"
                     >
                       <span>Today</span>
-                      <strong>{filteredTodayManagedBots.length}</strong>
+                      <strong>{managedBotsSummary?.active_jobs ?? filteredTodayManagedBots.length}</strong>
                     </button>
                     <button
                       className={`execution-jobs-view-tab ${managedJobsView === "history" ? "active" : ""}`}
@@ -1034,18 +1132,22 @@ export function DashboardShell() {
                       type="button"
                     >
                       <span>History</span>
-                      <strong>{filteredAllHistoricalManagedBots.length}</strong>
+                      <strong>
+                        {managedBotsSummary
+                          ? Math.max(0, managedBotsSummary.managed_jobs - managedBotsSummary.active_jobs)
+                          : filteredAllHistoricalManagedBots.length}
+                      </strong>
                     </button>
                   </div>
                   <div className="execution-jobs-toolbar mb-3">
                     <div>
                       <div className="fw-semibold">
-                        {managedJobsView === "today" ? "Today execution queue" : "Historical job archive"}
+                        {managedJobsView === "today" ? "Active execution queue" : "Recent historical jobs"}
                       </div>
                       <div className="small muted">
                         {managedJobsView === "today"
-                          ? "Today keeps jobs started today, plus live carry-forward bots from earlier sessions."
-                          : "History filters use each job's start date so the desk stays operationally clean."}
+                          ? "Dashboard loads only the hot active set so the desk stays responsive at larger fleet sizes."
+                          : "History is loaded as a bounded recent page instead of the full fleet archive."}
                       </div>
                       <div className="d-flex flex-wrap gap-2 mt-2">
                         {managedJobsView === "today" ? (
@@ -1055,9 +1157,12 @@ export function DashboardShell() {
                           </>
                         ) : (
                           <span className="badge-soft blue">
-                            Showing {filteredHistoricalManagedBots.length} of {filteredAllHistoricalManagedBots.length} older jobs
+                            Showing {filteredHistoricalManagedBots.length} of {managedBotsTotalCount} loaded historical matches
                           </span>
                         )}
+                        {managedBotsNextCursor ? (
+                          <span className="badge-soft gold">Showing first 100 rows</span>
+                        ) : null}
                         <span className={`badge-soft ${pnlTone(visibleManagedRealizedPnl)}`}>
                           Realized P/L {fmtMoney(visibleManagedRealizedPnl)}
                         </span>

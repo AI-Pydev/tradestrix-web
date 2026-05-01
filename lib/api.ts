@@ -493,6 +493,7 @@ export type UpstoxManagedBotJob = {
   pid?: number | null;
   instrument_key: string;
   side: "call" | "put";
+  execution_mode?: "paper" | "live";
   strategy_id: string;
   strategy_label: string;
   store_path: string;
@@ -531,6 +532,24 @@ export type UpstoxManagedBotJob = {
   quote_error?: string | null;
   log_line_count: number;
   recent_logs: string[];
+};
+
+export type UpstoxManagedBotDashboardSummary = {
+  managed_jobs: number;
+  active_jobs: number;
+  open_bot_trades: number;
+  total_investment: number;
+  today_realized_pnl: number;
+  gross_profit: number;
+  gross_loss: number;
+  fleet_realized_pnl: number;
+  updated_at: string;
+};
+
+export type UpstoxManagedBotPage = {
+  items: UpstoxManagedBotJob[];
+  total_count: number;
+  next_cursor?: string | null;
 };
 
 export type UpstoxManagedBotTrade = {
@@ -1215,25 +1234,15 @@ async function deleteBackend(path: string): Promise<void> {
 }
 
 export async function fetchDashboardData() {
-  const [dashboard, strategies, trades, signals, watchlists, alerts, brokers, instruments] = await Promise.all([
+  const [dashboard, trades, instruments] = await Promise.all([
     getJson<DashboardSnapshot>("/dashboard"),
-    getJson<StrategyConfig[]>("/strategies"),
     getJson<TradeRecord[]>("/trades"),
-    getJson<SignalEvent[]>("/signals"),
-    getJson<WatchlistGroup[]>("/watchlists"),
-    getJson<AlertEvent[]>("/alerts"),
-    getBackendJson<BrokerConnection[]>("/api/v1/brokers"),
     getBackendJson<InstrumentCatalogResponse>("/api/v1/instruments/catalog"),
   ]);
 
   return {
     dashboard,
-    strategies,
     trades,
-    signals,
-    watchlists,
-    alerts,
-    brokers,
     instruments,
   };
 }
@@ -1321,6 +1330,33 @@ export async function runUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRe
 
 export async function fetchUpstoxManagedBotJobs() {
   return getBackendJson<UpstoxManagedBotJob[]>("/api/v1/upstox/option-chain-bot/jobs");
+}
+
+export async function fetchUpstoxManagedBotDashboardSummary() {
+  return getBackendJson<UpstoxManagedBotDashboardSummary>("/api/v1/upstox/option-chain-bot/dashboard/summary");
+}
+
+export async function fetchUpstoxManagedBotDashboardJobs(params?: {
+  status_group?: "active" | "history";
+  limit?: number;
+  cursor?: string | null;
+  strategy_id?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params?.status_group) {
+    search.set("status_group", params.status_group);
+  }
+  if (params?.limit != null) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.cursor) {
+    search.set("cursor", params.cursor);
+  }
+  if (params?.strategy_id && params.strategy_id !== "all") {
+    search.set("strategy_id", params.strategy_id);
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<UpstoxManagedBotPage>(`/api/v1/upstox/option-chain-bot/dashboard/jobs${suffix}`);
 }
 
 export async function fetchUpstoxManagedBotTrades(jobId: string, limit = 100) {
