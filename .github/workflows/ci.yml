@@ -71,7 +71,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          images: ${{ steps.login-ecr.outputs.registry != '' && format('{0}/{1}', steps.login-ecr.outputs.registry, env.ECR_REPOSITORY) || env.ECR_REPOSITORY }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -87,6 +87,7 @@ jobs:
             NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
             NEXT_PUBLIC_BACKEND_BASE_URL=${{ vars.NEXT_PUBLIC_BACKEND_BASE_URL }}
           push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/')) }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
