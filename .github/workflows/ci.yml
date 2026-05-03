@@ -56,16 +56,28 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials (OIDC)
-        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'aws-upgrade' || startsWith(github.ref, 'refs/tags/'))
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_GHA_ROLE_ARN }}
 
       - name: Login to Amazon ECR
-        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'aws-upgrade' || startsWith(github.ref, 'refs/tags/'))
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate Docker tag
+        id: docker-tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # Format: v1.0.0
+            TAG="${{ github.ref_name }}"
+          else
+            # Format: TRADESTRIX-WEB_YYYYMMDD_HHMMSS (IST)
+            TAG="TRADESTRIX-WEB_$(TZ=Asia/Kolkata date +%Y%m%d_%H%M%S)"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Extract Docker metadata
         id: meta
@@ -73,11 +85,7 @@ jobs:
         with:
           images: ${{ steps.login-ecr.outputs.registry != '' && format('{0}/{1}', steps.login-ecr.outputs.registry, env.ECR_REPOSITORY) || env.ECR_REPOSITORY }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=raw,value=${{ steps.docker-tag.outputs.tag }}
 
       - name: Build and optionally push image
         id: build
@@ -87,8 +95,10 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
             NEXT_PUBLIC_BACKEND_BASE_URL=${{ vars.NEXT_PUBLIC_BACKEND_BASE_URL }}
-          push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/')) }}
+          push: ${{ github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'aws-upgrade' || startsWith(github.ref, 'refs/tags/')) }}
           load: ${{ github.event_name == 'pull_request' }}
+          provenance: false
+          sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -96,18 +106,16 @@ jobs:
 
       - name: Docker build summary
         if: always()
+        env:
+          IMAGE_REPO: ${{ steps.login-ecr.outputs.registry != '' && format('{0}/{1}', steps.login-ecr.outputs.registry, env.ECR_REPOSITORY) || env.ECR_REPOSITORY }}
+          PUSHED_TO_ECR: ${{ github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'aws-upgrade' || startsWith(github.ref, 'refs/tags/')) }}
         run: |
           {
             echo "## Web Docker image"
             echo ""
-            echo "- Tags:"
-            echo ""
-            echo '```'
-            echo "${{ steps.meta.outputs.tags }}"
-            echo '```'
-            echo ""
-            echo "- Digest: `${{ steps.build.outputs.digest }}`"
-            echo "- Pushed to ECR: `${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/')) }}`"
+            echo "- Docker image: ${IMAGE_REPO}:${{ steps.docker-tag.outputs.tag }}"
+            echo "- Digest: ${{ steps.build.outputs.digest }}"
+            echo "- Pushed to ECR: ${PUSHED_TO_ECR}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run Trivy scan
