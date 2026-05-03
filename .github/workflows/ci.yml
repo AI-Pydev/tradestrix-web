@@ -74,8 +74,14 @@ jobs:
             # Format: v1.0.0
             TAG="${{ github.ref_name }}"
           else
-            # Format: TRADESTRIX-WEB_YYYYMMDD_HHMMSS (IST)
-            TAG="TRADESTRIX-WEB_$(TZ=Asia/Kolkata date +%Y%m%d_%H%M%S)"
+            # Format: TRADESTRIX-WEB_<branch>_YYYYMMDD_HHMMSS (IST)
+            BRANCH="${{ github.ref_name }}"
+            BRANCH_SANITIZED="$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#-+#-#g; s#^-+##; s#-+$##')"
+            BRANCH_SANITIZED="${BRANCH_SANITIZED:0:40}"
+            if [[ -z "$BRANCH_SANITIZED" ]]; then
+              BRANCH_SANITIZED="branch"
+            fi
+            TAG="TRADESTRIX-WEB_${BRANCH_SANITIZED}_$(TZ=Asia/Kolkata date +%Y%m%d_%H%M%S)"
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
