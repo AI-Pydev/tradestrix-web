@@ -4,6 +4,7 @@ WORKDIR /app
 
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_BACKEND_BASE_URL
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
 COPY package*.json ./
 RUN npm ci
@@ -11,7 +12,8 @@ RUN npm ci
 COPY . .
 
 RUN if [ -n "$NEXT_PUBLIC_API_BASE_URL" ]; then echo "NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL" >> .env.production; fi \
- && if [ -n "$NEXT_PUBLIC_BACKEND_BASE_URL" ]; then echo "NEXT_PUBLIC_BACKEND_BASE_URL=$NEXT_PUBLIC_BACKEND_BASE_URL" >> .env.production; fi
+ && if [ -n "$NEXT_PUBLIC_BACKEND_BASE_URL" ]; then echo "NEXT_PUBLIC_BACKEND_BASE_URL=$NEXT_PUBLIC_BACKEND_BASE_URL" >> .env.production; fi \
+ && if [ -n "$NEXT_PUBLIC_GOOGLE_CLIENT_ID" ]; then echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID" >> .env.production; fi
 
 RUN npm run build
 

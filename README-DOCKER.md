@@ -63,6 +63,7 @@ The Docker build accepts environment variables:
 docker build \
   --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com \
   --build-arg NEXT_PUBLIC_BACKEND_BASE_URL=https://backend.example.com \
+  --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id \
   -t tradestrix-web:dev \
   .
 ```
