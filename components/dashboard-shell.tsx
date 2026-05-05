@@ -639,7 +639,8 @@ export function DashboardShell() {
       setBotMessageTone("success");
       const updated = await setUpstoxManagedBotMode(job.job_id, { execution_mode: targetMode });
       setManagedBots((prev) => prev.map((item) => (item.job_id === updated.job_id ? updated : item)));
-      setBotMessage(`Job mode set to ${updated.execution_mode.toUpperCase()} for ${updated.job_name}.`);
+      const resolvedMode = (updated.execution_mode ?? targetMode).toUpperCase();
+      setBotMessage(`Job mode set to ${resolvedMode} for ${updated.job_name}.`);
       setBotMessageTone("success");
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to update job mode");
