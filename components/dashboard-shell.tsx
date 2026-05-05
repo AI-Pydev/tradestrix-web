@@ -14,6 +14,7 @@ import {
     InstrumentCatalogResponse,
     previewUpstoxOptionChainBot,
     runUpstoxOptionChainBot,
+    setUpstoxManagedBotMode,
     squareOffUpstoxManagedBot,
     startUpstoxManagedBot,
     stopUpstoxManagedBot,
@@ -292,11 +293,13 @@ export function DashboardShell() {
   const [managedBotTrades, setManagedBotTrades] = useState<UpstoxManagedBotTrade[]>([]);
   const [managedBotTradesLoading, setManagedBotTradesLoading] = useState(false);
   const [managedBotTradesError, setManagedBotTradesError] = useState("");
+  const [managedBotModeId, setManagedBotModeId] = useState<string | null>(null);
   const [managedJobsView, setManagedJobsView] = useState<ManagedJobsView>("today");
   const [managedJobsHistoryPreset, setManagedJobsHistoryPreset] = useState<ManagedJobsHistoryPreset>("last7");
   const [managedJobsHistoryFrom, setManagedJobsHistoryFrom] = useState("");
   const [managedJobsHistoryTo, setManagedJobsHistoryTo] = useState("");
   const [managedJobsStrategyFilter, setManagedJobsStrategyFilter] = useState("all");
+  const [managedJobsLiveOnly, setManagedJobsLiveOnly] = useState(false);
   const [managedBotsTotalCount, setManagedBotsTotalCount] = useState(0);
   const [managedBotsCurrentPage, setManagedBotsCurrentPage] = useState(1);
   const [managedBotsTotalPages, setManagedBotsTotalPages] = useState(1);
@@ -616,6 +619,36 @@ export function DashboardShell() {
     }
   }
 
+  async function handleSetManagedBotMode(job: UpstoxManagedBotJob, targetMode: "paper" | "live") {
+    if (job.execution_mode === targetMode) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      targetMode === "live"
+        ? `Switch "${job.job_name}" (${job.job_id}) to LIVE mode? (Takes effect on next start; server may still reject live orders unless approved.)`
+        : `Switch "${job.job_name}" (${job.job_id}) to PAPER mode? (Takes effect on next start.)`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setManagedBotModeId(job.job_id);
+      setBotMessage("");
+      setBotMessageTone("success");
+      const updated = await setUpstoxManagedBotMode(job.job_id, { execution_mode: targetMode });
+      setManagedBots((prev) => prev.map((item) => (item.job_id === updated.job_id ? updated : item)));
+      setBotMessage(`Job mode set to ${updated.execution_mode.toUpperCase()} for ${updated.job_name}.`);
+      setBotMessageTone("success");
+    } catch (err) {
+      setBotMessage(err instanceof Error ? err.message : "Failed to update job mode");
+      setBotMessageTone("error");
+    } finally {
+      setManagedBotModeId(null);
+    }
+  }
+
   async function handleSquareOffManagedBot(jobId: string) {
     try {
       setManagedBotAction(`square:${jobId}`);
@@ -823,7 +856,10 @@ export function DashboardShell() {
   const filteredTodayManagedBots = todayManagedBots;
   const filteredHistoricalManagedBots = historicalManagedBots;
   const visibleManagedBots = managedJobsView === "today" ? filteredTodayManagedBots : filteredHistoricalManagedBots;
-  const deletableVisibleManagedBotIds = visibleManagedBots
+  const modeFilteredManagedBots = managedJobsLiveOnly
+    ? visibleManagedBots.filter((job) => job.execution_mode === "live")
+    : visibleManagedBots;
+  const deletableVisibleManagedBotIds = modeFilteredManagedBots
     .filter((job) => isManagedBotDeletable(job))
     .map((job) => job.job_id);
   const allVisibleManagedBotsSelected =
@@ -833,12 +869,12 @@ export function DashboardShell() {
   const carryForwardManagedBots = filteredTodayManagedBots.filter(
     (job) => managedBotIsLive(job) && managedBotStartedKey(job) !== todayKey,
   ).length;
-  const visibleManagedRealizedPnl = visibleManagedBots.reduce((sum, job) => sum + Number(job.total_realized_pnl || 0), 0);
-  const visibleManagedTotalPnl = visibleManagedBots.reduce(
+  const visibleManagedRealizedPnl = modeFilteredManagedBots.reduce((sum, job) => sum + Number(job.total_realized_pnl || 0), 0);
+  const visibleManagedTotalPnl = modeFilteredManagedBots.reduce(
     (sum, job) => sum + Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0),
     0,
   );
-  const visibleManagedTotalLoss = visibleManagedBots.reduce((sum, job) => {
+  const visibleManagedTotalLoss = modeFilteredManagedBots.reduce((sum, job) => {
     const total = Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0);
     return total < 0 ? sum + Math.abs(total) : sum;
   }, 0);
@@ -1333,13 +1369,13 @@ export function DashboardShell() {
                             <span className="badge-soft blue">Started today {todayStartedManagedBots}</span>
                             <span className="badge-soft gold">Carry-forward live {carryForwardManagedBots}</span>
                             <span className="badge-soft blue">
-                              Showing {visibleManagedBots.length} of {managedBotsTotalCount} active jobs
+                              Showing {modeFilteredManagedBots.length} of {managedBotsTotalCount} active jobs
                             </span>
                           </>
                         ) : (
                           <>
                             <span className="badge-soft blue">
-                              Showing {visibleManagedBots.length} of {managedBotsTotalCount} historical jobs
+                              Showing {modeFilteredManagedBots.length} of {managedBotsTotalCount} historical jobs
                             </span>
                           </>
                         )}
@@ -1372,6 +1408,17 @@ export function DashboardShell() {
                             </option>
                           ))}
                         </select>
+                      </label>
+                      <label className="execution-jobs-filter-field">
+                        <span>Live only</span>
+                        <div className="d-flex align-items-center gap-2">
+                          <input
+                            checked={managedJobsLiveOnly}
+                            onChange={(e) => setManagedJobsLiveOnly(e.target.checked)}
+                            type="checkbox"
+                          />
+                          <span className="muted small">execution_mode=live</span>
+                        </div>
                       </label>
                       <label className="execution-jobs-filter-field">
                         <span>Rows</span>
@@ -1497,6 +1544,7 @@ export function DashboardShell() {
                         <tr>
                           {managedJobsView === "history" ? <th>Select</th> : null}
                           <th>Status</th>
+                          <th>Mode</th>
                           <th>Job</th>
                           <th>Instrument</th>
                           <th>Store</th>
@@ -1510,12 +1558,12 @@ export function DashboardShell() {
                       <tbody>
                         {managedBotsLoading ? (
                           <tr>
-                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                            <td colSpan={managedJobsView === "history" ? 11 : 10} className="empty-state">
                               Loading managed bot jobs...
                             </td>
                           </tr>
-                        ) : visibleManagedBots.length ? (
-                          visibleManagedBots.map((job) => (
+                        ) : modeFilteredManagedBots.length ? (
+                          modeFilteredManagedBots.map((job) => (
                             <Fragment key={job.job_id}>
                               <tr>
                                 {managedJobsView === "history" ? (
@@ -1539,6 +1587,23 @@ export function DashboardShell() {
                                 ) : null}
                                 <td>
                                   <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
+                                </td>
+                                <td>
+                                  <label className="d-flex align-items-center gap-2 mb-0">
+                                    <input
+                                      checked={job.execution_mode === "live"}
+                                      disabled={managedBotModeId === job.job_id}
+                                      onChange={(e) => void handleSetManagedBotMode(job, e.target.checked ? "live" : "paper")}
+                                      type="checkbox"
+                                    />
+                                    <span className={`badge-soft ${job.execution_mode === "live" ? "blue" : "gold"}`}>
+                                      {managedBotModeId === job.job_id
+                                        ? "Saving..."
+                                        : job.execution_mode === "live"
+                                          ? "LIVE"
+                                          : "PAPER"}
+                                    </span>
+                                  </label>
                                 </td>
                                 <td>
                                   <div className="fw-semibold">{job.job_name}</div>

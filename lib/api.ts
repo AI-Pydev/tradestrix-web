@@ -1432,6 +1432,16 @@ export async function testTradingViewAlertTemplateWebhook(templateId: string) {
   );
 }
 
+export async function setTradingViewAlertTemplateLive(templateId: string) {
+  const encoded = encodeURIComponent(templateId);
+  return postBackendJson<TradingViewAlertTemplate>(`/api/v1/tradingview-alert-templates/${encoded}/live`);
+}
+
+export async function setTradingViewAlertTemplatePaper(templateId: string) {
+  const encoded = encodeURIComponent(templateId);
+  return postBackendJson<TradingViewAlertTemplate>(`/api/v1/tradingview-alert-templates/${encoded}/paper`);
+}
+
 export async function fetchTradingViewAlertTemplateEvents(
   templateId: string,
   limit = 50,
@@ -1589,6 +1599,14 @@ export async function stopUpstoxManagedBot(jobId: string) {
 
 export async function squareOffUpstoxManagedBot(jobId: string) {
   return postBackendJson<UpstoxManagedBotJob>(`/api/v1/upstox/option-chain-bot/jobs/${jobId}/square-off`);
+}
+
+export async function setUpstoxManagedBotMode(jobId: string, payload: { execution_mode: "paper" | "live" }) {
+  const encoded = encodeURIComponent(jobId);
+  return postBackendJsonWithBody<UpstoxManagedBotJob, { execution_mode: "paper" | "live" }>(
+    `/api/v1/upstox/option-chain-bot/jobs/${encoded}/mode`,
+    payload,
+  );
 }
 
 export async function deleteUpstoxManagedBot(jobId: string) {
