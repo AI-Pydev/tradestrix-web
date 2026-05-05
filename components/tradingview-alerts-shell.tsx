@@ -12,6 +12,8 @@ import {
     listTradingViewAlertTemplates,
     regenerateTradingViewAlertTemplateStrategyId,
     regenerateTradingViewAlertTemplateToken,
+    setTradingViewAlertTemplateLive,
+    setTradingViewAlertTemplatePaper,
     testTradingViewAlertTemplateWebhook,
     TradingViewAlertTemplate,
     TradingViewAlertTemplateCreateRequest,
@@ -188,6 +190,7 @@ export function TradingViewAlertsShell() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [switchingModeId, setSwitchingModeId] = useState<string | null>(null);
 
   const indices = useMemo(() => catalog.filter((item) => item.kind === "index"), [catalog]);
   const commodities = useMemo(() => catalog.filter((item) => item.kind === "commodity"), [catalog]);
@@ -517,6 +520,38 @@ export function TradingViewAlertsShell() {
     }
   }
 
+  async function handleSwitchMode(template: TradingViewAlertTemplate, targetMode: 1 | 3) {
+    if (template.trade_mode === targetMode) {
+      return;
+    }
+
+    const promptText =
+      targetMode === 3
+        ? `Switch template ${template.template_id} to LIVE mode? (Server must allow real trading, otherwise orders will be rejected.)`
+        : `Switch template ${template.template_id} to PAPER mode?`;
+    if (!window.confirm(promptText)) {
+      return;
+    }
+
+    try {
+      setSwitchingModeId(template.template_id);
+      setError("");
+      setMessage("");
+      const updated =
+        targetMode === 3
+          ? await setTradingViewAlertTemplateLive(template.template_id)
+          : await setTradingViewAlertTemplatePaper(template.template_id);
+      setTemplates((prev) => prev.map((item) => (item.template_id === updated.template_id ? updated : item)));
+      setMessage(`Template mode set to ${updated.trade_mode === 3 ? "LIVE" : "PAPER"}.`);
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to switch template mode");
+      setMessageTone("error");
+    } finally {
+      setSwitchingModeId(null);
+    }
+  }
+
   function openDeleteDialog(template: TradingViewAlertTemplate) {
     setDeleteDialog({
       templateId: template.template_id,
@@ -839,7 +874,8 @@ export function TradingViewAlertsShell() {
                 const isBusy =
                   testingId === template.template_id ||
                   rotatingId === template.template_id ||
-                  deletingId === template.template_id;
+                  deletingId === template.template_id ||
+                  switchingModeId === template.template_id;
                 const lotSize = instrumentLotSize(template.instrument_key, catalog);
                 const lotDraft = lotDrafts[template.template_id] ?? String(template.lots);
                 const parsedLots = toInt(lotDraft, template.lots);
@@ -998,6 +1034,18 @@ export function TradingViewAlertsShell() {
 
                         <div className="col-12">
                           <div className="d-flex flex-wrap gap-2">
+                            <button
+                              className={template.trade_mode === 3 ? "btn btn-outline-light" : "btn btn-outline-primary"}
+                              disabled={isBusy}
+                              onClick={() => void handleSwitchMode(template, template.trade_mode === 3 ? 1 : 3)}
+                              type="button"
+                            >
+                              {switchingModeId === template.template_id
+                                ? "Switching..."
+                                : template.trade_mode === 3
+                                  ? "Switch to Paper"
+                                  : "Switch to Live"}
+                            </button>
                             <button
                               className="btn btn-outline-warning"
                               disabled={isBusy}
