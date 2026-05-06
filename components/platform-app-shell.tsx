@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
@@ -460,6 +461,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             </div>
           </div>
           <div className="platform-topbar-right">
+            <PwaInstallButton />
             {user.role === "ADMIN" ? (
               <Link className="platform-topbar-link" href="/admin">
                 Admin
