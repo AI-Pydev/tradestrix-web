@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
@@ -24,6 +25,24 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "TradeStrix Platform",
   description: "Landing page and operator surfaces for the TradeStrix trading platform.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "TradeStrix",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TradeStrix",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/tradestrix-192.svg", type: "image/svg+xml" },
+      { url: "/icons/tradestrix-512.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icons/tradestrix-192.svg", type: "image/svg+xml" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#081321",
 };
 
 
