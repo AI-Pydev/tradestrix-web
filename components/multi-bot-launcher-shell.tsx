@@ -39,6 +39,7 @@ type LauncherFilters = {
 };
 
 type LauncherSettings = {
+  execution_mode: "paper" | "live";
   expiry: string;
   candle_interval: string;
   strike_offset: number;
@@ -282,6 +283,7 @@ export function MultiBotLauncherShell() {
     search: "",
   });
   const [settings, setSettings] = useState<LauncherSettings>({
+    execution_mode: "paper",
     expiry: "",
     candle_interval: "3",
     strike_offset: 0,
@@ -582,6 +584,7 @@ export function MultiBotLauncherShell() {
       auto_store_path: true,
       instrument_key: request.item.instrument_key,
       expiry: settings.expiry.trim() ? settings.expiry.trim() : null,
+      execution_mode: settings.execution_mode,
       market_data_broker: "upstox",
       fallback_broker: "kite",
       force_fallback_for_test: false,
@@ -935,6 +938,22 @@ export function MultiBotLauncherShell() {
                             setSettings((prev) => ({ ...prev, strike_offset: Number(e.target.value) || 0 }))
                           }
                         />
+                      </div>
+                      <div className="col-6 col-md-2">
+                        <label className="form-label">Execution Mode</label>
+                        <select
+                          className="form-select"
+                          value={settings.execution_mode}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              execution_mode: e.target.value as "paper" | "live",
+                            }))
+                          }
+                        >
+                          <option value="paper">Paper</option>
+                          <option value="live">Live</option>
+                        </select>
                       </div>
                       <div className="col-6 col-md-2">
                         <label className="form-label">Max LTP</label>

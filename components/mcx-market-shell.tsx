@@ -250,6 +250,7 @@ export function McxMarketShell() {
   const [form, setForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "",
     expiry: "",
+    execution_mode: "paper",
     market_data_broker: "upstox",
     fallback_broker: "kite",
     force_fallback_for_test: false,
@@ -512,6 +513,7 @@ export function McxMarketShell() {
           instrument_key: launchInstrumentKey,
           commodity_symbol: previewSymbol || null,
           expiry: form.expiry?.trim() ? form.expiry.trim() : null,
+          execution_mode: form.execution_mode,
           market_data_broker: form.market_data_broker,
           fallback_broker: form.fallback_broker ?? null,
           force_fallback_for_test: form.force_fallback_for_test,
@@ -707,6 +709,22 @@ export function McxMarketShell() {
                       value={form.expiry ?? ""}
                       onChange={(e) => setForm((prev) => ({ ...prev, expiry: e.target.value }))}
                     />
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Execution Mode</label>
+                    <select
+                      className="form-select"
+                      value={form.execution_mode}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          execution_mode: e.target.value as "paper" | "live",
+                        }))
+                      }
+                    >
+                      <option value="paper">Paper</option>
+                      <option value="live">Live</option>
+                    </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
                     <label className="form-label">Candle Interval</label>

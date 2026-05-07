@@ -308,6 +308,7 @@ export function DashboardShell() {
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
+    execution_mode: "paper",
     market_data_broker: "upstox",
     fallback_broker: "kite",
     force_fallback_for_test: false,
@@ -531,6 +532,7 @@ export function DashboardShell() {
         auto_store_path: managedAutoStorePath,
         instrument_key: botForm.instrument_key,
         expiry: botForm.expiry?.trim() ? botForm.expiry.trim() : null,
+        execution_mode: botForm.execution_mode,
         market_data_broker: botForm.market_data_broker,
         fallback_broker: botForm.fallback_broker ?? null,
         force_fallback_for_test: botForm.force_fallback_for_test,
@@ -1038,6 +1040,22 @@ export function DashboardShell() {
                       <option value="kite">Kite</option>
                     </select>
                     <div className="small muted mt-1">Kotak Neo stays the execution broker.</div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Execution Mode</label>
+                    <select
+                      className="form-select"
+                      value={botForm.execution_mode}
+                      onChange={(e) =>
+                        setBotForm((prev) => ({
+                          ...prev,
+                          execution_mode: e.target.value as "paper" | "live",
+                        }))
+                      }
+                    >
+                      <option value="paper">Paper</option>
+                      <option value="live">Live</option>
+                    </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
                     <label className="form-label">Fallback Broker</label>
