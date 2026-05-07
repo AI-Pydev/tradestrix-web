@@ -493,6 +493,7 @@ export type UpstoxOptionChainBotRunRequest = {
   instrument_key: string;
   commodity_symbol?: string | null;
   expiry?: string | null;
+  execution_mode: "paper" | "live";
   market_data_broker: "upstox" | "kite";
   fallback_broker?: "upstox" | "kite" | null;
   force_fallback_for_test: boolean;
@@ -542,6 +543,7 @@ export type UpstoxManagedBotStartRequest = {
   instrument_key: string;
   commodity_symbol?: string | null;
   expiry?: string | null;
+  execution_mode: "paper" | "live";
   market_data_broker: "upstox" | "kite";
   fallback_broker?: "upstox" | "kite" | null;
   force_fallback_for_test: boolean;
