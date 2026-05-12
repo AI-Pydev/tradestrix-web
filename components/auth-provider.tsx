@@ -3,15 +3,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import {
-  clearStoredAuthToken,
-  fetchAuthSession,
-  getStoredAuthToken,
-  listenForAuthChanges,
-  loginWithBypassToken,
-  loginWithGoogleCredential,
-  setStoredAuthToken,
-  type AuthUser,
-  type GoogleLoginResponse,
+    clearStoredAuthToken,
+    fetchAuthSession,
+    getStoredAuthToken,
+    listenForAuthChanges,
+    loginWithBypassToken,
+    loginWithGoogleCredential,
+    setStoredAuthToken,
+    type AuthUser,
+    type GoogleLoginResponse,
 } from "@/lib/auth";
 
 type AuthContextValue = {
