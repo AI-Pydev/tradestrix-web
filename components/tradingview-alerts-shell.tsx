@@ -32,6 +32,7 @@ type FormState = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: string;
   option_offset: string;
   pine_strategy_id: string;
@@ -333,6 +334,7 @@ export function TradingViewAlertsShell() {
     side: "call",
     paper_trade: true,
     trade_mode: 1,
+    execution_broker: "kotak_neo",
     lots: "1",
     option_offset: "0",
     pine_strategy_id: "",
@@ -414,6 +416,7 @@ export function TradingViewAlertsShell() {
         side: form.side,
         paper_trade: form.trade_mode !== 3,
         trade_mode: form.trade_mode,
+        execution_broker: form.trade_mode === 3 ? (form.execution_broker ?? "kotak_neo") : null,
         lots: Math.max(toInt(form.lots, 1), 1),
         quantity: null,
         option_offset: Math.max(toInt(form.option_offset, 0), 0),
@@ -786,6 +789,27 @@ export function TradingViewAlertsShell() {
                     <div className="muted small mt-1">
                       {form.trade_mode === 1 ? "Price check via Kite, no order" : "Real order via Kotak Neo"}
                     </div>
+                  </div>
+                  <div>
+                    <label className="form-label">Execution Broker</label>
+                    <select
+                      className="form-select form-select-sm"
+                      disabled={form.trade_mode !== 3}
+                      value={form.execution_broker ?? "kotak_neo"}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          execution_broker: e.target.value as "kotak_neo" | "upstox" | "kite",
+                        }))
+                      }
+                    >
+                      <option value="kotak_neo">Kotak Neo</option>
+                      <option value="upstox">Upstox</option>
+                      <option value="kite">Kite (Zerodha)</option>
+                    </select>
+                    {form.trade_mode !== 3 && (
+                      <div className="small muted mt-1">Switch to Live to select broker.</div>
+                    )}
                   </div>
                 </div>
 

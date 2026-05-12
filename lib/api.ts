@@ -494,6 +494,7 @@ export type UpstoxOptionChainBotRunRequest = {
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
+  execution_broker?: "kotak" | "upstox" | "kite" | null;
   market_data_broker: "upstox" | "kite";
   fallback_broker?: "upstox" | "kite" | null;
   force_fallback_for_test: boolean;
@@ -544,6 +545,7 @@ export type UpstoxManagedBotStartRequest = {
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
+  execution_broker?: "kotak" | "upstox" | "kite" | null;
   market_data_broker: "upstox" | "kite";
   fallback_broker?: "upstox" | "kite" | null;
   force_fallback_for_test: boolean;
@@ -703,6 +705,7 @@ export type UpstoxIndexAutoLaunchConfig = {
   default_call_strategy_id: string;
   default_put_strategy_id: string;
   enabled_strategy_basket_ids: string[];
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   candle_unit: string;
   candle_interval: string;
   strike_offset: number;
@@ -1214,6 +1217,7 @@ export type TradingViewAlertTemplate = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: number;
   quantity: number;
   option_offset: number;
@@ -1235,6 +1239,7 @@ export type TradingViewAlertTemplateCreateRequest = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: number;
   quantity?: number | null;
   option_offset: number;
@@ -1562,6 +1567,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   call_strategy_id?: string | null;
   put_strategy_id?: string | null;
   apply_to_targets?: boolean;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
 }) {
   return postBackendJsonWithBody<
     UpstoxIndexAutoLaunchStatus,

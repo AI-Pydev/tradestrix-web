@@ -82,6 +82,7 @@ export function IndexAutoLaunchShell() {
   const [error, setError] = useState("");
   const [savingStrategy, setSavingStrategy] = useState<string | null>(null); // "instrumentKey:side"
   const [savingPreset, setSavingPreset] = useState<string | null>(null);
+  const [savingBroker, setSavingBroker] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -180,6 +181,24 @@ export function IndexAutoLaunchShell() {
       setMessageTone("error");
     } finally {
       setSavingPreset(null);
+    }
+  }
+
+  async function handleSetBroker(brokerName: string) {
+    try {
+      setSavingBroker(true);
+      setMessage("");
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
+        execution_broker: brokerName as "paper" | "kotak_neo" | "upstox" | "kite",
+      });
+      setStatus(result);
+      setMessage(`Execution broker set to ${brokerName === "paper" ? "Paper" : brokerName}.`);
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to update broker");
+      setMessageTone("error");
+    } finally {
+      setSavingBroker(false);
     }
   }
 
@@ -288,6 +307,24 @@ export function IndexAutoLaunchShell() {
                     {savingPreset === preset.key ? `Applying ${preset.label}...` : preset.label}
                   </button>
                 ))}
+              </div>
+              <div className="d-flex gap-2 align-items-end flex-wrap mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <div>
+                  <label className="form-label">Execution Broker</label>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: "160px" }}
+                    disabled={action !== "" || savingPreset !== null || savingStrategy !== null || savingBroker}
+                    value={status?.config.execution_broker ?? "paper"}
+                    onChange={(e) => void handleSetBroker(e.target.value)}
+                  >
+                    <option value="paper">Paper Trading</option>
+                    <option value="kotak_neo">Kotak Neo</option>
+                    <option value="upstox">Upstox</option>
+                    <option value="kite">Kite (Zerodha)</option>
+                  </select>
+                  {savingBroker && <div className="small muted mt-1">Updating...</div>}
+                </div>
               </div>
               <div className="muted mt-3">
                 Default CALL: {strategyOptionLabel("call", status?.config.default_call_strategy_id)} | Default PUT:{" "}

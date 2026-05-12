@@ -309,6 +309,7 @@ export function DashboardShell() {
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
     execution_mode: "paper",
+    execution_broker: "kotak" as "kotak" | "upstox" | "kite",
     market_data_broker: "upstox",
     fallback_broker: "kite",
     force_fallback_for_test: false,
@@ -533,6 +534,7 @@ export function DashboardShell() {
         instrument_key: botForm.instrument_key,
         expiry: botForm.expiry?.trim() ? botForm.expiry.trim() : null,
         execution_mode: botForm.execution_mode,
+        execution_broker: botForm.execution_mode === "live" ? (botForm.execution_broker ?? "kotak") : null,
         market_data_broker: botForm.market_data_broker,
         fallback_broker: botForm.fallback_broker ?? null,
         force_fallback_for_test: botForm.force_fallback_for_test,
@@ -1039,7 +1041,6 @@ export function DashboardShell() {
                       <option value="upstox">Upstox</option>
                       <option value="kite">Kite</option>
                     </select>
-                    <div className="small muted mt-1">Kotak Neo stays the execution broker.</div>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
                     <label className="form-label">Execution Mode</label>
@@ -1056,6 +1057,27 @@ export function DashboardShell() {
                       <option value="paper">Paper</option>
                       <option value="live">Live</option>
                     </select>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Execution Broker</label>
+                    <select
+                      className="form-select"
+                      disabled={botForm.execution_mode !== "live"}
+                      value={botForm.execution_broker ?? "kotak"}
+                      onChange={(e) =>
+                        setBotForm((prev) => ({
+                          ...prev,
+                          execution_broker: e.target.value as "kotak" | "upstox" | "kite",
+                        }))
+                      }
+                    >
+                      <option value="kotak">Kotak Neo</option>
+                      <option value="upstox">Upstox</option>
+                      <option value="kite">Kite (Zerodha)</option>
+                    </select>
+                    {botForm.execution_mode !== "live" && (
+                      <div className="small muted mt-1">Switch to Live to select broker.</div>
+                    )}
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
                     <label className="form-label">Fallback Broker</label>
