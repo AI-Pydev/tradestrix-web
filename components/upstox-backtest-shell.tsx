@@ -71,6 +71,7 @@ const CALL_STRATEGY_OPTIONS = [
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_oc_call", label: "JK OC CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
+  { value: "momentum_call", label: "Momentum CALL" },
 ];
 
 const PUT_STRATEGY_OPTIONS = [
@@ -78,6 +79,7 @@ const PUT_STRATEGY_OPTIONS = [
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
   { value: "jk_ema_put", label: "JK EMA PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
+  { value: "momentum_put", label: "Momentum PUT" },
 ];
 
 function defaultStrategyIdForSide(side: BotSide) {

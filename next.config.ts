@@ -12,6 +12,10 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Next.js 16 uses Turbopack by default for `next dev`. `next-pwa` injects a
+  // webpack config even when disabled in development, which triggers a startup
+  // error unless Turbopack is explicitly configured.
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
