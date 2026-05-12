@@ -205,7 +205,8 @@ export function TradingViewAlertsShell() {
       const exitLtp = asNumber(event.exit_ltp) ?? payloadNumber(event.payload, "exit_ltp", "exit_price");
       const pnl = asNumber(event.pnl) ?? payloadNumber(event.payload, "pnl", "pnl_amount");
       const indiaVix =
-        asNumber((event as any).india_vix) ?? payloadNumber(event.payload, "india_vix", "vix", "indiaVix");
+        asNumber((event as Record<string, unknown>).india_vix) ??
+        payloadNumber(event.payload, "india_vix", "vix", "indiaVix");
 
       let totalPnl =
         asNumber(event.total_pnl) ?? payloadNumber(event.payload, "total_pnl", "running_pnl", "cum_pnl");

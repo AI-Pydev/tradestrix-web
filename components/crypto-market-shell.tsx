@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
@@ -348,8 +347,6 @@ export function CryptoMarketShell() {
 
   useEffect(() => {
     void loadDashboard();
-    // Initial load only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const summaryCards = [

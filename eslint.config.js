@@ -4,7 +4,15 @@ const tsPlugin = require('@typescript-eslint/eslint-plugin');
 
 module.exports = [
   {
-    ignores: ['.next/**', 'node_modules/**', 'out/**', '.git/**'],
+    ignores: [
+      '.next/**',
+      'node_modules/**',
+      'out/**',
+      '.git/**',
+      'public/sw.js',
+      'public/workbox-*.js',
+      'eslint.config.js',
+    ],
   },
   {
     files: ['**/*.{js,jsx,ts,tsx}'],

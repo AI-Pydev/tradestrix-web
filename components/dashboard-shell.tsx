@@ -179,54 +179,6 @@ function managedBotIsLive(job: UpstoxManagedBotJob) {
   return job.status === "starting" || job.status === "running" || job.status === "stopping" || job.has_open_trade;
 }
 
-function matchesManagedBotTodayDesk(job: UpstoxManagedBotJob, todayKey: string) {
-  if (managedBotIsLive(job)) {
-    return true;
-  }
-  return managedBotStartedKey(job) === todayKey;
-}
-
-function withinInclusiveDateRange(valueKey: string, startKey?: string, endKey?: string) {
-  if (!valueKey) {
-    return false;
-  }
-  if (startKey && valueKey < startKey) {
-    return false;
-  }
-  if (endKey && valueKey > endKey) {
-    return false;
-  }
-  return true;
-}
-
-function matchesManagedBotHistoryWindow(
-  job: UpstoxManagedBotJob,
-  preset: ManagedJobsHistoryPreset,
-  customFrom: string,
-  customTo: string,
-) {
-  const startedKey = managedBotStartedKey(job);
-  if (!startedKey) {
-    return false;
-  }
-
-  const now = new Date();
-  const yesterdayKey = localDateKey(shiftLocalDate(now, -1));
-  const last7StartKey = localDateKey(shiftLocalDate(now, -7));
-  const last30StartKey = localDateKey(shiftLocalDate(now, -30));
-
-  if (preset === "yesterday") {
-    return withinInclusiveDateRange(startedKey, yesterdayKey, yesterdayKey);
-  }
-  if (preset === "last7") {
-    return withinInclusiveDateRange(startedKey, last7StartKey, yesterdayKey);
-  }
-  if (preset === "last30") {
-    return withinInclusiveDateRange(startedKey, last30StartKey, yesterdayKey);
-  }
-  return withinInclusiveDateRange(startedKey, customFrom || undefined, customTo || undefined);
-}
-
 function managedBotHistoryRange(
   preset: ManagedJobsHistoryPreset,
   customFrom: string,

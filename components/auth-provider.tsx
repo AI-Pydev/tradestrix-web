@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await fetchAuthSession();
       setUser(result.user);
-    } catch (_error) {
+    } catch {
       clearStoredAuthToken();
       setUser(null);
     } finally {
