@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
 
 const target = path.join(process.cwd(), ".next");
 const allowFailure = process.argv.includes("--allow-failure");

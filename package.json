@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "clean": "node scripts/clean-next.js",
-    "predev": "node scripts/clean-next.js --allow-failure",
+    "clean": "node scripts/clean-next.mjs",
+    "predev": "node scripts/clean-next.mjs --allow-failure",
     "prebuild": "npm run clean",
     "dev": "next dev",
     "build": "next build --webpack",
