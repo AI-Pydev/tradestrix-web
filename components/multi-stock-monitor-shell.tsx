@@ -4,10 +4,22 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchDashboardData, TradeRecord } from "@/lib/api";
+import { buildAuthorizedHeaders } from "@/lib/auth";
 
 type MonitorState = {
   trades: TradeRecord[];
 };
+
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+
+// Maps backend execution_mode ("paper" | "real") to the trade.mode value
+// recorded on each TradeRecord ("paper" | "live"). Returns null when the
+// status is unknown so the UI doesn't hide trades while still loading.
+function tradeModeFromStatus(statusMode: string | null): "paper" | "live" | null {
+  if (statusMode === "real") return "live";
+  if (statusMode === "paper") return "paper";
+  return null;
+}
 
 function fmtDate(value: string) {
   return new Date(value).toLocaleString();
@@ -52,6 +64,9 @@ export function MultiStockMonitorShell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [view, setView] = useState<"today" | "all">("today");
+  // Backend execution_mode drives which trades render. Null until first fetch
+  // succeeds so we don't hide anything during initial load.
+  const [statusMode, setStatusMode] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -59,11 +74,21 @@ export function MultiStockMonitorShell() {
     async function load() {
       try {
         setLoading(true);
-        const result = await fetchDashboardData();
+        const [result, statusResp] = await Promise.all([
+          fetchDashboardData(),
+          fetch(`${BACKEND_BASE_URL}/api/v1/execution/status`, {
+            headers: buildAuthorizedHeaders(),
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+        ]);
         if (!active) {
           return;
         }
         setData({ trades: result.trades });
+        if (statusResp && typeof statusResp.mode === "string") {
+          setStatusMode(statusResp.mode);
+        }
         setError("");
       } catch (err) {
         if (!active) {
@@ -87,33 +112,51 @@ export function MultiStockMonitorShell() {
 
   const todayKey = localDateKey(new Date());
   const trades = useMemo(() => data?.trades ?? [], [data?.trades]);
+  const effectiveTradeMode = tradeModeFromStatus(statusMode);
   const visibleTrades = useMemo(() => {
+    // Filter by current execution mode: live mode shows only live trades and
+    // vice versa. When status hasn't resolved yet, show everything so the user
+    // isn't staring at an empty table during the first poll.
+    const modeScoped = effectiveTradeMode
+      ? trades.filter((trade) => trade.mode === effectiveTradeMode)
+      : trades;
     const rows = view === "today"
-      ? trades.filter((trade) => {
+      ? modeScoped.filter((trade) => {
           const openedAt = parseIsoDate(trade.opened_at);
           return openedAt ? localDateKey(openedAt) === todayKey : false;
         })
-      : trades;
+      : modeScoped;
     return [...rows].sort((a, b) => {
       const left = parseIsoDate(a.opened_at)?.getTime() ?? 0;
       const right = parseIsoDate(b.opened_at)?.getTime() ?? 0;
       return right - left;
     });
-  }, [todayKey, trades, view]);
+  }, [todayKey, trades, view, effectiveTradeMode]);
 
-  const openTrades = trades.filter((trade) => trade.status === "OPEN").length;
-  const closedTrades = trades.filter((trade) => trade.status === "CLOSED");
+  // Metrics share the same mode scoping as the trade table so the numbers
+  // match what's rendered below (e.g. "Total Trades: 5" matches 5 rows).
+  const modeScopedTrades = useMemo(
+    () =>
+      effectiveTradeMode
+        ? trades.filter((trade) => trade.mode === effectiveTradeMode)
+        : trades,
+    [trades, effectiveTradeMode],
+  );
+  const openTrades = modeScopedTrades.filter((trade) => trade.status === "OPEN").length;
+  const closedTrades = modeScopedTrades.filter((trade) => trade.status === "CLOSED");
   const realizedPnl = closedTrades.reduce((sum, trade) => sum + Number(trade.pnl || 0), 0);
   const winTrades = closedTrades.filter((trade) => Number(trade.pnl || 0) > 0).length;
   const winRate = closedTrades.length ? (winTrades / closedTrades.length) * 100 : 0;
 
   const metrics = [
-    { label: "Total Trades", value: fmtNumber(trades.length), tone: "" },
+    { label: "Total Trades", value: fmtNumber(modeScopedTrades.length), tone: "" },
     { label: "Open Trades", value: fmtNumber(openTrades), tone: openTrades > 0 ? "positive" : "" },
     { label: "Closed Trades", value: fmtNumber(closedTrades.length), tone: "" },
     { label: "Realized P/L", value: fmtMoney(realizedPnl), tone: realizedPnl > 0 ? "positive" : realizedPnl < 0 ? "negative" : "" },
     { label: "Win Rate", value: `${fmtNumber(winRate)}%`, tone: winRate >= 60 ? "positive" : "" },
   ];
+
+  const hiddenTradeCount = trades.length - modeScopedTrades.length;
 
   return (
     <main className="app-shell">
@@ -167,6 +210,17 @@ export function MultiStockMonitorShell() {
           <div className="p-3 pb-0 small muted">
             Data comes from `/api/v1/multi-stock/trades`. Rows appear here only when the backend receives `/api/v1/multi-stock/signals` or `/api/v1/multi-stock/trades/manual` requests. This page is separate from Multi-Bot launcher jobs.
           </div>
+          {effectiveTradeMode && (
+            <div className="px-3 pt-2 small">
+              <span className={`badge-soft ${effectiveTradeMode === "live" ? "red" : "green"} me-2`}>
+                {effectiveTradeMode === "live" ? "🔴 LIVE MODE" : "🟢 PAPER MODE"}
+              </span>
+              <span className="muted">
+                Showing only {effectiveTradeMode} trades
+                {hiddenTradeCount > 0 ? ` (${hiddenTradeCount} ${effectiveTradeMode === "live" ? "paper" : "live"} trade${hiddenTradeCount === 1 ? "" : "s"} hidden)` : ""}.
+              </span>
+            </div>
+          )}
           <div className="table-responsive">
             <table className="table table-dark-shell align-middle">
               <thead>

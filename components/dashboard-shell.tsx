@@ -166,6 +166,42 @@ function localDateKey(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+// Today's date as YYYY-MM-DD in Asia/Kolkata. Used by the dashboard "today"
+// view so jobs stay visible until IST midnight regardless of whether the user
+// is browsing from a different timezone.
+function istTodayKey(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  // en-CA already produces YYYY-MM-DD, but be defensive about locale variants.
+  return parts.length === 10 ? parts : parts.replace(/\//g, "-");
+}
+
+// Shape the {status_group, started_from, started_to} params for the dashboard
+// managed-jobs list. "today" view returns every job started today (running OR
+// closed) so day trades stay on the dashboard until IST midnight, then they
+// roll off into history automatically.
+function buildJobListingParams(
+  view: ManagedJobsView,
+  historyRange: { startedFrom?: string; startedTo?: string },
+): { status_group: "active" | "history" | "all"; started_from?: string; started_to?: string } {
+  if (view === "today") {
+    return {
+      status_group: "all",
+      started_from: istTodayKey(),
+      started_to: undefined,
+    };
+  }
+  return {
+    status_group: "history",
+    started_from: historyRange.startedFrom,
+    started_to: historyRange.startedTo,
+  };
+}
+
 function shiftLocalDate(value: Date, days: number) {
   const next = new Date(value);
   next.setDate(next.getDate() + days);
@@ -374,7 +410,6 @@ export function DashboardShell() {
   useEffect(() => {
     let active = true;
     let loadingRequest = false;
-    const status_group = managedJobsView === "today" ? "active" : "history";
     const historyRange =
       managedJobsView === "history"
         ? managedBotHistoryRange(
@@ -383,6 +418,7 @@ export function DashboardShell() {
             managedJobsHistoryTo,
           )
         : { startedFrom: undefined, startedTo: undefined };
+    const listingParams = buildJobListingParams(managedJobsView, historyRange);
 
     async function loadManagedBots() {
       if (loadingRequest) {
@@ -391,12 +427,10 @@ export function DashboardShell() {
       try {
         loadingRequest = true;
         const result = await fetchUpstoxManagedBotDashboardJobs({
-          status_group,
+          ...listingParams,
           limit: managedBotsPageSize,
           page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
-          started_from: historyRange.startedFrom,
-          started_to: historyRange.startedTo,
         });
         if (!active) {
           return;
@@ -525,12 +559,10 @@ export function DashboardShell() {
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
-          status_group: managedJobsView === "today" ? "active" : "history",
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
           limit: managedBotsPageSize,
           page: 1,
           strategy_id: managedJobsStrategyFilter,
-          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
-          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
@@ -556,12 +588,10 @@ export function DashboardShell() {
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
-          status_group: managedJobsView === "today" ? "active" : "history",
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
           limit: managedBotsPageSize,
           page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
-          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
-          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
@@ -619,12 +649,10 @@ export function DashboardShell() {
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
-          status_group: managedJobsView === "today" ? "active" : "history",
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
           limit: managedBotsPageSize,
           page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
-          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
-          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
@@ -661,12 +689,10 @@ export function DashboardShell() {
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
-          status_group: managedJobsView === "today" ? "active" : "history",
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
           limit: managedBotsPageSize,
           page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
-          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
-          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);
@@ -710,12 +736,10 @@ export function DashboardShell() {
       const [summary, jobsPage] = await Promise.all([
         fetchUpstoxManagedBotDashboardSummary(),
         fetchUpstoxManagedBotDashboardJobs({
-          status_group: managedJobsView === "today" ? "active" : "history",
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
           limit: managedBotsPageSize,
           page: managedBotsCurrentPage,
           strategy_id: managedJobsStrategyFilter,
-          started_from: managedJobsView === "history" ? managedJobsHistoryRange.startedFrom : undefined,
-          started_to: managedJobsView === "history" ? managedJobsHistoryRange.startedTo : undefined,
         }),
       ]);
       setManagedBotsSummary(summary);

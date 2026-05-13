@@ -1491,7 +1491,7 @@ export async function fetchUpstoxManagedBotDashboardSummary() {
 }
 
 export async function fetchUpstoxManagedBotDashboardJobs(params?: {
-  status_group?: "active" | "history";
+  status_group?: "active" | "history" | "all";
   limit?: number;
   page?: number;
   cursor?: string | null;
