@@ -217,6 +217,35 @@ function managedBotIsLive(job: UpstoxManagedBotJob) {
   return job.status === "starting" || job.status === "running" || job.status === "stopping" || job.has_open_trade;
 }
 
+function latestManagedBotExecutionLine(job: UpstoxManagedBotJob) {
+  const markers = [
+    "] ENTRY",
+    "] EXIT",
+    "] HOLD",
+    "] SKIP",
+    "LIVE ENTRY ORDER REJECTED",
+    "LIVE EXIT ORDER REJECTED",
+    "SQUARE OFF",
+  ];
+  return [...(job.recent_logs ?? [])]
+    .reverse()
+    .find((line) => markers.some((marker) => line.toUpperCase().includes(marker)));
+}
+
+function managedBotExecutionTone(line?: string) {
+  const upper = (line ?? "").toUpperCase();
+  if (upper.includes("REJECTED") || upper.includes("ERROR")) {
+    return "red";
+  }
+  if (upper.includes("] ENTRY")) {
+    return "green";
+  }
+  if (upper.includes("] EXIT") || upper.includes("SQUARE OFF")) {
+    return "gold";
+  }
+  return "blue";
+}
+
 function managedBotHistoryRange(
   preset: ManagedJobsHistoryPreset,
   customFrom: string,
@@ -1582,7 +1611,9 @@ export function DashboardShell() {
                             </td>
                           </tr>
                         ) : modeFilteredManagedBots.length ? (
-                          modeFilteredManagedBots.map((job) => (
+                          modeFilteredManagedBots.map((job) => {
+                            const latestExecutionLine = latestManagedBotExecutionLine(job);
+                            return (
                             <Fragment key={job.job_id}>
                               <tr>
                                 {managedJobsView === "history" ? (
@@ -1646,6 +1677,13 @@ export function DashboardShell() {
                                       Trades {job.trade_count} | Closed {job.closed_trade_count}
                                     </button>
                                   </div>
+                                  {latestExecutionLine ? (
+                                    <div className="mt-2">
+                                      <span className={`badge-soft execution-status-line ${managedBotExecutionTone(latestExecutionLine)}`}>
+                                        {latestExecutionLine}
+                                      </span>
+                                    </div>
+                                  ) : null}
                                 </td>
                                 <td>
                                   {job.has_open_trade ? (
@@ -1791,7 +1829,8 @@ export function DashboardShell() {
                                 </tr>
                               )}
                             </Fragment>
-                          ))
+                            );
+                          })
                         ) : (
                           <tr>
                             <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">

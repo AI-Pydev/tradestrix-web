@@ -1783,6 +1783,15 @@ a {
   color: #bfdbfe;
 }
 
+.execution-status-line {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: left;
+}
+
 .dashboard-trades-modal-backdrop {
   position: fixed;
   inset: 0;

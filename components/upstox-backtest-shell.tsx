@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 
 import {
-    fetchInstrumentCatalog,
-    InstrumentCatalogResponse,
-    runUpstoxOptionChainBacktest,
-    UpstoxOptionChainBacktestRunRequest,
-    UpstoxOptionChainBacktestRunResponse,
+  fetchInstrumentCatalog,
+  InstrumentCatalogResponse,
+  runUpstoxOptionChainBacktest,
+  UpstoxOptionChainBacktestRunRequest,
+  UpstoxOptionChainBacktestRunResponse,
 } from "@/lib/api";
 
 function fmtDate(value: string) {
@@ -170,7 +170,8 @@ export function UpstoxBacktestShell() {
         setBacktestMessage(
           result.message === "No underlying history returned."
             ? "No underlying history was returned for the selected range. Try a broader or more recent date window."
-            : "Backtest completed, but no trades were generated for the selected instrument, strategy, and date range."
+            : (result.message ||
+              "Backtest completed, but no trades were generated for the selected instrument, strategy, and date range.")
         );
         setBacktestMessageTone("error");
       }
