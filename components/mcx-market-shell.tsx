@@ -42,19 +42,31 @@ const MCX_PRESETS: McxPreset[] = [
     lot_size: 100,
     market_open: "09:00",
     entry_cutoff: "23:00",
-    time_exit: "23:20",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_CRUDEOIL_INSTRUMENT_KEY", "UPSTOX_CRUDEOIL_INSTRUMENT_KEY"],
     note: "Good starter contract for MCX testing. The repo already includes a crude-oil launcher script.",
   },
   {
+    symbol: "CRUDEOILM",
+    label: "Crude Oil Mini",
+    lot_size: 10,
+    market_open: "09:00",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
+    max_entry_ltp: 25000,
+    max_total_entry_amount: 25000,
+    env_vars: ["UPSTOX_MCX_CRUDEOILM_INSTRUMENT_KEY", "UPSTOX_CRUDEOILM_INSTRUMENT_KEY"],
+    note: "Mini crude contract used for safer live MCX validation with smaller lot size.",
+  },
+  {
     symbol: "NATURALGAS",
     label: "Natural Gas",
     lot_size: 1250,
     market_open: "09:00",
-    entry_cutoff: "22:45",
-    time_exit: "23:10",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_NATURALGAS_INSTRUMENT_KEY", "UPSTOX_NATURALGAS_INSTRUMENT_KEY"],
@@ -65,8 +77,8 @@ const MCX_PRESETS: McxPreset[] = [
     label: "Gold",
     lot_size: 100,
     market_open: "09:00",
-    entry_cutoff: "22:45",
-    time_exit: "23:10",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_GOLD_INSTRUMENT_KEY", "UPSTOX_GOLD_INSTRUMENT_KEY"],
@@ -77,8 +89,8 @@ const MCX_PRESETS: McxPreset[] = [
     label: "Silver",
     lot_size: 30,
     market_open: "09:00",
-    entry_cutoff: "22:45",
-    time_exit: "23:10",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_SILVER_INSTRUMENT_KEY", "UPSTOX_SILVER_INSTRUMENT_KEY"],
@@ -89,8 +101,8 @@ const MCX_PRESETS: McxPreset[] = [
     label: "Copper",
     lot_size: 2500,
     market_open: "09:00",
-    entry_cutoff: "22:45",
-    time_exit: "23:10",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_COPPER_INSTRUMENT_KEY", "UPSTOX_COPPER_INSTRUMENT_KEY"],
@@ -101,14 +113,41 @@ const MCX_PRESETS: McxPreset[] = [
     label: "Zinc",
     lot_size: 5000,
     market_open: "09:00",
-    entry_cutoff: "22:45",
-    time_exit: "23:10",
+    entry_cutoff: "23:00",
+    time_exit: "23:00",
     max_entry_ltp: 25000,
     max_total_entry_amount: 25000,
     env_vars: ["UPSTOX_MCX_ZINC_INSTRUMENT_KEY", "UPSTOX_ZINC_INSTRUMENT_KEY"],
     note: "Included as a ready slot for multi-commodity expansion.",
   },
 ];
+
+const CALL_STRATEGY_OPTIONS = [
+  { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
+  { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
+  { value: "fibo_nk_call", label: "FIBO-NK CALL" },
+  { value: "ol_oh_call", label: "OL-OH CALL" },
+  { value: "momentum_call", label: "Momentum CALL" },
+];
+
+const PUT_STRATEGY_OPTIONS = [
+  { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
+  { value: "fibo_nk_put", label: "FIBO-NK PUT" },
+  { value: "ol_oh_put", label: "OL-OH PUT" },
+  { value: "momentum_put", label: "Momentum PUT" },
+];
+
+function defaultStrategyIdForSide(side: BotSide) {
+  return side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2";
+}
+
+function strategyOptionsForSide(side: BotSide) {
+  return side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
+}
+
+function supportsStrategy(side: BotSide, strategyId: string) {
+  return strategyOptionsForSide(side).some((option) => option.value === strategyId);
+}
 
 function fmtDate(value?: string | null) {
   if (!value) {
@@ -242,6 +281,8 @@ export function McxMarketShell() {
   const [managedAutoStorePath, setManagedAutoStorePath] = useState(true);
   const [enableCall, setEnableCall] = useState(true);
   const [enablePut, setEnablePut] = useState(false);
+  const [callStrategyId, setCallStrategyId] = useState("tv_ha_call_v2");
+  const [putStrategyId, setPutStrategyId] = useState("tv_ha_put_v2");
   const [expandedJobId, setExpandedJobId] = useState("");
   const [fleetView, setFleetView] = useState<HistoryView>("today");
   const [fleetHistoryPreset, setFleetHistoryPreset] = useState<HistoryPreset>("last7");
@@ -274,7 +315,7 @@ export function McxMarketShell() {
     lot_size: 100,
     market_open: "09:00",
     entry_cutoff: "23:00",
-    time_exit: "23:20",
+    time_exit: "23:00",
     store_path: buildStorePath("crudeoil"),
     max_cycles: null,
     once: true,
@@ -335,6 +376,11 @@ export function McxMarketShell() {
     Boolean(selectedCommodityKey) &&
     Boolean(form.instrument_key.trim()) &&
     selectedCommodityKey !== form.instrument_key.trim();
+
+  function strategyIdForSide(side: BotSide) {
+    const strategyId = side === "put" ? putStrategyId : callStrategyId;
+    return supportsStrategy(side, strategyId) ? strategyId : defaultStrategyIdForSide(side);
+  }
 
   function syncLaunchInstrumentKey(nextInstrumentKey: string) {
     const trimmedInstrumentKey = nextInstrumentKey.trim();
@@ -471,7 +517,7 @@ export function McxMarketShell() {
         commodity_symbol: previewSymbol || null,
         expiry: form.expiry?.trim() ? form.expiry.trim() : null,
         max_total_entry_amount: form.max_total_entry_amount ?? null,
-        strategy_id: form.side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2",
+        strategy_id: strategyIdForSide(form.side),
       };
       const response = await runUpstoxOptionChainBot(payload);
       syncLaunchInstrumentKey(response.instrument_key);
@@ -518,7 +564,7 @@ export function McxMarketShell() {
           fallback_broker: form.fallback_broker ?? null,
           force_fallback_for_test: form.force_fallback_for_test,
           side,
-          strategy_id: side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2",
+          strategy_id: strategyIdForSide(side),
           candle_unit: form.candle_unit,
           candle_interval: form.candle_interval,
           strike_offset: form.strike_offset,
@@ -695,10 +741,41 @@ export function McxMarketShell() {
                     <select
                       className="form-select"
                       value={form.side}
-                      onChange={(e) => setForm((prev) => ({ ...prev, side: e.target.value as BotSide }))}
+                      onChange={(e) => {
+                        const side = e.target.value as BotSide;
+                        setForm((prev) => ({
+                          ...prev,
+                          side,
+                          strategy_id: supportsStrategy(side, prev.strategy_id)
+                            ? prev.strategy_id
+                            : defaultStrategyIdForSide(side),
+                        }));
+                      }}
                     >
                       <option value="call">Call</option>
                       <option value="put">Put</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-2">
+                    <label className="form-label">Preview Strategy</label>
+                    <select
+                      className="form-select"
+                      value={strategyIdForSide(form.side)}
+                      onChange={(e) => {
+                        const strategyId = e.target.value;
+                        setForm((prev) => ({ ...prev, strategy_id: strategyId }));
+                        if (form.side === "put") {
+                          setPutStrategyId(strategyId);
+                        } else {
+                          setCallStrategyId(strategyId);
+                        }
+                      }}
+                    >
+                      {strategyOptionsForSide(form.side).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
@@ -933,6 +1010,34 @@ export function McxMarketShell() {
                       value={managedJobName}
                       onChange={(e) => setManagedJobName(e.target.value)}
                     />
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-3">
+                    <label className="form-label">Managed CALL Strategy</label>
+                    <select
+                      className="form-select"
+                      value={callStrategyId}
+                      onChange={(e) => setCallStrategyId(e.target.value)}
+                    >
+                      {CALL_STRATEGY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-3">
+                    <label className="form-label">Managed PUT Strategy</label>
+                    <select
+                      className="form-select"
+                      value={putStrategyId}
+                      onChange={(e) => setPutStrategyId(e.target.value)}
+                    >
+                      {PUT_STRATEGY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-3 d-flex align-items-end">
                     <div className="d-flex flex-wrap gap-3 mb-2">
