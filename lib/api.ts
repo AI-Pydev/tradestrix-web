@@ -1106,6 +1106,9 @@ export type DeltaDemoOrderRequest = {
   target_delta: number;
   max_mark_price: number;
   min_open_interest: number;
+  max_order_value?: number;
+  max_spread_pct?: number;
+  allow_unbounded_risk?: boolean;
   source?: string;
 };
 
@@ -1116,6 +1119,62 @@ export type DeltaDemoOrderResponse = {
   demo_environment: boolean;
   strategy: DeltaStrategyPreviewResponse;
   placed_order: DeltaDemoTrackedOrder;
+  message: string;
+};
+
+export type SharedStrategyId =
+  | "tv_ha_call_v2"
+  | "nc_ha_call_entry"
+  | "auto_atm_otm_call"
+  | "fibo_nk_call"
+  | "jk_oc_call"
+  | "ol_oh_call"
+  | "momentum_call"
+  | "tv_ha_put_v2"
+  | "fibo_nk_put"
+  | "jk_ema_put"
+  | "ol_oh_put"
+  | "momentum_put";
+
+export type DeltaTradingViewTemplateRequest = {
+  alert_name: string;
+  strategy_type: SharedStrategyId;
+  underlying_asset_symbol: string;
+  expiry_date?: string | null;
+  candidate_side: "call" | "put";
+  order_side: "buy" | "sell";
+  order_type: "market_order" | "limit_order";
+  size: number;
+  option_preference: "call" | "put" | "both";
+  target_delta: number;
+  max_mark_price: number;
+  min_open_interest: number;
+  max_order_value: number;
+  max_spread_pct: number;
+  allow_unbounded_risk: boolean;
+};
+
+export type DeltaTradingViewTemplateGenerated = {
+  webhook_path: string;
+  message: Record<string, string | number | boolean | null>;
+  pine_strategy_id: string;
+};
+
+export type DeltaTradingViewTemplateResponse = {
+  template_id: string;
+  alert_name: string;
+  market: string;
+  broker_id: string;
+  strategy_type: SharedStrategyId;
+  underlying_asset_symbol: string;
+  candidate_side: "call" | "put";
+  order_side: "buy" | "sell";
+  order_type: "market_order" | "limit_order";
+  size: number;
+  access_token: string;
+  pine_strategy_id: string;
+  session: string;
+  generated: DeltaTradingViewTemplateGenerated;
   message: string;
 };
 
@@ -1671,6 +1730,13 @@ export async function fetchDeltaDemoOrders() {
 export async function placeDeltaDemoOrder(payload: DeltaDemoOrderRequest) {
   return postBackendJsonWithBody<DeltaDemoOrderResponse, DeltaDemoOrderRequest>(
     "/api/v1/crypto/delta/demo-order",
+    payload,
+  );
+}
+
+export async function createDeltaTradingViewTemplate(payload: DeltaTradingViewTemplateRequest) {
+  return postBackendJsonWithBody<DeltaTradingViewTemplateResponse, DeltaTradingViewTemplateRequest>(
+    "/api/v1/crypto/delta/tradingview-template",
     payload,
   );
 }

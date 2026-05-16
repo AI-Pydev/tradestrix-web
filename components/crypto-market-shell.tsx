@@ -10,8 +10,11 @@ import {
     DeltaDemoOrdersResponse,
     DeltaDemoTrackedOrder,
     DeltaOptionChainResponse,
+    SharedStrategyId,
     DeltaStrategyCandidate,
     DeltaStrategyPreviewResponse,
+    DeltaTradingViewTemplateResponse,
+    createDeltaTradingViewTemplate,
     fetchDeltaCryptoDashboard,
     fetchDeltaDemoOrders,
     placeDeltaDemoOrder,
@@ -99,6 +102,11 @@ type CryptoFormState = {
   order_type: "market_order" | "limit_order";
   size: number;
   limit_price: string;
+  max_order_value: number;
+  max_spread_pct: number;
+  allow_unbounded_risk: boolean;
+  alert_name: string;
+  strategy_type: SharedStrategyId;
 };
 
 const DEFAULT_FORM: CryptoFormState = {
@@ -114,7 +122,53 @@ const DEFAULT_FORM: CryptoFormState = {
   order_type: "limit_order",
   size: 1,
   limit_price: "",
+  max_order_value: 2000,
+  max_spread_pct: 5,
+  allow_unbounded_risk: false,
+  alert_name: "M-CRYPTO-DELTA-BTC-CALL",
+  strategy_type: "tv_ha_call_v2",
 };
+
+const CALL_STRATEGY_OPTIONS: { value: SharedStrategyId; label: string }[] = [
+  { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
+  { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
+  { value: "fibo_nk_call", label: "FIBO-NK CALL" },
+  { value: "ol_oh_call", label: "OL-OH CALL" },
+  { value: "momentum_call", label: "Momentum CALL" },
+];
+
+const PUT_STRATEGY_OPTIONS: { value: SharedStrategyId; label: string }[] = [
+  { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
+  { value: "fibo_nk_put", label: "FIBO-NK PUT" },
+  { value: "ol_oh_put", label: "OL-OH PUT" },
+  { value: "momentum_put", label: "Momentum PUT" },
+];
+
+function defaultStrategyIdForSide(side: "call" | "put"): SharedStrategyId {
+  return side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2";
+}
+
+function strategyOptionsForSide(side: "call" | "put") {
+  return side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
+}
+
+function supportsStrategy(side: "call" | "put", strategyId: SharedStrategyId) {
+  return strategyOptionsForSide(side).some((option) => option.value === strategyId);
+}
+
+function strategyLabel(strategyId: SharedStrategyId) {
+  return [...CALL_STRATEGY_OPTIONS, ...PUT_STRATEGY_OPTIONS].find((option) => option.value === strategyId)?.label ?? strategyId;
+}
+
+function defaultCryptoAlertName(symbol: string, side: "call" | "put") {
+  return `M-CRYPTO-DELTA-${symbol || "BTC"}-${side.toUpperCase()}`;
+}
+
+function resolveCryptoAlertName(prev: CryptoFormState, symbol: string, side: "call" | "put") {
+  const current = prev.alert_name.trim();
+  const isGeneratedName = /^M-CRYPTO-DELTA-[A-Z0-9]+-(CALL|PUT)$/.test(current);
+  return !current || isGeneratedName ? defaultCryptoAlertName(symbol, side) : prev.alert_name;
+}
 
 export function CryptoMarketShell() {
   const [dashboard, setDashboard] = useState<DeltaCryptoDashboardResponse | null>(null);
@@ -126,9 +180,12 @@ export function CryptoMarketShell() {
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderPlacing, setOrderPlacing] = useState(false);
+  const [templateCreating, setTemplateCreating] = useState(false);
+  const [templateCopying, setTemplateCopying] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [form, setForm] = useState<CryptoFormState>(DEFAULT_FORM);
+  const [tradingViewTemplate, setTradingViewTemplate] = useState<DeltaTradingViewTemplateResponse | null>(null);
   const [ordersView, setOrdersView] = useState<HistoryView>("today");
   const [ordersHistoryPreset, setOrdersHistoryPreset] = useState<HistoryPreset>("last7");
   const [ordersHistoryFrom, setOrdersHistoryFrom] = useState("");
@@ -175,17 +232,22 @@ export function CryptoMarketShell() {
   const resolvedLimitPrice =
     form.order_type === "limit_order" ? Number(form.limit_price) || candidateBookPrice || undefined : undefined;
   const sizeFitsVisibleBook = candidateBookSize == null ? false : Number(form.size) <= candidateBookSize;
+  const boundedRiskReady = form.order_side === "buy" || form.allow_unbounded_risk;
   const canPlaceDemoOrder = Boolean(
     dashboard?.configured &&
       demoEnvironment &&
       activeCandidate &&
       !orderPlacing &&
+      boundedRiskReady &&
       form.size >= 1 &&
       candidateBookPrice &&
       candidateBookSize &&
       sizeFitsVisibleBook &&
       (form.order_type !== "limit_order" || resolvedLimitPrice),
   );
+  const generatedTemplateJson = tradingViewTemplate
+    ? JSON.stringify(tradingViewTemplate.generated.message, null, 2)
+    : "";
 
   useEffect(() => {
     if (form.order_type !== "limit_order") {
@@ -242,11 +304,32 @@ export function CryptoMarketShell() {
       });
       setStrategyPreview(result);
       if (form.option_preference === "call") {
-        setForm((prev) => ({ ...prev, candidate_side: "call" }));
+        setForm((prev) => ({
+          ...prev,
+          candidate_side: "call",
+          strategy_type: supportsStrategy("call", prev.strategy_type)
+            ? prev.strategy_type
+            : defaultStrategyIdForSide("call"),
+          alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, "call"),
+        }));
       } else if (form.option_preference === "put") {
-        setForm((prev) => ({ ...prev, candidate_side: "put" }));
+        setForm((prev) => ({
+          ...prev,
+          candidate_side: "put",
+          strategy_type: supportsStrategy("put", prev.strategy_type)
+            ? prev.strategy_type
+            : defaultStrategyIdForSide("put"),
+          alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, "put"),
+        }));
       } else if (result.preferred_candidate?.side === "put") {
-        setForm((prev) => ({ ...prev, candidate_side: "put" }));
+        setForm((prev) => ({
+          ...prev,
+          candidate_side: "put",
+          strategy_type: supportsStrategy("put", prev.strategy_type)
+            ? prev.strategy_type
+            : defaultStrategyIdForSide("put"),
+          alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, "put"),
+        }));
       }
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to preview Delta strategy");
@@ -274,6 +357,7 @@ export function CryptoMarketShell() {
         ...prev,
         underlying_asset_symbol: selectedSymbol,
         expiry_date: resolvedExpiry,
+        alert_name: resolveCryptoAlertName(prev, selectedSymbol, prev.candidate_side),
       }));
 
       if (selected) {
@@ -311,6 +395,9 @@ export function CryptoMarketShell() {
         target_delta: form.target_delta,
         max_mark_price: form.max_mark_price,
         min_open_interest: form.min_open_interest,
+        max_order_value: form.max_order_value,
+        max_spread_pct: form.max_spread_pct,
+        allow_unbounded_risk: form.allow_unbounded_risk,
         source: "crypto-market-ui",
       });
       setStrategyPreview(result.strategy);
@@ -345,6 +432,54 @@ export function CryptoMarketShell() {
     }
   }
 
+  async function handleCreateTradingViewTemplate() {
+    try {
+      setTemplateCreating(true);
+      const result = await createDeltaTradingViewTemplate({
+        alert_name: form.alert_name.trim() || DEFAULT_FORM.alert_name,
+        strategy_type: form.strategy_type,
+        underlying_asset_symbol: form.underlying_asset_symbol,
+        expiry_date: form.expiry_date || undefined,
+        candidate_side: form.candidate_side,
+        order_side: form.order_side,
+        order_type: form.order_type,
+        size: Math.max(1, Number(form.size) || 1),
+        option_preference: form.option_preference,
+        target_delta: form.target_delta,
+        max_mark_price: form.max_mark_price,
+        min_open_interest: form.min_open_interest,
+        max_order_value: form.max_order_value,
+        max_spread_pct: form.max_spread_pct,
+        allow_unbounded_risk: form.allow_unbounded_risk,
+      });
+      setTradingViewTemplate(result);
+      setMessage(result.message);
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to create crypto TradingView template");
+      setMessageTone("error");
+    } finally {
+      setTemplateCreating(false);
+    }
+  }
+
+  async function handleCopyTradingViewPayload() {
+    if (!generatedTemplateJson || typeof navigator === "undefined" || !navigator.clipboard) {
+      return;
+    }
+    try {
+      setTemplateCopying(true);
+      await navigator.clipboard.writeText(generatedTemplateJson);
+      setMessage("Crypto TradingView payload copied.");
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to copy TradingView payload");
+      setMessageTone("error");
+    } finally {
+      setTemplateCopying(false);
+    }
+  }
+
   useEffect(() => {
     void loadDashboard();
   }, []);
@@ -368,7 +503,10 @@ export function CryptoMarketShell() {
               Overview
             </a>
             <a className="hero-tab" href="#crypto-controls">
-              Controls
+              Start
+            </a>
+            <a className="hero-tab" href="#crypto-template">
+              Template
             </a>
             <a className="hero-tab" href="#crypto-orders">
               Demo Orders
@@ -380,7 +518,7 @@ export function CryptoMarketShell() {
           <div className="hero-header">
             <h1 className="hero-title">Crypto Market</h1>
             <p className="hero-subtitle">
-              Separate Delta crypto strategy workspace with market discovery, candidate preview, and demo-order entry.
+              Separate Delta crypto workspace using the same strategy IDs as NSE/BSE/MCX with a 24x7 session profile.
             </p>
           </div>
           <div className="p-3">
@@ -398,6 +536,11 @@ export function CryptoMarketShell() {
                 {!sizeFitsVisibleBook && " Lower the order size or choose a more liquid contract before placing the demo order."}
               </div>
             )}
+            {!boundedRiskReady && (
+              <div className="alert alert-warning">
+                Crypto option sell entries are blocked until the unbounded-risk override is enabled.
+              </div>
+            )}
             <div className="row g-3">
               {summaryCards.map((card) => (
                 <div className="col-12 col-sm-6 col-xl" key={card.label}>
@@ -408,13 +551,33 @@ export function CryptoMarketShell() {
                 </div>
               ))}
             </div>
+            <div className="mt-3 border rounded p-3" style={{ borderColor: "var(--line)" }}>
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                  <div className="fw-semibold">24x7 Strategy Launcher</div>
+                  <div className="small muted">
+                    {strategyLabel(form.strategy_type)} on {form.underlying_asset_symbol} {form.candidate_side.toUpperCase()} via TradingView.
+                  </div>
+                </div>
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  {tradingViewTemplate ? <span className="badge-soft green">LISTENING</span> : <span className="badge-soft gold">NOT STARTED</span>}
+                  <button
+                    className="btn btn-warning"
+                    disabled={templateCreating || !boundedRiskReady}
+                    onClick={handleCreateTradingViewTemplate}
+                  >
+                    {templateCreating ? "Starting..." : tradingViewTemplate ? "Restart Strategy" : "Start Strategy"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         <div className="row g-4">
           <div className="col-12 col-xl-8">
             <section className="dashboard-panel h-100" id="crypto-controls">
-              <h2 className="panel-title">Crypto Strategy Controls</h2>
+              <h2 className="panel-title">Start Strategy</h2>
               <div className="p-3">
                 <div className="row g-3">
                   <div className="col-12 col-md-4">
@@ -430,6 +593,7 @@ export function CryptoMarketShell() {
                           ...prev,
                           underlying_asset_symbol: nextSymbol,
                           expiry_date: nextUnderlying?.expiries[0] ?? "",
+                          alert_name: resolveCryptoAlertName(prev, nextSymbol, prev.candidate_side),
                         }));
                       }}
                     >
@@ -478,17 +642,43 @@ export function CryptoMarketShell() {
                       className="form-select"
                       value={form.option_preference}
                       onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          option_preference: e.target.value as "call" | "put" | "both",
-                          candidate_side:
-                            e.target.value === "put" ? "put" : e.target.value === "call" ? "call" : prev.candidate_side,
-                        }))
+                        setForm((prev) => {
+                          const nextSide =
+                            e.target.value === "put" ? "put" : e.target.value === "call" ? "call" : prev.candidate_side;
+                          return {
+                            ...prev,
+                            option_preference: e.target.value as "call" | "put" | "both",
+                            candidate_side: nextSide,
+                            strategy_type: supportsStrategy(nextSide, prev.strategy_type)
+                              ? prev.strategy_type
+                              : defaultStrategyIdForSide(nextSide),
+                            alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, nextSide),
+                          };
+                        })
                       }
                     >
                       <option value="both">Best of Call + Put</option>
                       <option value="call">Call Only</option>
                       <option value="put">Put Only</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Enabled Strategy</label>
+                    <select
+                      className="form-select"
+                      value={form.strategy_type}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          strategy_type: e.target.value as SharedStrategyId,
+                        }))
+                      }
+                    >
+                      {strategyOptionsForSide(form.candidate_side).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="col-12 col-md-4">
@@ -531,7 +721,19 @@ export function CryptoMarketShell() {
                     <select
                       className="form-select"
                       value={form.candidate_side}
-                      onChange={(e) => setForm((prev) => ({ ...prev, candidate_side: e.target.value as "call" | "put" }))}
+                      onChange={(e) =>
+                        setForm((prev) => {
+                          const nextSide = e.target.value as "call" | "put";
+                          return {
+                            ...prev,
+                            candidate_side: nextSide,
+                            strategy_type: supportsStrategy(nextSide, prev.strategy_type)
+                              ? prev.strategy_type
+                              : defaultStrategyIdForSide(nextSide),
+                            alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, nextSide),
+                          };
+                        })
+                      }
                     >
                       <option value="call">Call Candidate</option>
                       <option value="put">Put Candidate</option>
@@ -596,6 +798,54 @@ export function CryptoMarketShell() {
                       onChange={(e) => setForm((prev) => ({ ...prev, limit_price: e.target.value }))}
                     />
                   </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Max Premium Risk</label>
+                    <input
+                      className="form-control"
+                      min={1}
+                      step="0.01"
+                      type="number"
+                      value={form.max_order_value}
+                      onChange={(e) => setForm((prev) => ({ ...prev, max_order_value: Number(e.target.value) || 1 }))}
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Max Spread %</label>
+                    <input
+                      className="form-control"
+                      max={100}
+                      min={0.1}
+                      step="0.1"
+                      type="number"
+                      value={form.max_spread_pct}
+                      onChange={(e) => setForm((prev) => ({ ...prev, max_spread_pct: Number(e.target.value) || 5 }))}
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Risk Override</label>
+                    <div className="form-check form-switch mt-2">
+                      <input
+                        checked={form.allow_unbounded_risk}
+                        className="form-check-input"
+                        id="crypto-allow-unbounded-risk"
+                        type="checkbox"
+                        onChange={(e) => setForm((prev) => ({ ...prev, allow_unbounded_risk: e.target.checked }))}
+                      />
+                      <label className="form-check-label small muted" htmlFor="crypto-allow-unbounded-risk">
+                        Allow option sell entries
+                      </label>
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">TradingView Alert Name</label>
+                    <input
+                      className="form-control"
+                      maxLength={80}
+                      minLength={3}
+                      value={form.alert_name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, alert_name: e.target.value }))}
+                    />
+                  </div>
 
                   <div className="col-12 d-flex flex-wrap gap-2">
                     <button
@@ -617,6 +867,13 @@ export function CryptoMarketShell() {
                     </button>
                     <button className="btn btn-warning" disabled={!canPlaceDemoOrder} onClick={handlePlaceDemoOrder}>
                       {orderPlacing ? "Placing Demo Order..." : "Place Demo Order"}
+                    </button>
+                    <button
+                      className="btn btn-outline-info"
+                      disabled={templateCreating || !boundedRiskReady}
+                      onClick={handleCreateTradingViewTemplate}
+                    >
+                      {templateCreating ? "Starting Strategy..." : tradingViewTemplate ? "Restart Strategy" : "Start Strategy"}
                     </button>
                   </div>
                   <div className="col-12">
@@ -815,6 +1072,60 @@ export function CryptoMarketShell() {
                     </table>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="dashboard-panel mt-4" id="crypto-template">
+              <h2 className="panel-title">Strategy Listener</h2>
+              <div className="p-3">
+                <div className="d-flex flex-column gap-2 small muted mb-3">
+                  <div>
+                    <strong>Webhook:</strong> /api/v1/crypto/delta/webhook
+                  </div>
+                  <div>
+                    <strong>Session:</strong> 24x7
+                  </div>
+                  <div>
+                    <strong>Strategy:</strong> {strategyLabel(form.strategy_type)} / 24x7
+                  </div>
+                </div>
+                <button
+                  className="btn btn-outline-info w-100"
+                  disabled={templateCreating || !boundedRiskReady}
+                  onClick={handleCreateTradingViewTemplate}
+                >
+                  {templateCreating ? "Starting Strategy..." : tradingViewTemplate ? "Restart Listener" : "Start Strategy Listener"}
+                </button>
+
+                {tradingViewTemplate && (
+                  <div className="mt-3">
+                    <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+                      <div className="small muted">
+                        <strong>ID:</strong> {tradingViewTemplate.template_id}
+                      </div>
+                      <button
+                        className="btn btn-sm btn-outline-light"
+                        disabled={templateCopying || !generatedTemplateJson}
+                        onClick={handleCopyTradingViewPayload}
+                      >
+                        {templateCopying ? "Copying..." : "Copy Payload"}
+                      </button>
+                    </div>
+                    <div className="small muted mb-2">
+                      <strong>Pine Strategy ID:</strong> {tradingViewTemplate.pine_strategy_id}
+                    </div>
+                    <div className="small muted mb-2">
+                      <strong>Template Format:</strong> Indian-market compatible core payload
+                    </div>
+                    <textarea
+                      className="form-control"
+                      readOnly
+                      rows={16}
+                      style={{ fontFamily: "monospace", fontSize: 12 }}
+                      value={generatedTemplateJson}
+                    />
+                  </div>
+                )}
               </div>
             </section>
           </div>
