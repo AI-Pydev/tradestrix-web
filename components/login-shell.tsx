@@ -46,6 +46,7 @@ export function LoginShell() {
   const { user, loading, signInWithGoogle, signInWithBypass } = useAuth();
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<GoogleLoginResponse | null>(null);
   const [error, setError] = useState("");
@@ -53,6 +54,10 @@ export function LoginShell() {
   // Bypass login form state
   const [bypassEmail, setBypassEmail] = useState("");
   const [bypassToken, setBypassToken] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && user?.status === "APPROVED") {
@@ -209,9 +214,13 @@ export function LoginShell() {
               <div style={{ fontSize: "0.9rem", color: "#9db4d2" }}>
                 Admin bypass fallback
               </div>
+              {mounted ? (
+                <>
               <input
                 type="email"
                 placeholder="Your email"
+                autoComplete="email"
+                suppressHydrationWarning
                 value={bypassEmail}
                 onChange={(e) => setBypassEmail(e.target.value)}
                 style={{
@@ -226,6 +235,8 @@ export function LoginShell() {
               <input
                 type="password"
                 placeholder="Bypass token"
+                autoComplete="off"
+                suppressHydrationWarning
                 value={bypassToken}
                 onChange={(e) => setBypassToken(e.target.value)}
                 style={{
@@ -269,6 +280,10 @@ export function LoginShell() {
               >
                 {busy ? "Signing in…" : "Sign in with bypass token"}
               </button>
+                </>
+              ) : (
+                <div style={{ color: "#9db4d2", fontSize: "0.9rem" }}>Loading sign-in form...</div>
+              )}
             </div>
 
             {busy ? <div style={{ marginTop: "14px", color: "#9db4d2" }}>Checking login and approval status...</div> : null}

@@ -84,6 +84,12 @@ const landingCards: LandingCard[] = [
     cta: "Open",
   },
   {
+    title: "Crypto TV Templates",
+    href: "/crypto-tradingview-templates",
+    description: "Create Delta crypto TradingView templates on a dedicated page.",
+    cta: "Open",
+  },
+  {
     title: "API Docs",
     href: `${BACKEND_BASE_URL}/docs`,
     description: "Open the backend docs and inspect the HTTP surface.",

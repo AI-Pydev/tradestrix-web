@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
@@ -10,13 +11,15 @@ import {
     DeltaDemoOrdersResponse,
     DeltaDemoTrackedOrder,
     DeltaOptionChainResponse,
+    DeltaSavedStrategyResponse,
     SharedStrategyId,
     DeltaStrategyCandidate,
     DeltaStrategyPreviewResponse,
-    DeltaTradingViewTemplateResponse,
-    createDeltaTradingViewTemplate,
+    createDeltaSavedStrategy,
+    deleteDeltaSavedStrategy,
     fetchDeltaCryptoDashboard,
     fetchDeltaDemoOrders,
+    listDeltaSavedStrategies,
     placeDeltaDemoOrder,
     previewDeltaOptionChain,
     previewDeltaStrategy,
@@ -105,6 +108,7 @@ type CryptoFormState = {
   max_order_value: number;
   max_spread_pct: number;
   allow_unbounded_risk: boolean;
+  strategy_name: string;
   alert_name: string;
   strategy_type: SharedStrategyId;
 };
@@ -125,6 +129,7 @@ const DEFAULT_FORM: CryptoFormState = {
   max_order_value: 2000,
   max_spread_pct: 5,
   allow_unbounded_risk: false,
+  strategy_name: "BTC TV-HA CALL v2",
   alert_name: "M-CRYPTO-DELTA-BTC-CALL",
   strategy_type: "tv_ha_call_v2",
 };
@@ -180,12 +185,12 @@ export function CryptoMarketShell() {
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderPlacing, setOrderPlacing] = useState(false);
-  const [templateCreating, setTemplateCreating] = useState(false);
-  const [templateCopying, setTemplateCopying] = useState(false);
+  const [strategySaving, setStrategySaving] = useState(false);
+  const [strategyDeletingId, setStrategyDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [form, setForm] = useState<CryptoFormState>(DEFAULT_FORM);
-  const [tradingViewTemplate, setTradingViewTemplate] = useState<DeltaTradingViewTemplateResponse | null>(null);
+  const [savedStrategies, setSavedStrategies] = useState<DeltaSavedStrategyResponse[]>([]);
   const [ordersView, setOrdersView] = useState<HistoryView>("today");
   const [ordersHistoryPreset, setOrdersHistoryPreset] = useState<HistoryPreset>("last7");
   const [ordersHistoryFrom, setOrdersHistoryFrom] = useState("");
@@ -245,9 +250,6 @@ export function CryptoMarketShell() {
       sizeFitsVisibleBook &&
       (form.order_type !== "limit_order" || resolvedLimitPrice),
   );
-  const generatedTemplateJson = tradingViewTemplate
-    ? JSON.stringify(tradingViewTemplate.generated.message, null, 2)
-    : "";
 
   useEffect(() => {
     if (form.order_type !== "limit_order") {
@@ -270,6 +272,16 @@ export function CryptoMarketShell() {
       setMessageTone("error");
     } finally {
       setOrdersLoading(false);
+    }
+  }
+
+  async function loadSavedStrategies() {
+    try {
+      const result = await listDeltaSavedStrategies();
+      setSavedStrategies(result);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to load crypto strategies");
+      setMessageTone("error");
     }
   }
 
@@ -365,9 +377,10 @@ export function CryptoMarketShell() {
           loadPreview(selectedSymbol, resolvedExpiry, form.rows_limit),
           loadStrategy(selectedSymbol, resolvedExpiry),
           loadOrders(),
+          loadSavedStrategies(),
         ]);
       } else {
-        await loadOrders();
+        await Promise.all([loadOrders(), loadSavedStrategies()]);
       }
 
       setMessage(result.message);
@@ -432,52 +445,83 @@ export function CryptoMarketShell() {
     }
   }
 
-  async function handleCreateTradingViewTemplate() {
+  async function handleSaveStrategy() {
     try {
-      setTemplateCreating(true);
-      const result = await createDeltaTradingViewTemplate({
-        alert_name: form.alert_name.trim() || DEFAULT_FORM.alert_name,
+      setStrategySaving(true);
+      const result = await createDeltaSavedStrategy({
+        strategy_name: form.strategy_name.trim() || `${form.underlying_asset_symbol} ${strategyLabel(form.strategy_type)}`,
         strategy_type: form.strategy_type,
         underlying_asset_symbol: form.underlying_asset_symbol,
         expiry_date: form.expiry_date || undefined,
-        candidate_side: form.candidate_side,
-        order_side: form.order_side,
-        order_type: form.order_type,
-        size: Math.max(1, Number(form.size) || 1),
         option_preference: form.option_preference,
         target_delta: form.target_delta,
         max_mark_price: form.max_mark_price,
         min_open_interest: form.min_open_interest,
+        candidate_side: form.candidate_side,
+        order_side: form.order_side,
+        order_type: form.order_type,
+        size: Math.max(1, Number(form.size) || 1),
+        limit_price: resolvedLimitPrice,
         max_order_value: form.max_order_value,
         max_spread_pct: form.max_spread_pct,
         allow_unbounded_risk: form.allow_unbounded_risk,
       });
-      setTradingViewTemplate(result);
-      setMessage(result.message);
+      setSavedStrategies((prev) => [result, ...prev.filter((item) => item.strategy_id !== result.strategy_id)]);
+      setMessage(`Saved crypto strategy ${result.strategy_name}.`);
       setMessageTone("success");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Failed to create crypto TradingView template");
+      setMessage(err instanceof Error ? err.message : "Failed to save crypto strategy");
       setMessageTone("error");
     } finally {
-      setTemplateCreating(false);
+      setStrategySaving(false);
     }
   }
 
-  async function handleCopyTradingViewPayload() {
-    if (!generatedTemplateJson || typeof navigator === "undefined" || !navigator.clipboard) {
-      return;
-    }
+  async function handleDeleteStrategy(strategyId: string) {
     try {
-      setTemplateCopying(true);
-      await navigator.clipboard.writeText(generatedTemplateJson);
-      setMessage("Crypto TradingView payload copied.");
+      setStrategyDeletingId(strategyId);
+      await deleteDeltaSavedStrategy(strategyId);
+      setSavedStrategies((prev) => prev.filter((item) => item.strategy_id !== strategyId));
+      setMessage("Deleted crypto strategy.");
       setMessageTone("success");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Failed to copy TradingView payload");
+      setMessage(err instanceof Error ? err.message : "Failed to delete crypto strategy");
       setMessageTone("error");
     } finally {
-      setTemplateCopying(false);
+      setStrategyDeletingId(null);
     }
+  }
+
+  function handleLoadSavedStrategy(strategy: DeltaSavedStrategyResponse) {
+    const config = strategy.config as Record<string, string | number | boolean | null>;
+    const nextSymbol = String(config.underlying_asset_symbol || form.underlying_asset_symbol);
+    const nextCandidateSide = String(config.candidate_side || form.candidate_side) as "call" | "put";
+    const nextExpiry = String(config.expiry_date || "");
+    const nextRowsLimit = form.rows_limit;
+    setForm((prev) => ({
+      ...prev,
+      strategy_name: strategy.strategy_name,
+      strategy_type: strategy.strategy_type,
+      underlying_asset_symbol: nextSymbol,
+      expiry_date: nextExpiry,
+      option_preference: (String(config.option_preference || prev.option_preference) as "call" | "put" | "both"),
+      target_delta: Number(config.target_delta || prev.target_delta),
+      max_mark_price: Number(config.max_mark_price || prev.max_mark_price),
+      min_open_interest: Number(config.min_open_interest || prev.min_open_interest),
+      candidate_side: nextCandidateSide,
+      order_side: (String(config.order_side || prev.order_side) as "buy" | "sell"),
+      order_type: (String(config.order_type || prev.order_type) as "market_order" | "limit_order"),
+      size: Math.max(1, Number(config.size || prev.size)),
+      limit_price: config.limit_price == null ? "" : String(config.limit_price),
+      max_order_value: Number(config.max_order_value || prev.max_order_value),
+      max_spread_pct: Number(config.max_spread_pct || prev.max_spread_pct),
+      allow_unbounded_risk: Boolean(config.allow_unbounded_risk),
+      alert_name: resolveCryptoAlertName(prev, nextSymbol, nextCandidateSide),
+    }));
+    void loadPreview(nextSymbol, nextExpiry, nextRowsLimit);
+    void loadStrategy(nextSymbol, nextExpiry);
+    setMessage(`Loaded strategy ${strategy.strategy_name} into the scanner.`);
+    setMessageTone("success");
   }
 
   useEffect(() => {
@@ -503,11 +547,11 @@ export function CryptoMarketShell() {
               Overview
             </a>
             <a className="hero-tab" href="#crypto-controls">
-              Start
+              Python Scanner
             </a>
-            <a className="hero-tab" href="#crypto-template">
-              Template
-            </a>
+            <Link className="hero-tab" href="/crypto-tradingview-templates">
+              Crypto TV Templates
+            </Link>
             <a className="hero-tab" href="#crypto-orders">
               Demo Orders
             </a>
@@ -518,14 +562,14 @@ export function CryptoMarketShell() {
           <div className="hero-header">
             <h1 className="hero-title">Crypto Market</h1>
             <p className="hero-subtitle">
-              Separate Delta crypto workspace using the same strategy IDs as NSE/BSE/MCX with a 24x7 session profile.
+              Separate Delta crypto workspace for Python strategy scanning, saved strategy setup, and demo-order validation.
             </p>
           </div>
           <div className="p-3">
             {message && <div className={`alert ${messageTone === "success" ? "alert-success" : "alert-danger"}`}>{message}</div>}
             <div className={`alert ${demoEnvironment ? "alert-secondary" : "alert-warning"}`}>
               {demoEnvironment
-                ? "Delta demo/testnet base URL is active, so crypto strategy orders stay inside the separate demo environment."
+                ? "Delta demo/testnet base URL is active, so Python scanner demo orders and TradingView alert executions stay inside the separate demo environment."
                 : "Crypto demo order placement is blocked until DELTA_API_BASE_URL points to the Delta testnet/demo URL."}
             </div>
             {activeCandidate && (
@@ -554,20 +598,16 @@ export function CryptoMarketShell() {
             <div className="mt-3 border rounded p-3" style={{ borderColor: "var(--line)" }}>
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div>
-                  <div className="fw-semibold">24x7 Strategy Launcher</div>
+                  <div className="fw-semibold">Crypto TradingView Templates</div>
                   <div className="small muted">
-                    {strategyLabel(form.strategy_type)} on {form.underlying_asset_symbol} {form.candidate_side.toUpperCase()} via TradingView.
+                    The dedicated template desk now lives on its own page. Use it to create lightweight TradingView webhook payloads while keeping backend execution profiles separate from this Python scanner surface.
                   </div>
                 </div>
                 <div className="d-flex flex-wrap align-items-center gap-2">
-                  {tradingViewTemplate ? <span className="badge-soft green">LISTENING</span> : <span className="badge-soft gold">NOT STARTED</span>}
-                  <button
-                    className="btn btn-warning"
-                    disabled={templateCreating || !boundedRiskReady}
-                    onClick={handleCreateTradingViewTemplate}
-                  >
-                    {templateCreating ? "Starting..." : tradingViewTemplate ? "Restart Strategy" : "Start Strategy"}
-                  </button>
+                  <span className="badge-soft blue">SEPARATE PAGE</span>
+                  <Link className="btn btn-warning" href="/crypto-tradingview-templates">
+                    Open Crypto TV Templates
+                  </Link>
                 </div>
               </div>
             </div>
@@ -577,8 +617,11 @@ export function CryptoMarketShell() {
         <div className="row g-4">
           <div className="col-12 col-xl-8">
             <section className="dashboard-panel h-100" id="crypto-controls">
-              <h2 className="panel-title">Start Strategy</h2>
+              <h2 className="panel-title">Python Strategy Scanner</h2>
               <div className="p-3">
+                <div className="alert alert-secondary">
+                  This panel runs the Python scan for the current setup and can place a demo order from that result. It does not yet launch multiple long-running crypto Python strategy workers in parallel.
+                </div>
                 <div className="row g-3">
                   <div className="col-12 col-md-4">
                     <label className="form-label">Underlying</label>
@@ -637,6 +680,16 @@ export function CryptoMarketShell() {
                   </div>
 
                   <div className="col-12 col-md-4">
+                    <label className="form-label">Strategy Name</label>
+                    <input
+                      className="form-control"
+                      maxLength={80}
+                      minLength={3}
+                      value={form.strategy_name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, strategy_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
                     <label className="form-label">Strategy Preference</label>
                     <select
                       className="form-select"
@@ -663,7 +716,7 @@ export function CryptoMarketShell() {
                     </select>
                   </div>
                   <div className="col-12 col-md-4">
-                    <label className="form-label">Enabled Strategy</label>
+                    <label className="form-label">Execution Profile</label>
                     <select
                       className="form-select"
                       value={form.strategy_type}
@@ -836,18 +889,10 @@ export function CryptoMarketShell() {
                       </label>
                     </div>
                   </div>
-                  <div className="col-12">
-                    <label className="form-label">TradingView Alert Name</label>
-                    <input
-                      className="form-control"
-                      maxLength={80}
-                      minLength={3}
-                      value={form.alert_name}
-                      onChange={(e) => setForm((prev) => ({ ...prev, alert_name: e.target.value }))}
-                    />
-                  </div>
-
                   <div className="col-12 d-flex flex-wrap gap-2">
+                    <button className="btn btn-outline-info" disabled={strategySaving} onClick={handleSaveStrategy}>
+                      {strategySaving ? "Saving Strategy..." : "Save Strategy"}
+                    </button>
                     <button
                       className="btn btn-outline-light"
                       disabled={!form.underlying_asset_symbol || previewLoading}
@@ -860,7 +905,7 @@ export function CryptoMarketShell() {
                       disabled={!form.underlying_asset_symbol || strategyLoading}
                       onClick={() => loadStrategy(form.underlying_asset_symbol, form.expiry_date)}
                     >
-                      {strategyLoading ? "Scanning..." : "Preview Strategy"}
+                      {strategyLoading ? "Scanning..." : "Run Python Scan"}
                     </button>
                     <button className="btn btn-outline-secondary" disabled={ordersLoading} onClick={() => void loadOrders()}>
                       {ordersLoading ? "Refreshing..." : "Refresh Demo Orders"}
@@ -868,18 +913,76 @@ export function CryptoMarketShell() {
                     <button className="btn btn-warning" disabled={!canPlaceDemoOrder} onClick={handlePlaceDemoOrder}>
                       {orderPlacing ? "Placing Demo Order..." : "Place Demo Order"}
                     </button>
-                    <button
-                      className="btn btn-outline-info"
-                      disabled={templateCreating || !boundedRiskReady}
-                      onClick={handleCreateTradingViewTemplate}
-                    >
-                      {templateCreating ? "Starting Strategy..." : tradingViewTemplate ? "Restart Strategy" : "Start Strategy"}
-                    </button>
                   </div>
                   <div className="col-12">
                     <div className="small muted">
                       Safer default: limit orders use the visible best ask for buys or best bid for sells. Demo orders are blocked
                       when the requested size is larger than the visible orderbook size.
+                    </div>
+                    <div className="small muted mt-2">
+                      Multi-template concurrent testing is available in the TradingView section below because each template has its own access token and Pine strategy ID.
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <div className="border rounded p-3" style={{ borderColor: "var(--line)" }}>
+                      <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                          <div className="fw-semibold">Configured Crypto Strategies</div>
+                          <div className="small muted">
+                            These are saved Python scanner setups for Delta. They are separate from TradingView templates and give us the base we need for future multi-run management.
+                          </div>
+                        </div>
+                        <span className="badge-soft blue">{savedStrategies.length} saved</span>
+                      </div>
+
+                      {savedStrategies.length ? (
+                        <div className="d-flex flex-column gap-3">
+                          {savedStrategies.map((strategy) => {
+                            const config = strategy.config as Record<string, string | number | boolean | null>;
+                            return (
+                              <div className="border rounded p-3" key={strategy.strategy_id} style={{ borderColor: "var(--line)" }}>
+                                <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                  <div>
+                                    <div className="fw-semibold">{strategy.strategy_name}</div>
+                                    <div className="small muted">{strategy.strategy_id}</div>
+                                  </div>
+                                  <span className="badge-soft gold">{strategy.runner_status.toUpperCase()}</span>
+                                </div>
+                                <div className="small muted d-flex flex-column gap-1 mb-3">
+                                  <div>
+                                    <strong>Scanner:</strong> {strategyLabel(strategy.strategy_type)} / {String(config.candidate_side || "-").toUpperCase()} / {String(config.underlying_asset_symbol || "-")}
+                                  </div>
+                                  <div>
+                                    <strong>Expiry:</strong> {String(config.expiry_date || "Auto")} | <strong>Order:</strong> {String(config.order_side || "-").toUpperCase()} {String(config.order_type || "-")} x {String(config.size || "-")}
+                                  </div>
+                                  <div>
+                                    <strong>Filters:</strong> delta {fmtNumber(Number(config.target_delta || 0), 2)} / mark {fmtUsd(Number(config.max_mark_price || 0))} / OI {fmtNumber(Number(config.min_open_interest || 0), 0)}
+                                  </div>
+                                  <div>
+                                    <strong>Updated:</strong> {fmtDate(strategy.updated_at)}
+                                  </div>
+                                </div>
+                                <div className="d-flex flex-wrap gap-2">
+                                  <button className="btn btn-sm btn-outline-light" onClick={() => handleLoadSavedStrategy(strategy)}>
+                                    Load Into Scanner
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    disabled={strategyDeletingId === strategy.strategy_id}
+                                    onClick={() => void handleDeleteStrategy(strategy.strategy_id)}
+                                  >
+                                    {strategyDeletingId === strategy.strategy_id ? "Deleting..." : "Delete"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="empty-state">
+                          No saved crypto strategies yet. Save each Python scanner setup you want to keep separate from TradingView alert templates.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -888,7 +991,7 @@ export function CryptoMarketShell() {
                   <div className="mt-4 border rounded p-3" style={{ borderColor: "var(--line)" }}>
                     <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
                       <div>
-                        <div className="fw-semibold">Strategy Preview</div>
+                        <div className="fw-semibold">Python Strategy Scan Preview</div>
                         <div className="small muted">{strategyPreview.message}</div>
                       </div>
                       <span className={`badge-soft ${strategyPreview.entry_ready ? "green" : "gold"}`}>
@@ -1076,56 +1179,25 @@ export function CryptoMarketShell() {
             </section>
 
             <section className="dashboard-panel mt-4" id="crypto-template">
-              <h2 className="panel-title">Strategy Listener</h2>
+              <h2 className="panel-title">Crypto TV Templates</h2>
               <div className="p-3">
                 <div className="d-flex flex-column gap-2 small muted mb-3">
                   <div>
                     <strong>Webhook:</strong> /api/v1/crypto/delta/webhook
                   </div>
                   <div>
-                    <strong>Session:</strong> 24x7
+                    <strong>Signal Source:</strong> TradingView alerts
                   </div>
                   <div>
-                    <strong>Strategy:</strong> {strategyLabel(form.strategy_type)} / 24x7
+                    <strong>Dedicated Page:</strong> /crypto-tradingview-templates
                   </div>
                 </div>
-                <button
-                  className="btn btn-outline-info w-100"
-                  disabled={templateCreating || !boundedRiskReady}
-                  onClick={handleCreateTradingViewTemplate}
-                >
-                  {templateCreating ? "Starting Strategy..." : tradingViewTemplate ? "Restart Listener" : "Start Strategy Listener"}
-                </button>
-
-                {tradingViewTemplate && (
-                  <div className="mt-3">
-                    <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
-                      <div className="small muted">
-                        <strong>ID:</strong> {tradingViewTemplate.template_id}
-                      </div>
-                      <button
-                        className="btn btn-sm btn-outline-light"
-                        disabled={templateCopying || !generatedTemplateJson}
-                        onClick={handleCopyTradingViewPayload}
-                      >
-                        {templateCopying ? "Copying..." : "Copy Payload"}
-                      </button>
-                    </div>
-                    <div className="small muted mb-2">
-                      <strong>Pine Strategy ID:</strong> {tradingViewTemplate.pine_strategy_id}
-                    </div>
-                    <div className="small muted mb-2">
-                      <strong>Template Format:</strong> Indian-market compatible core payload
-                    </div>
-                    <textarea
-                      className="form-control"
-                      readOnly
-                      rows={16}
-                      style={{ fontFamily: "monospace", fontSize: 12 }}
-                      value={generatedTemplateJson}
-                    />
-                  </div>
-                )}
+                <div className="small muted mb-3">
+                  The full TradingView template builder now lives on its own page so `/crypto-market` can stay focused on Python scanning, saved crypto strategies, and demo-order review.
+                </div>
+                <Link className="btn btn-warning w-100" href="/crypto-tradingview-templates">
+                  Open Crypto TradingView Templates
+                </Link>
               </div>
             </section>
           </div>
