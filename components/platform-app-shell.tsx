@@ -135,6 +135,12 @@ const baseNavGroups: NavGroup[] = [
         caption: "Delta workflows",
         monogram: "CR",
       },
+      {
+        href: "/crypto-tradingview-templates",
+        label: "Crypto TV Templates",
+        caption: "Delta alert templates",
+        monogram: "CT",
+      },
     ],
   },
   {
@@ -214,6 +220,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/crypto-market": {
     title: "Crypto Market",
     subtitle: "Delta market analysis, strategy preview, and demo-order surface",
+  },
+  "/crypto-tradingview-templates": {
+    title: "Crypto TradingView Templates",
+    subtitle: "Dedicated template desk for Delta alert payloads and backend execution profiles",
   },
   "/upstox-backtest": {
     title: "Upstox Backtest",

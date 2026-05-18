@@ -194,8 +194,8 @@ export function TradingViewAlertsShell() {
   const [switchingModeId, setSwitchingModeId] = useState<string | null>(null);
 
   const indices = useMemo(() => catalog.filter((item) => item.kind === "index"), [catalog]);
+  const stocks = useMemo(() => catalog.filter((item) => item.kind === "stock"), [catalog]);
   const commodities = useMemo(() => catalog.filter((item) => item.kind === "commodity"), [catalog]);
-  const indicesAndCommodities = useMemo(() => [...indices, ...commodities], [indices, commodities]);
   const activityRows = useMemo(() => {
     const ascending = [...activityEvents].reverse();
     let runningTotal = 0;
@@ -689,11 +689,34 @@ export function TradingViewAlertsShell() {
                     value={form.instrument_key}
                     onChange={(event) => setForm((prev) => ({ ...prev, instrument_key: event.target.value }))}
                   >
-                    {(indicesAndCommodities.length ? indicesAndCommodities : catalog).map((item) => (
-                      <option key={item.instrument_key} value={item.instrument_key}>
-                        {item.label} ({item.instrument_key})
-                      </option>
-                    ))}
+                    {!catalog.length ? <option value={form.instrument_key}>Loading instruments...</option> : null}
+                    {indices.length ? (
+                      <optgroup label="Indices">
+                        {indices.map((item) => (
+                          <option key={item.instrument_key} value={item.instrument_key}>
+                            {item.label} ({item.instrument_key})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {stocks.length ? (
+                      <optgroup label="Stocks">
+                        {stocks.map((item) => (
+                          <option key={item.instrument_key} value={item.instrument_key}>
+                            {item.label} ({item.instrument_key})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {commodities.length ? (
+                      <optgroup label="Commodities">
+                        {commodities.map((item) => (
+                          <option key={item.instrument_key || item.symbol || item.label} value={item.instrument_key} disabled={!item.instrument_key}>
+                            {item.label} ({item.instrument_key || "not configured"})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
                   </select>
                 </div>
 

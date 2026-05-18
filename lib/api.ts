@@ -1122,12 +1122,42 @@ export type DeltaDemoOrderResponse = {
   message: string;
 };
 
+export type DeltaSavedStrategyRequest = {
+  strategy_name: string;
+  strategy_type: SharedStrategyId;
+  underlying_asset_symbol: string;
+  expiry_date?: string | null;
+  option_preference: "call" | "put" | "both";
+  target_delta: number;
+  max_mark_price: number;
+  min_open_interest: number;
+  candidate_side: "call" | "put";
+  order_side: "buy" | "sell";
+  order_type: "market_order" | "limit_order";
+  size: number;
+  limit_price?: number | null;
+  max_order_value: number;
+  max_spread_pct: number;
+  allow_unbounded_risk: boolean;
+};
+
+export type DeltaSavedStrategyResponse = {
+  strategy_id: string;
+  strategy_name: string;
+  strategy_type: SharedStrategyId;
+  config: Record<string, string | number | boolean | null | object>;
+  created_at: string;
+  updated_at: string;
+  runner_status: string;
+};
+
 export type SharedStrategyId =
   | "tv_ha_call_v2"
   | "nc_ha_call_entry"
   | "auto_atm_otm_call"
   | "fibo_nk_call"
   | "jk_oc_call"
+  | "jk_oc_call_opt_int"
   | "ol_oh_call"
   | "momentum_call"
   | "tv_ha_put_v2"
@@ -1139,9 +1169,11 @@ export type SharedStrategyId =
 export type DeltaTradingViewTemplateRequest = {
   alert_name: string;
   strategy_type: SharedStrategyId;
+  instrument_type: "option" | "future";
   underlying_asset_symbol: string;
   expiry_date?: string | null;
   candidate_side: "call" | "put";
+  direction: "long" | "short";
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
@@ -1166,8 +1198,10 @@ export type DeltaTradingViewTemplateResponse = {
   market: string;
   broker_id: string;
   strategy_type: SharedStrategyId;
+  instrument_type: "option" | "future";
   underlying_asset_symbol: string;
   candidate_side: "call" | "put";
+  direction: "long" | "short";
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
@@ -1734,11 +1768,35 @@ export async function placeDeltaDemoOrder(payload: DeltaDemoOrderRequest) {
   );
 }
 
+export async function listDeltaSavedStrategies() {
+  return getBackendJson<DeltaSavedStrategyResponse[]>("/api/v1/crypto/strategies");
+}
+
+export async function createDeltaSavedStrategy(payload: DeltaSavedStrategyRequest) {
+  return postBackendJsonWithBody<DeltaSavedStrategyResponse, DeltaSavedStrategyRequest>(
+    "/api/v1/crypto/strategies",
+    payload,
+  );
+}
+
+export async function deleteDeltaSavedStrategy(strategyId: string) {
+  return deleteBackendJson<{ status: string }>(`/api/v1/crypto/strategies/${strategyId}`);
+}
+
 export async function createDeltaTradingViewTemplate(payload: DeltaTradingViewTemplateRequest) {
   return postBackendJsonWithBody<DeltaTradingViewTemplateResponse, DeltaTradingViewTemplateRequest>(
     "/api/v1/crypto/delta/tradingview-template",
     payload,
   );
+}
+
+export async function listDeltaTradingViewTemplates() {
+  return getBackendJson<DeltaTradingViewTemplateResponse[]>("/api/v1/crypto/delta/tradingview-templates");
+}
+
+export async function deleteDeltaTradingViewTemplate(templateId: string) {
+  const encoded = encodeURIComponent(templateId);
+  return deleteBackendJson<{ status: string }>(`/api/v1/crypto/delta/tradingview-templates/${encoded}`);
 }
 
 export async function runUpstoxOptionChainBacktest(payload: UpstoxOptionChainBacktestRunRequest) {

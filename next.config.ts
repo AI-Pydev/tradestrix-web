@@ -12,6 +12,14 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  ...(process.env.NODE_ENV === "development"
+    ? {
+        allowedDevOrigins: [
+          "fullstackpythondeveloper.in",
+          "*.fullstackpythondeveloper.in",
+        ],
+      }
+    : {}),
   // Next.js 16 uses Turbopack by default for `next dev`. `next-pwa` injects a
   // webpack config even when disabled in development, which triggers a startup
   // error unless Turbopack is explicitly configured.

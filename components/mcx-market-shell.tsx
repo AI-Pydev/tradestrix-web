@@ -126,6 +126,7 @@ const CALL_STRATEGY_OPTIONS = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
   { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
+  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
   { value: "momentum_call", label: "Momentum CALL" },
 ];

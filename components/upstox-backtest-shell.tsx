@@ -70,6 +70,7 @@ const CALL_STRATEGY_OPTIONS = [
   { value: "auto_atm_otm_call", label: "Auto ATM-OTM CALL" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_oc_call", label: "JK OC CALL" },
+  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
   { value: "momentum_call", label: "Momentum CALL" },
 ];
