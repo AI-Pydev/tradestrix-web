@@ -742,8 +742,12 @@ export type UpstoxIndexAutoLaunchTarget = {
   verified: boolean;
   call_strategy_id: string;
   call_strategy_label: string;
+  call_strategy_ids: string[];
+  call_strategy_labels: string[];
   put_strategy_id: string;
   put_strategy_label: string;
+  put_strategy_ids: string[];
+  put_strategy_labels: string[];
   call_active: boolean;
   put_active: boolean;
 };
