@@ -15,6 +15,7 @@ import {
 const CALL_STRATEGY_OPTIONS = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
   { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
+  { value: "auto_atm_otm_call", label: "AUTO ATM OTM CALL" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
@@ -30,28 +31,15 @@ const PUT_STRATEGY_OPTIONS = [
 
 const STRATEGY_BASKET_PRESETS = [
   {
-    key: "tv_ha",
-    label: "TV-HA Basket",
-    callStrategyId: "tv_ha_call_v2",
-    putStrategyId: "tv_ha_put_v2",
-  },
-  {
-    key: "fibo",
-    label: "FIBO-NK Basket",
-    callStrategyId: "fibo_nk_call",
-    putStrategyId: "fibo_nk_put",
-  },
-  {
-    key: "ol_oh",
-    label: "OL-OH Basket",
-    callStrategyId: "ol_oh_call",
-    putStrategyId: "ol_oh_put",
+    key: "qualified_6mo",
+    label: "6M Qualified Basket",
   },
 ];
 
 const STRATEGY_BASKET_LABELS: Record<string, string> = Object.fromEntries(
   [
     ["default", "Default Basket"],
+    ["qualified_6mo", "6M Qualified Basket"],
     ...STRATEGY_BASKET_PRESETS.map((preset): [string, string] => [preset.key, preset.label]),
   ],
 );
@@ -71,9 +59,15 @@ function boolTone(value: boolean) {
   return value ? "green" : "gold";
 }
 
-function strategyOptionLabel(side: "call" | "put", strategyId?: string | null) {
+function strategyListLabel(labels?: string[] | null, ids?: string[] | null) {
+  const values = labels?.length ? labels : ids;
+  return values?.length ? values.join(", ") : "No qualified strategy";
+}
+
+function qualifiedOptions(side: "call" | "put", strategyIds?: string[] | null) {
+  const allowed = new Set(strategyIds ?? []);
   const options = side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
-  return options.find((item) => item.value === strategyId)?.label ?? strategyId ?? "-";
+  return options.filter((item) => allowed.has(item.value));
 }
 
 export function IndexAutoLaunchShell() {
@@ -171,13 +165,9 @@ export function IndexAutoLaunchShell() {
     try {
       setSavingPreset(preset.key);
       setError("");
-      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
-        call_strategy_id: preset.callStrategyId,
-        put_strategy_id: preset.putStrategyId,
-        apply_to_targets: true,
-      });
+      const result = await syncUpstoxIndexAutoLaunch();
       setStatus(result);
-      setMessage(`${preset.label} applied to all eligible indices.`);
+      setMessage(`${preset.label} is the only enabled index auto-launch basket. Sync completed.`);
       setMessageTone("success");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to apply strategy basket");
@@ -195,7 +185,7 @@ export function IndexAutoLaunchShell() {
         execution_broker: brokerName as "paper" | "kotak_neo" | "upstox" | "kite",
       });
       setStatus(result);
-      setMessage(`Execution broker set to ${brokerName === "paper" ? "Paper" : brokerName}.`);
+      setMessage(`Execution mode set to ${brokerName === "kotak_neo" ? "Live - Kotak Neo" : "Paper Trading"}.`);
       setMessageTone("success");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to update broker");
@@ -293,10 +283,10 @@ export function IndexAutoLaunchShell() {
               className="mt-3 p-3"
               style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(8, 19, 33, 0.28)" }}
             >
-              <div className="metric-label">Strategy Basket Presets</div>
+              <div className="metric-label">Qualified Strategy Basket</div>
               <div className="muted mt-1">
-                Apply a full CALL and PUT pair across all eligible indices. This also becomes the default for new
-                verified indices that do not have a manual override yet.
+                Index auto-launch now uses only the strategies that passed the six-month qualification filter for each
+                index and side.
               </div>
               <div className="d-flex flex-wrap gap-2 mt-3">
                 {STRATEGY_BASKET_PRESETS.map((preset) => (
@@ -313,28 +303,29 @@ export function IndexAutoLaunchShell() {
               </div>
               <div className="d-flex gap-2 align-items-end flex-wrap mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
                 <div>
-                  <label className="form-label">Execution Broker</label>
+                  <label className="form-label">Execution Mode</label>
                   <select
                     className="form-select form-select-sm"
-                    style={{ minWidth: "160px" }}
+                    style={{ minWidth: "190px" }}
                     disabled={action !== "" || savingPreset !== null || savingStrategy !== null || savingBroker}
                     value={status?.config.execution_broker ?? "paper"}
                     onChange={(e) => void handleSetBroker(e.target.value)}
                   >
                     <option value="paper">Paper Trading</option>
-                    <option value="kotak_neo">Kotak Neo</option>
-                    <option value="upstox">Upstox</option>
-                    <option value="kite">Kite (Zerodha)</option>
+                    <option value="kotak_neo">Live - Kotak Neo</option>
                   </select>
                   {savingBroker && <div className="small muted mt-1">Updating...</div>}
+                  {status?.config.execution_broker === "kotak_neo" ? (
+                    <div className="small text-warning mt-1">
+                      Live mode places real Kotak Neo orders for qualified index jobs.
+                    </div>
+                  ) : (
+                    <div className="small muted mt-1">Paper mode records simulated auto-launch trades.</div>
+                  )}
                 </div>
               </div>
-              <div className="muted mt-3">
-                Default CALL: {strategyOptionLabel("call", status?.config.default_call_strategy_id)} | Default PUT:{" "}
-                {strategyOptionLabel("put", status?.config.default_put_strategy_id)}
-              </div>
               <div className="muted mt-2">
-                Active test baskets:{" "}
+                Active basket:{" "}
                 {status?.config.enabled_strategy_basket_ids
                   .map((basketId) => STRATEGY_BASKET_LABELS[basketId] ?? basketId)
                   .join(", ") || "-"}
@@ -376,10 +367,15 @@ export function IndexAutoLaunchShell() {
                             </td>
                             <td>{target.lot_size ?? "-"}</td>
                             <td>
+                              <div className="small muted mb-2">
+                                {strategyListLabel(target.call_strategy_labels, target.call_strategy_ids)}
+                              </div>
                               <select
                                 className="form-select form-select-sm"
                                 disabled={
-                                  savingPreset !== null || savingStrategy === `${target.instrument_key}:call`
+                                  !target.call_strategy_ids.length ||
+                                  savingPreset !== null ||
+                                  savingStrategy === `${target.instrument_key}:call`
                                 }
                                 onChange={(e) =>
                                   void handleSetStrategy(target.instrument_key, "call", e.target.value)
@@ -387,7 +383,10 @@ export function IndexAutoLaunchShell() {
                                 style={{ background: "var(--color-surface-2, #0d1b2a)", color: "inherit", border: "1px solid rgba(255,255,255,0.15)" }}
                                 value={target.call_strategy_id}
                               >
-                                {CALL_STRATEGY_OPTIONS.map((opt) => (
+                                {!target.call_strategy_ids.length ? (
+                                  <option value="">No qualified strategy</option>
+                                ) : null}
+                                {qualifiedOptions("call", target.call_strategy_ids).map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>
@@ -400,10 +399,15 @@ export function IndexAutoLaunchShell() {
                               </span>
                             </td>
                             <td>
+                              <div className="small muted mb-2">
+                                {strategyListLabel(target.put_strategy_labels, target.put_strategy_ids)}
+                              </div>
                               <select
                                 className="form-select form-select-sm"
                                 disabled={
-                                  savingPreset !== null || savingStrategy === `${target.instrument_key}:put`
+                                  !target.put_strategy_ids.length ||
+                                  savingPreset !== null ||
+                                  savingStrategy === `${target.instrument_key}:put`
                                 }
                                 onChange={(e) =>
                                   void handleSetStrategy(target.instrument_key, "put", e.target.value)
@@ -411,7 +415,10 @@ export function IndexAutoLaunchShell() {
                                 style={{ background: "var(--color-surface-2, #0d1b2a)", color: "inherit", border: "1px solid rgba(255,255,255,0.15)" }}
                                 value={target.put_strategy_id}
                               >
-                                {PUT_STRATEGY_OPTIONS.map((opt) => (
+                                {!target.put_strategy_ids.length ? (
+                                  <option value="">No qualified strategy</option>
+                                ) : null}
+                                {qualifiedOptions("put", target.put_strategy_ids).map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>
