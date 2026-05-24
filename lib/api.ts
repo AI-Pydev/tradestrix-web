@@ -869,6 +869,115 @@ export type StrategyAssignmentBatch = {
   assignments: StrategyAssignment[];
 };
 
+export type StrategyQualificationRules = {
+  min_trades: number;
+  min_win_rate: number;
+  min_profit_factor: number;
+  max_drawdown: number;
+  min_last_sessions: number;
+  min_profitable_last_sessions: number;
+  max_consecutive_losses: number;
+  min_net_pnl: number;
+  reject_unverified_instruments: boolean;
+};
+
+export type StrategyQualificationRunRequest = {
+  instrument_keys: string[];
+  include_indices: boolean;
+  include_stocks: boolean;
+  verified_only: boolean;
+  limit?: number | null;
+  from_date: string;
+  to_date: string;
+  include_call: boolean;
+  include_put: boolean;
+  strategy_ids: string[];
+  timeframe: string;
+  underlying_unit: string;
+  underlying_interval: string;
+  option_interval: string;
+  current_option_unit: string;
+  current_option_interval: string;
+  strike_offset: number;
+  lots: number;
+  max_entry_ltp: number;
+  sl_premium_pct: number;
+  target_premium_pct: number;
+  rules: StrategyQualificationRules;
+};
+
+export type StrategyQualificationMetrics = {
+  total_trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  net_pnl: number;
+  gross_profit: number;
+  gross_loss: number;
+  drawdown: number;
+  profit_factor?: number | null;
+  sharpe_ratio: number;
+  consecutive_loss: number;
+  average_rr?: number | null;
+  slippage_estimate: number;
+  last_session_pnl: number[];
+  unstable_pnl_curve: boolean;
+};
+
+export type StrategyQualificationResult = {
+  instrument_key: string;
+  symbol: string;
+  side: "call" | "put";
+  strategy_id: string;
+  strategy_label: string;
+  verified: boolean;
+  kind: string;
+  status: string;
+  bucket: string;
+  qualification_status: string;
+  qualification_score: number;
+  qualification_reason: string;
+  failed_rules: string[];
+  passed_rules: string[];
+  metrics: StrategyQualificationMetrics;
+  backtest_message?: string | null;
+  backtest_logs?: string[];
+};
+
+export type StrategyQualificationBatch = {
+  batch_id: string;
+  created_at: string;
+  request: Record<string, unknown>;
+  summary: Record<string, unknown>;
+  results: StrategyQualificationResult[];
+  auto_launch_candidates: Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>;
+};
+
+export type StrategyQualificationJob = {
+  task_id: string;
+  status: string;
+  message: string;
+  batch?: StrategyQualificationBatch | null;
+  error?: string | null;
+};
+
+export type StrategyRegistryEntry = {
+  id: number;
+  strategy_id: string;
+  name: string;
+  instrument_key: string;
+  symbol: string;
+  timeframe: string;
+  strategy_type: string;
+  side: "call" | "put";
+  status: string;
+  bucket: string;
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type UpstoxOptionChainBotPreviewResponse = {
   mode: string;
   instrument_key: string;
@@ -1691,6 +1800,36 @@ export async function runStrategyAssignments(payload: StrategyAssignmentRunReque
   return postBackendJsonWithBody<StrategyAssignmentBatch, StrategyAssignmentRunRequest>(
     "/api/v1/strategy-assignments/run",
     payload,
+  );
+}
+
+export async function runStrategyQualification(payload: StrategyQualificationRunRequest) {
+  return postBackendJsonWithBody<StrategyQualificationBatch, StrategyQualificationRunRequest>(
+    "/api/v1/strategy-qualification/run",
+    payload,
+  );
+}
+
+export async function enqueueStrategyQualification(payload: StrategyQualificationRunRequest) {
+  return postBackendJsonWithBody<StrategyQualificationJob, StrategyQualificationRunRequest>(
+    "/api/v1/strategy-qualification/run-async",
+    payload,
+  );
+}
+
+export async function fetchStrategyQualificationJob(taskId: string) {
+  return getBackendJson<StrategyQualificationJob>(
+    `/api/v1/strategy-qualification/jobs/${encodeURIComponent(taskId)}`,
+  );
+}
+
+export async function fetchStrategyQualificationRegistry() {
+  return getBackendJson<StrategyRegistryEntry[]>("/api/v1/strategy-qualification/registry");
+}
+
+export async function fetchStrategyQualificationCandidates(executionMode: "paper" | "live" | "all" = "paper") {
+  return getBackendJson<Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>>(
+    `/api/v1/strategy-qualification/auto-launch-candidates?execution_mode=${encodeURIComponent(executionMode)}`,
   );
 }
 
