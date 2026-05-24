@@ -31,14 +31,15 @@ const PUT_STRATEGY_OPTIONS = [
 
 const STRATEGY_BASKET_PRESETS = [
   {
-    key: "qualified_6mo",
-    label: "6M Qualified Basket",
+    key: "priority_core",
+    label: "Live Core Basket",
   },
 ];
 
 const STRATEGY_BASKET_LABELS: Record<string, string> = Object.fromEntries(
   [
     ["default", "Default Basket"],
+    ["priority_core", "Live Core Basket"],
     ["qualified_6mo", "6M Qualified Basket"],
     ...STRATEGY_BASKET_PRESETS.map((preset): [string, string] => [preset.key, preset.label]),
   ],
@@ -165,7 +166,9 @@ export function IndexAutoLaunchShell() {
     try {
       setSavingPreset(preset.key);
       setError("");
-      const result = await syncUpstoxIndexAutoLaunch();
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
+        enabled_strategy_basket_ids: [preset.key],
+      });
       setStatus(result);
       setMessage(`${preset.label} is the only enabled index auto-launch basket. Sync completed.`);
       setMessageTone("success");

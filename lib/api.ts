@@ -1665,6 +1665,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   put_strategy_id?: string | null;
   apply_to_targets?: boolean;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  enabled_strategy_basket_ids?: string[] | null;
 }) {
   return postBackendJsonWithBody<
     UpstoxIndexAutoLaunchStatus,
@@ -1672,6 +1673,8 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
       call_strategy_id?: string | null;
       put_strategy_id?: string | null;
       apply_to_targets?: boolean;
+      execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+      enabled_strategy_basket_ids?: string[] | null;
     }
   >("/api/v1/upstox/option-chain-bot/index-auto-launch/default-strategies", payload);
 }
