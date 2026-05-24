@@ -106,6 +106,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "BT",
       },
       {
+        href: "/strategy-qualification",
+        label: "Qualification",
+        caption: "Auto strategy buckets",
+        monogram: "SQ",
+      },
+      {
         href: "/custom-candle-lab",
         label: "Candle Lab",
         caption: "Custom timeframe preview",
@@ -228,6 +234,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/upstox-backtest": {
     title: "Upstox Backtest",
     subtitle: "Historical option-chain replay and review workflow",
+  },
+  "/strategy-qualification": {
+    title: "Strategy Qualification",
+    subtitle: "Automated backtest scoring and launch bucket management",
   },
   "/custom-candle-lab": {
     title: "Custom Candle Lab",
