@@ -144,6 +144,12 @@ export type OpportunityScannerRequest = {
   min_option_ltp?: number | null;
   max_option_ltp?: number | null;
   workers: number;
+  include_qualification_context?: boolean;
+  qualification_min_win_rate?: number;
+  qualification_min_net_pnl?: number;
+  qualification_min_trades?: number;
+  include_paper_history_context?: boolean;
+  paper_history_min_closed_trades?: number;
 };
 
 export type OpportunityScannerSummary = {
@@ -167,6 +173,11 @@ export type OpportunityScannerSummary = {
   storage_target: string;
   snapshot_saved: boolean;
   storage_warning?: string | null;
+  paper_ready_count: number;
+  paper_ready_actionable_count: number;
+  qualification_context_enabled: boolean;
+  paper_history_context_enabled: boolean;
+  paper_history_caution_count: number;
 };
 
 export type OpportunityScannerRow = {
@@ -204,6 +215,19 @@ export type OpportunityScannerRow = {
   option_symbol?: string | null;
   rationale?: string | null;
   status_reason: string;
+  readiness_bucket: string;
+  readiness_strategy_id?: string | null;
+  readiness_strategy_label?: string | null;
+  readiness_score?: number | null;
+  readiness_win_rate?: number | null;
+  readiness_net_pnl?: number | null;
+  readiness_total_trades?: number | null;
+  readiness_reason?: string | null;
+  paper_history_bucket: string;
+  paper_history_closed_trades: number;
+  paper_history_win_rate?: number | null;
+  paper_history_realized_pnl?: number | null;
+  paper_history_reason?: string | null;
 };
 
 export type OpportunityScannerResponse = {
@@ -904,6 +928,7 @@ export type StrategyQualificationRunRequest = {
   sl_premium_pct: number;
   target_premium_pct: number;
   rules: StrategyQualificationRules;
+  candidate_scope?: "standard" | "paper_discovery";
 };
 
 export type StrategyQualificationMetrics = {
@@ -951,6 +976,8 @@ export type StrategyQualificationBatch = {
   summary: Record<string, unknown>;
   results: StrategyQualificationResult[];
   auto_launch_candidates: Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>;
+  paper_discovery_candidates?: PaperDiscoveryCandidates | null;
+  live_candidates?: Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }> | null;
 };
 
 export type StrategyQualificationJob = {
@@ -976,6 +1003,34 @@ export type StrategyRegistryEntry = {
   metadata: Record<string, unknown>;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+export type PaperDiscoveryCandidate = StrategyRegistryEntry & {
+  latest_run: {
+    id: number;
+    batch_id: string;
+    from_date: string;
+    to_date: string;
+    qualification_score: number;
+    qualification_status: string;
+    qualification_reason: string;
+  };
+  metrics: StrategyQualificationMetrics;
+};
+
+export type PaperDiscoveryCandidates = {
+  thresholds: {
+    min_win_rate: number;
+    min_net_pnl: number;
+    min_trades: number;
+  };
+  summary: {
+    count: number;
+    include_indices: boolean;
+    include_stocks: boolean;
+  };
+  candidates: PaperDiscoveryCandidate[];
+  grouped: Record<string, { call: PaperDiscoveryCandidate[]; put: PaperDiscoveryCandidate[] }>;
 };
 
 export type UpstoxOptionChainBotPreviewResponse = {
@@ -1817,6 +1872,20 @@ export async function enqueueStrategyQualification(payload: StrategyQualificatio
   );
 }
 
+export async function runPaperDiscoveryQualification(payload: StrategyQualificationRunRequest) {
+  return postBackendJsonWithBody<StrategyQualificationBatch, StrategyQualificationRunRequest>(
+    "/api/v1/strategy-qualification/run-paper-discovery",
+    { ...payload, candidate_scope: "paper_discovery" },
+  );
+}
+
+export async function enqueuePaperDiscoveryQualification(payload: StrategyQualificationRunRequest) {
+  return postBackendJsonWithBody<StrategyQualificationJob, StrategyQualificationRunRequest>(
+    "/api/v1/strategy-qualification/run-paper-discovery-async",
+    { ...payload, candidate_scope: "paper_discovery" },
+  );
+}
+
 export async function fetchStrategyQualificationJob(taskId: string) {
   return getBackendJson<StrategyQualificationJob>(
     `/api/v1/strategy-qualification/jobs/${encodeURIComponent(taskId)}`,
@@ -1830,6 +1899,26 @@ export async function fetchStrategyQualificationRegistry() {
 export async function fetchStrategyQualificationCandidates(executionMode: "paper" | "live" | "all" = "paper") {
   return getBackendJson<Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>>(
     `/api/v1/strategy-qualification/auto-launch-candidates?execution_mode=${encodeURIComponent(executionMode)}`,
+  );
+}
+
+export async function fetchPaperDiscoveryCandidates(params?: {
+  min_win_rate?: number;
+  min_net_pnl?: number;
+  min_trades?: number;
+  include_indices?: boolean;
+  include_stocks?: boolean;
+  limit?: number;
+}) {
+  const search = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      search.set(key, String(value));
+    }
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return getBackendJson<PaperDiscoveryCandidates>(
+    `/api/v1/strategy-qualification/paper-discovery-candidates${suffix}`,
   );
 }
 
