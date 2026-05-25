@@ -97,10 +97,19 @@ function emaBiasTone(bias?: string | null) {
 }
 
 function metricTone(label: string) {
-  if (label === "Actionable" || label === "Actionable Indices" || label === "Actionable Stocks") {
+  if (
+    label === "Actionable" ||
+    label === "Actionable Indices" ||
+    label === "Actionable Stocks" ||
+    label === "Paper Ready" ||
+    label === "Ready + Actionable"
+  ) {
     return "positive";
   }
   if (label === "Errors") {
+    return "negative";
+  }
+  if (label === "History Caution") {
     return "negative";
   }
   return "";
@@ -123,6 +132,12 @@ type ScannerFormState = {
   workers: number;
   entry_lots: number;
   auto_scan_interval_seconds: number;
+  include_qualification_context: boolean;
+  qualification_min_win_rate: number;
+  qualification_min_net_pnl: number;
+  qualification_min_trades: number;
+  include_paper_history_context: boolean;
+  paper_history_min_closed_trades: number;
 };
 
 const PAPER_LAB_REFRESH_MS = 15000;
@@ -176,6 +191,12 @@ export function OpportunityScannerShell() {
     workers: 6,
     entry_lots: 1,
     auto_scan_interval_seconds: 60,
+    include_qualification_context: true,
+    qualification_min_win_rate: 70,
+    qualification_min_net_pnl: 25000,
+    qualification_min_trades: 20,
+    include_paper_history_context: true,
+    paper_history_min_closed_trades: 3,
   });
 
   useEffect(() => {
@@ -307,6 +328,12 @@ export function OpportunityScannerShell() {
         min_option_ltp: parseOptionalNumber(form.min_option_ltp),
         max_option_ltp: parseOptionalNumber(form.max_option_ltp),
         workers: form.workers,
+        include_qualification_context: form.include_qualification_context,
+        qualification_min_win_rate: form.qualification_min_win_rate,
+        qualification_min_net_pnl: form.qualification_min_net_pnl,
+        qualification_min_trades: form.qualification_min_trades,
+        include_paper_history_context: form.include_paper_history_context,
+        paper_history_min_closed_trades: form.paper_history_min_closed_trades,
       });
       startTransition(() => {
         setResult(response);
@@ -436,6 +463,9 @@ export function OpportunityScannerShell() {
         { label: "Errors", value: result.summary.error_count },
         { label: "Actionable Indices", value: result.summary.actionable_indices },
         { label: "Actionable Stocks", value: result.summary.actionable_stocks },
+        { label: "Paper Ready", value: result.summary.paper_ready_count },
+        { label: "Ready + Actionable", value: result.summary.paper_ready_actionable_count },
+        { label: "History Caution", value: result.summary.paper_history_caution_count },
         { label: "Duration (s)", value: result.summary.duration_seconds },
       ]
     : [];
@@ -704,6 +734,87 @@ export function OpportunityScannerShell() {
                           value={form.workers}
                         />
                       </div>
+                      <div className="col-md-3">
+                        <div className="form-check mt-4">
+                          <input
+                            checked={form.include_qualification_context}
+                            className="form-check-input"
+                            id="scanner-qualification-context"
+                            onChange={(e) =>
+                              setForm((prev) => ({ ...prev, include_qualification_context: e.target.checked }))
+                            }
+                            type="checkbox"
+                          />
+                          <label className="form-check-label" htmlFor="scanner-qualification-context">
+                            Backtest Readiness
+                          </label>
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Min Win %</label>
+                        <input
+                          className="form-control"
+                          max={100}
+                          min={0}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, qualification_min_win_rate: Number(e.target.value) || 0 }))
+                          }
+                          type="number"
+                          value={form.qualification_min_win_rate}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Min Net PnL</label>
+                        <input
+                          className="form-control"
+                          min={0}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, qualification_min_net_pnl: Number(e.target.value) || 0 }))
+                          }
+                          type="number"
+                          value={form.qualification_min_net_pnl}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Min Trades</label>
+                        <input
+                          className="form-control"
+                          min={1}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, qualification_min_trades: Number(e.target.value) || 1 }))
+                          }
+                          type="number"
+                          value={form.qualification_min_trades}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <div className="form-check mt-4">
+                          <input
+                            checked={form.include_paper_history_context}
+                            className="form-check-input"
+                            id="scanner-paper-history-context"
+                            onChange={(e) =>
+                              setForm((prev) => ({ ...prev, include_paper_history_context: e.target.checked }))
+                            }
+                            type="checkbox"
+                          />
+                          <label className="form-check-label" htmlFor="scanner-paper-history-context">
+                            Paper History Memory
+                          </label>
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Min Closed Paper Trades</label>
+                        <input
+                          className="form-control"
+                          min={1}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, paper_history_min_closed_trades: Number(e.target.value) || 1 }))
+                          }
+                          type="number"
+                          value={form.paper_history_min_closed_trades}
+                        />
+                      </div>
                       <div className="col-12 d-flex gap-2">
                         <button className="btn btn-warning" disabled={scanRunning} onClick={handleRunScan}>
                           {scanRunning ? "Scanning..." : "Run Opportunity Scan"}
@@ -815,6 +926,32 @@ export function OpportunityScannerShell() {
                         </span>{" "}
                         | Expiry {recommendedRow.resolved_expiry ?? "-"}
                       </div>
+                      <div className="muted small">
+                        Readiness{" "}
+                        <span className={`badge-soft ${recommendedRow.readiness_bucket === "PAPER_READY" ? "green" : "blue"}`}>
+                          {recommendedRow.readiness_bucket}
+                        </span>{" "}
+                        {recommendedRow.readiness_strategy_label
+                          ? `| ${recommendedRow.readiness_strategy_label} | WR ${
+                              recommendedRow.readiness_win_rate?.toFixed(2) ?? "-"
+                            }% | Net ${
+                              recommendedRow.readiness_net_pnl != null ? fmtMoney(recommendedRow.readiness_net_pnl) : "-"
+                            }`
+                          : ""}
+                      </div>
+                      <div className="muted small">
+                        Paper history{" "}
+                        <span className={`badge-soft ${recommendedRow.paper_history_bucket === "PROVEN" ? "green" : recommendedRow.paper_history_bucket === "AVOID" ? "red" : "blue"}`}>
+                          {recommendedRow.paper_history_bucket}
+                        </span>
+                        {recommendedRow.paper_history_closed_trades
+                          ? ` | WR ${recommendedRow.paper_history_win_rate?.toFixed(2) ?? "-"}% | PnL ${
+                              recommendedRow.paper_history_realized_pnl != null
+                                ? fmtMoney(recommendedRow.paper_history_realized_pnl)
+                                : "-"
+                            }`
+                          : ""}
+                      </div>
                     </div>
 
                     <div className="d-flex gap-2 align-items-center">
@@ -876,6 +1013,7 @@ export function OpportunityScannerShell() {
                     <th>Kind</th>
                     <th>Instrument</th>
                     <th>Score</th>
+                    <th>Readiness</th>
                     <th>Bias</th>
                     <th>Daily Trend</th>
                     <th>EMA Bias</th>
@@ -907,6 +1045,16 @@ export function OpportunityScannerShell() {
                           <div className="muted small">{row.instrument_key}</div>
                         </td>
                         <td>{fmtNumber(row.selection_score)}</td>
+                        <td>
+                          <div>
+                            <span className={`badge-soft ${row.readiness_bucket === "PAPER_READY" ? "green" : "blue"}`}>
+                              {row.readiness_bucket}
+                            </span>
+                          </div>
+                          {row.readiness_strategy_label ? (
+                            <div className="muted small">{row.readiness_strategy_label}</div>
+                          ) : null}
+                        </td>
                         <td>{row.market_bias}</td>
                         <td>
                           <span className={`badge-soft ${dailyTrendTone(row.daily_trend)}`}>{row.daily_trend}</span>
@@ -947,7 +1095,7 @@ export function OpportunityScannerShell() {
                         </td>
                       </tr>
                       <tr>
-                        <td colSpan={17}>
+                        <td colSpan={18}>
                           <div className="muted">
                             <strong>Reason:</strong> {row.status_reason}
                           </div>
@@ -966,6 +1114,21 @@ export function OpportunityScannerShell() {
                           {row.rationale && (
                             <div className="muted">
                               <strong>Setup:</strong> {row.rationale}
+                            </div>
+                          )}
+                          {row.readiness_reason && (
+                            <div className="muted">
+                              <strong>Readiness:</strong> {row.readiness_reason}
+                              {row.readiness_win_rate != null
+                                ? ` | WR ${row.readiness_win_rate.toFixed(2)}%`
+                                : ""}
+                              {row.readiness_net_pnl != null ? ` | Net ${fmtMoney(row.readiness_net_pnl)}` : ""}
+                              {row.readiness_total_trades != null ? ` | Trades ${row.readiness_total_trades}` : ""}
+                            </div>
+                          )}
+                          {row.paper_history_reason && (
+                            <div className="muted">
+                              <strong>Paper History:</strong> {row.paper_history_reason}
                             </div>
                           )}
                         </td>
