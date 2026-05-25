@@ -89,6 +89,18 @@ export type BrokerConnection = {
   login_defaults: Record<string, string | null>;
 };
 
+export type BrokerHealth = {
+  broker_id: string;
+  display_name: string;
+  status: "green" | "red" | "unknown";
+  valid: boolean;
+  configured: boolean;
+  token_present: boolean;
+  checked_at: string;
+  latency_ms?: number | null;
+  message: string;
+};
+
 export type BrokerAuthStartResponse = {
   broker_id: string;
   display_name: string;
@@ -1647,6 +1659,25 @@ export async function fetchDashboardData() {
 
 export async function fetchBrokerConnections() {
   return getBackendJson<BrokerConnection[]>("/api/v1/brokers");
+}
+
+export async function fetchBrokerHealth(refresh = false) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch(
+      `${BACKEND_BASE_URL}/api/v1/broker-health?refresh=${encodeURIComponent(String(refresh))}`,
+      {
+        cache: "no-store",
+        headers: buildAuthorizedHeaders(),
+        signal: controller.signal,
+      },
+    );
+    await throwIfApiError(response);
+    return (await response.json()) as BrokerHealth[];
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export async function fetchInstrumentCatalog() {
