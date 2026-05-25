@@ -1562,6 +1562,29 @@ const API_BASE_URL =
 const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_BASE_URL ??
   API_BASE_URL.replace(/\/api\/v1\/multi-stock\/?$/, "");
+const BROKER_HEALTH_LIST_ENDPOINTS = ["/api/v1/broker-health", "/api/v1/brokers/health"] as const;
+const BROKER_HEALTH_DETAIL_ENDPOINTS = [
+  "/api/v1/broker-health/{brokerId}",
+  "/api/v1/brokers/{brokerId}/health",
+] as const;
+const BROKER_HEALTH_BROKERS = ["kotakneo", "upstox", "kite"] as const;
+
+function canonicalHealthBrokerId(value: string) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  if (normalized === "kotak" || normalized === "kotakneo") {
+    return "kotakneo";
+  }
+  if (normalized === "upstox") {
+    return "upstox";
+  }
+  if (normalized === "kite") {
+    return "kite";
+  }
+  return normalized;
+}
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -1662,11 +1685,163 @@ export async function fetchBrokerConnections() {
 }
 
 export async function fetchBrokerHealth(refresh = false) {
+  const batchErrors: string[] = [];
+
+  for (const endpoint of BROKER_HEALTH_LIST_ENDPOINTS) {
+    try {
+      return await fetchBrokerHealthList(endpoint, refresh, 45000);
+    } catch (error) {
+      batchErrors.push(error instanceof Error ? error.message : "Unknown health list error");
+    }
+  }
+
+  const settled = await Promise.allSettled(
+    BROKER_HEALTH_BROKERS.map(async (brokerId) => {
+      for (const endpointTemplate of BROKER_HEALTH_DETAIL_ENDPOINTS) {
+        try {
+          const endpoint = endpointTemplate.replace("{brokerId}", encodeURIComponent(brokerId));
+          return await fetchBrokerHealthItem(endpoint, refresh, 15000);
+        } catch {
+          // Try next endpoint template.
+        }
+      }
+      throw new Error(`No reachable health endpoint for ${brokerId}`);
+    }),
+  );
+
+  const health = settled
+    .filter((item): item is PromiseFulfilledResult<BrokerHealth> => item.status === "fulfilled")
+    .map((item) => item.value);
+
+  if (health.length > 0) {
+    return health;
+  }
+
+  const notFoundOnly = [...batchErrors, ...settled
+    .filter((item): item is PromiseRejectedResult => item.status === "rejected")
+    .map((item) => (item.reason instanceof Error ? item.reason.message : String(item.reason)))]
+    .every((message) => /not found|404/i.test(message));
+
+  if (notFoundOnly) {
+    try {
+      const connections = await getBackendJson<BrokerConnection[]>("/api/v1/brokers");
+      return mapBrokerConnectionsToHealth(connections);
+    } catch {
+      return unavailableBrokerHealthResponse(
+        "Broker health endpoints are unavailable on the current backend.",
+      );
+    }
+  }
+
+  const reason = batchErrors[0] ?? "Health endpoints unavailable";
+  throw new Error(`Broker health refresh failed. ${reason}`);
+}
+
+export async function fetchBrokerHealthByBroker(brokerId: string, refresh = false) {
+  const canonicalBrokerId = canonicalHealthBrokerId(brokerId);
+  const detailErrors: string[] = [];
+
+  for (const endpointTemplate of BROKER_HEALTH_DETAIL_ENDPOINTS) {
+    try {
+      const endpoint = endpointTemplate.replace("{brokerId}", encodeURIComponent(canonicalBrokerId));
+      return await fetchBrokerHealthItem(endpoint, refresh, 15000);
+    } catch (error) {
+      detailErrors.push(error instanceof Error ? error.message : "Unknown broker health error");
+    }
+  }
+
+  const notFoundOnly = detailErrors.length > 0 && detailErrors.every((message) => /not found|404/i.test(message));
+  if (notFoundOnly) {
+    try {
+      const connection = await getBackendJson<BrokerConnection>(
+        `/api/v1/brokers/${encodeURIComponent(canonicalBrokerId)}`,
+      );
+      return mapBrokerConnectionToHealth(connection, canonicalBrokerId);
+    } catch {
+      return unavailableBrokerHealthResponse(
+        "Broker health endpoint is unavailable on the current backend.",
+      ).find((item) => item.broker_id === canonicalBrokerId) ?? {
+        broker_id: canonicalBrokerId,
+        display_name: canonicalBrokerId,
+        status: "unknown",
+        valid: false,
+        configured: false,
+        token_present: false,
+        checked_at: new Date().toISOString(),
+        latency_ms: null,
+        message: "Broker health endpoint is unavailable on the current backend.",
+      };
+    }
+  }
+
+  const reason = detailErrors[0] ?? "Health endpoint unavailable";
+  throw new Error(`Broker health refresh failed for ${canonicalBrokerId}. ${reason}`);
+}
+
+function mapBrokerConnectionToHealth(item: BrokerConnection | undefined, brokerId: string): BrokerHealth {
+  const connected = Boolean(item?.connected);
+  const configured = Boolean(item?.configured);
+  const tokenPresent = Boolean(item?.access_token_present);
+  const valid = connected || tokenPresent;
+  let status: BrokerHealth["status"] = "red";
+  if (valid) {
+    status = "green";
+  } else if (configured) {
+    status = "unknown";
+  }
+
+  let message = "Broker configuration missing (fallback check).";
+  if (valid) {
+    message = "Connection-based fallback check passed (health endpoint unavailable).";
+  } else if (configured) {
+    message = "Configured but not connected (fallback check).";
+  }
+
+  return {
+    broker_id: brokerId,
+    display_name: item?.display_name ?? brokerId,
+    status,
+    valid,
+    configured,
+    token_present: tokenPresent,
+    checked_at: new Date().toISOString(),
+    latency_ms: null,
+    message,
+  };
+}
+
+function mapBrokerConnectionsToHealth(connections: BrokerConnection[]): BrokerHealth[] {
+  const connectionMap = new Map(
+    connections.map((item) => [String(item.broker_id || "").trim().toLowerCase(), item]),
+  );
+
+  return BROKER_HEALTH_BROKERS.map((brokerId) => {
+    const item = connectionMap.get(canonicalHealthBrokerId(brokerId));
+    return mapBrokerConnectionToHealth(item, brokerId);
+  });
+}
+
+function unavailableBrokerHealthResponse(message: string): BrokerHealth[] {
+  const now = new Date().toISOString();
+  return BROKER_HEALTH_BROKERS.map((brokerId) => ({
+    broker_id: brokerId,
+    display_name: brokerId,
+    status: "unknown" as const,
+    valid: false,
+    configured: false,
+    token_present: false,
+    checked_at: now,
+    latency_ms: null,
+    message,
+  }));
+}
+
+async function fetchBrokerHealthList(endpoint: string, refresh: boolean, timeoutMs: number) {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 25000);
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(
-      `${BACKEND_BASE_URL}/api/v1/broker-health?refresh=${encodeURIComponent(String(refresh))}`,
+      `${BACKEND_BASE_URL}${endpoint}?refresh=${encodeURIComponent(String(refresh))}`,
       {
         cache: "no-store",
         headers: buildAuthorizedHeaders(),
@@ -1676,7 +1851,26 @@ export async function fetchBrokerHealth(refresh = false) {
     await throwIfApiError(response);
     return (await response.json()) as BrokerHealth[];
   } finally {
-    window.clearTimeout(timeoutId);
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchBrokerHealthItem(endpoint: string, refresh: boolean, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(
+      `${BACKEND_BASE_URL}${endpoint}?refresh=${encodeURIComponent(String(refresh))}`,
+      {
+        cache: "no-store",
+        headers: buildAuthorizedHeaders(),
+        signal: controller.signal,
+      },
+    );
+    await throwIfApiError(response);
+    return (await response.json()) as BrokerHealth;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
   }
 }
 

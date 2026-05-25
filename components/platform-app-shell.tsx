@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
-import { BrokerHealth, fetchBrokerHealth } from "@/lib/api";
+import { BrokerHealth, fetchBrokerHealthByBroker } from "@/lib/api";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
@@ -29,12 +29,28 @@ type NavGroup = {
 const SIDEBAR_STORAGE_KEY = "tradekotak.sidebar.collapsed";
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 const BROKER_HEALTH_ORDER = ["kotakneo", "upstox", "kite"];
-const BROKER_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
 const BROKER_HEALTH_LABELS: Record<string, string> = {
   kotakneo: "Kotak",
   upstox: "Upstox",
   kite: "Kite",
 };
+
+function normalizeBrokerHealthId(value: string) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  if (normalized === "kotak" || normalized === "kotakneo") {
+    return "kotakneo";
+  }
+  if (normalized === "upstox") {
+    return "upstox";
+  }
+  if (normalized === "kite") {
+    return "kite";
+  }
+  return normalized;
+}
 
 const baseNavGroups: NavGroup[] = [
   {
@@ -291,30 +307,17 @@ function activeGroupTitle(groups: NavGroup[], pathname: string, currentHash: str
   return groups.find((group) => isGroupActive(group, pathname, currentHash))?.title ?? groups[0]?.title ?? "";
 }
 
-function unavailableBrokerHealth(message: string) {
-  return Object.fromEntries(
-    BROKER_HEALTH_ORDER.map((brokerId) => [
-      brokerId,
-      {
-        broker_id: brokerId,
-        display_name: BROKER_HEALTH_LABELS[brokerId] ?? brokerId,
-        status: "red" as const,
-        valid: false,
-        configured: false,
-        token_present: false,
-        checked_at: new Date().toISOString(),
-        latency_ms: null,
-        message,
-      },
-    ]),
-  );
-}
-
-function brokerHealthMap(health: BrokerHealth[]) {
-  return {
-    ...unavailableBrokerHealth("Broker health check missing from API response."),
-    ...Object.fromEntries(health.map((item) => [item.broker_id, item])),
-  };
+function brokerHealthTone(health: BrokerHealth | undefined) {
+  if (health === undefined) {
+    return "gold";
+  }
+  if (health.status === "green" || health.valid) {
+    return "green";
+  }
+  if (health.status === "red") {
+    return "red";
+  }
+  return "gold";
 }
 
 export function PlatformAppShell({ children }: PlatformAppShellProps) {
@@ -325,11 +328,52 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [brokerHealth, setBrokerHealth] = useState<Record<string, BrokerHealth>>({});
+  const [brokerHealthRefreshing, setBrokerHealthRefreshing] = useState(false);
+  const [brokerHealthRefreshingId, setBrokerHealthRefreshingId] = useState<string | null>(null);
   const isPublicPath = pathname === "/login";
   const navGroups = user?.role === "ADMIN" ? adminNavGroups : baseNavGroups;
   const [expandedGroup, setExpandedGroup] = useState(() =>
     activeGroupTitle(navGroups, "/", ""),
   );
+
+  async function loadBrokerHealth(refresh = false) {
+    setBrokerHealthRefreshing(true);
+    try {
+      const settled = await Promise.allSettled(
+        BROKER_HEALTH_ORDER.map(async (brokerId) => {
+          const health = await fetchBrokerHealthByBroker(brokerId, refresh);
+          return { brokerId, health };
+        }),
+      );
+      const updates: Record<string, BrokerHealth> = {};
+      for (const item of settled) {
+        if (item.status === "fulfilled") {
+          updates[normalizeBrokerHealthId(item.value.brokerId)] = item.value.health;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setBrokerHealth((current) => ({ ...current, ...updates }));
+      }
+    } catch {
+    } finally {
+      setBrokerHealthRefreshing(false);
+    }
+  }
+
+  async function refreshHeaderBrokerHealth(brokerId: string) {
+    const normalizedBrokerId = normalizeBrokerHealthId(brokerId);
+    setBrokerHealthRefreshingId(normalizedBrokerId);
+    try {
+      const health = await fetchBrokerHealthByBroker(normalizedBrokerId, true);
+      setBrokerHealth((current) => ({
+        ...current,
+        [normalizedBrokerId]: health,
+      }));
+    } catch {
+    } finally {
+      setBrokerHealthRefreshingId(null);
+    }
+  }
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
@@ -361,42 +405,14 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   }, [currentHash, navGroups, pathname]);
 
   useEffect(() => {
+    void loadBrokerHealth(false);
+  }, []);
+
+  useEffect(() => {
     if (!loading && !isPublicPath && user?.status !== "APPROVED") {
       router.replace("/login");
     }
   }, [isPublicPath, loading, router, user]);
-
-  useEffect(() => {
-    if (loading || isPublicPath || user?.status !== "APPROVED") {
-      return;
-    }
-
-    let active = true;
-    async function loadBrokerHealth(refresh = false) {
-      try {
-        const health = await fetchBrokerHealth(refresh);
-        if (!active) {
-          return;
-        }
-        setBrokerHealth(brokerHealthMap(health));
-      } catch {
-        if (active) {
-          setBrokerHealth(
-            unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
-          );
-        }
-      }
-    }
-
-    void loadBrokerHealth();
-    const intervalId = window.setInterval(() => {
-      void loadBrokerHealth(true);
-    }, BROKER_HEALTH_INTERVAL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-    };
-  }, [isPublicPath, loading, user?.status]);
 
   const meta = routeMeta[pathname] ?? {
     title: "TradeStrix",
@@ -550,21 +566,40 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
           <div className="platform-broker-health" aria-label="Broker API health">
             {BROKER_HEALTH_ORDER.map((brokerId) => {
               const health = brokerHealth[brokerId];
-              const valid = Boolean(health?.valid);
-              const tone = health ? (valid ? "green" : "red") : "gold";
+              const tone = brokerHealthTone(health);
               const label = BROKER_HEALTH_LABELS[brokerId] ?? brokerId;
+              const refreshing = brokerHealthRefreshingId === brokerId;
               return (
-                <Link
-                  className={`platform-broker-health-chip ${tone}`}
-                  href="/brokers"
-                  key={brokerId}
-                  title={health?.message ?? "Checking broker API token"}
-                >
-                  <span className="platform-broker-health-dot" />
-                  <span className="platform-broker-health-label">{label}</span>
-                </Link>
+                <div className="d-inline-flex align-items-center gap-1" key={brokerId}>
+                  <Link
+                    className={`platform-broker-health-chip ${tone}`}
+                    href="/brokers"
+                    title={health?.message ?? "Checking broker API token"}
+                  >
+                    <span className="platform-broker-health-dot" />
+                    <span className="platform-broker-health-label">{label}</span>
+                  </Link>
+                  <button
+                    className="platform-broker-health-refresh"
+                    disabled={brokerHealthRefreshing || refreshing}
+                    onClick={() => void refreshHeaderBrokerHealth(brokerId)}
+                    title={`Refresh ${label} API health`}
+                    type="button"
+                  >
+                    {refreshing ? "..." : "↻"}
+                  </button>
+                </div>
               );
             })}
+            <button
+              className="platform-broker-health-refresh"
+              disabled={brokerHealthRefreshing}
+              onClick={() => void loadBrokerHealth(true)}
+              title="Refresh broker API health"
+              type="button"
+            >
+              {brokerHealthRefreshing ? "..." : "Refresh"}
+            </button>
           </div>
           <div className="platform-topbar-right">
             <PwaInstallButton />
