@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { BrokerHealth, fetchBrokerHealth } from "@/lib/api";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
@@ -27,6 +28,13 @@ type NavGroup = {
 
 const SIDEBAR_STORAGE_KEY = "tradekotak.sidebar.collapsed";
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+const BROKER_HEALTH_ORDER = ["kotakneo", "upstox", "kite"];
+const BROKER_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
+const BROKER_HEALTH_LABELS: Record<string, string> = {
+  kotakneo: "Kotak",
+  upstox: "Upstox",
+  kite: "Kite",
+};
 
 const baseNavGroups: NavGroup[] = [
   {
@@ -283,6 +291,32 @@ function activeGroupTitle(groups: NavGroup[], pathname: string, currentHash: str
   return groups.find((group) => isGroupActive(group, pathname, currentHash))?.title ?? groups[0]?.title ?? "";
 }
 
+function unavailableBrokerHealth(message: string) {
+  return Object.fromEntries(
+    BROKER_HEALTH_ORDER.map((brokerId) => [
+      brokerId,
+      {
+        broker_id: brokerId,
+        display_name: BROKER_HEALTH_LABELS[brokerId] ?? brokerId,
+        status: "red" as const,
+        valid: false,
+        configured: false,
+        token_present: false,
+        checked_at: new Date().toISOString(),
+        latency_ms: null,
+        message,
+      },
+    ]),
+  );
+}
+
+function brokerHealthMap(health: BrokerHealth[]) {
+  return {
+    ...unavailableBrokerHealth("Broker health check missing from API response."),
+    ...Object.fromEntries(health.map((item) => [item.broker_id, item])),
+  };
+}
+
 export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -290,6 +324,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
+  const [brokerHealth, setBrokerHealth] = useState<Record<string, BrokerHealth>>({});
   const isPublicPath = pathname === "/login";
   const navGroups = user?.role === "ADMIN" ? adminNavGroups : baseNavGroups;
   const [expandedGroup, setExpandedGroup] = useState(() =>
@@ -330,6 +365,38 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
       router.replace("/login");
     }
   }, [isPublicPath, loading, router, user]);
+
+  useEffect(() => {
+    if (loading || isPublicPath || user?.status !== "APPROVED") {
+      return;
+    }
+
+    let active = true;
+    async function loadBrokerHealth(refresh = false) {
+      try {
+        const health = await fetchBrokerHealth(refresh);
+        if (!active) {
+          return;
+        }
+        setBrokerHealth(brokerHealthMap(health));
+      } catch {
+        if (active) {
+          setBrokerHealth(
+            unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
+          );
+        }
+      }
+    }
+
+    void loadBrokerHealth();
+    const intervalId = window.setInterval(() => {
+      void loadBrokerHealth(true);
+    }, BROKER_HEALTH_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isPublicPath, loading, user?.status]);
 
   const meta = routeMeta[pathname] ?? {
     title: "TradeStrix",
@@ -479,6 +546,25 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
               <div className="platform-topbar-title">{meta.title}</div>
               <div className="platform-topbar-subtitle">{meta.subtitle}</div>
             </div>
+          </div>
+          <div className="platform-broker-health" aria-label="Broker API health">
+            {BROKER_HEALTH_ORDER.map((brokerId) => {
+              const health = brokerHealth[brokerId];
+              const valid = Boolean(health?.valid);
+              const tone = health ? (valid ? "green" : "red") : "gold";
+              const label = BROKER_HEALTH_LABELS[brokerId] ?? brokerId;
+              return (
+                <Link
+                  className={`platform-broker-health-chip ${tone}`}
+                  href="/brokers"
+                  key={brokerId}
+                  title={health?.message ?? "Checking broker API token"}
+                >
+                  <span className="platform-broker-health-dot" />
+                  <span className="platform-broker-health-label">{label}</span>
+                </Link>
+              );
+            })}
           </div>
           <div className="platform-topbar-right">
             <PwaInstallButton />

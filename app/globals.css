@@ -418,6 +418,62 @@ pre,
   gap: 10px;
 }
 
+.platform-broker-health {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.platform-broker-health-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid rgba(83, 122, 173, 0.22);
+  border-radius: 999px;
+  color: #dfeaf7;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(14, 27, 46, 0.88);
+}
+
+.platform-broker-health-chip.green {
+  border-color: rgba(54, 210, 163, 0.34);
+  color: #b7f8df;
+}
+
+.platform-broker-health-chip.red {
+  border-color: rgba(255, 109, 135, 0.38);
+  color: #ffc1cc;
+}
+
+.platform-broker-health-chip.gold {
+  border-color: rgba(241, 178, 77, 0.34);
+  color: #ffe2a0;
+}
+
+.platform-broker-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f1b24d;
+  box-shadow: 0 0 0 3px rgba(241, 178, 77, 0.12);
+}
+
+.platform-broker-health-chip.green .platform-broker-health-dot {
+  background: #36d2a3;
+  box-shadow: 0 0 0 3px rgba(54, 210, 163, 0.12);
+}
+
+.platform-broker-health-chip.red .platform-broker-health-dot {
+  background: #ff6d87;
+  box-shadow: 0 0 0 3px rgba(255, 109, 135, 0.12);
+}
+
 .platform-topbar-link {
   display: inline-flex;
   align-items: center;
@@ -2012,9 +2068,24 @@ a {
 
   .platform-topbar {
     padding: 12px 14px;
+    gap: 10px;
   }
 
   .platform-topbar-right {
+    display: none;
+  }
+
+  .platform-broker-health {
+    margin-left: auto;
+    gap: 5px;
+  }
+
+  .platform-broker-health-chip {
+    min-height: 30px;
+    padding: 0.42rem 0.5rem;
+  }
+
+  .platform-broker-health-label {
     display: none;
   }
 

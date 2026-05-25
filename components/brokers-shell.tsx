@@ -6,13 +6,22 @@ import { useRouter } from "next/navigation";
 
 import {
   authenticateKotakBroker,
+  BrokerHealth,
   BrokerConnection,
   disconnectBroker,
   fetchBrokerConnections,
+  fetchBrokerHealth,
   startBrokerAuth,
 } from "@/lib/api";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+const BROKER_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
+const BROKER_HEALTH_ORDER = ["kotakneo", "upstox", "kite"];
+const BROKER_HEALTH_LABELS: Record<string, string> = {
+  kotakneo: "Kotak",
+  upstox: "Upstox",
+  kite: "Kite",
+};
 
 function brokerSupportsWebAuth(broker: BrokerConnection) {
   return broker.capabilities.includes("webapp_ready");
@@ -26,6 +35,32 @@ function isKotakManualBroker(broker: BrokerConnection) {
   return broker.broker_id === "kotakneo" && broker.auth_mode === "manual";
 }
 
+function unavailableBrokerHealth(message: string) {
+  return Object.fromEntries(
+    BROKER_HEALTH_ORDER.map((brokerId) => [
+      brokerId,
+      {
+        broker_id: brokerId,
+        display_name: BROKER_HEALTH_LABELS[brokerId] ?? brokerId,
+        status: "red" as const,
+        valid: false,
+        configured: false,
+        token_present: false,
+        checked_at: new Date().toISOString(),
+        latency_ms: null,
+        message,
+      },
+    ]),
+  );
+}
+
+function brokerHealthMap(health: BrokerHealth[]) {
+  return {
+    ...unavailableBrokerHealth("Broker health check missing from API response."),
+    ...Object.fromEntries(health.map((item) => [item.broker_id, item])),
+  };
+}
+
 type BrokersShellProps = {
   brokerQuery?: {
     broker?: string;
@@ -37,6 +72,7 @@ type BrokersShellProps = {
 export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   const router = useRouter();
   const [brokers, setBrokers] = useState<BrokerConnection[]>([]);
+  const [brokerHealth, setBrokerHealth] = useState<Record<string, BrokerHealth>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [brokerNotice, setBrokerNotice] = useState("");
@@ -66,6 +102,18 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
         }
         setBrokers(result);
         setError("");
+        try {
+          const health = await fetchBrokerHealth();
+          if (active) {
+            setBrokerHealth(brokerHealthMap(health));
+          }
+        } catch {
+          if (active) {
+            setBrokerHealth(
+              unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
+            );
+          }
+        }
       } catch (err) {
         if (!active) {
           return;
@@ -79,7 +127,7 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     }
 
     load();
-    const intervalId = window.setInterval(load, 10000);
+    const intervalId = window.setInterval(load, BROKER_HEALTH_INTERVAL_MS);
     return () => {
       active = false;
       window.clearInterval(intervalId);
@@ -93,9 +141,13 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     if (!broker || !status || !message) {
       return;
     }
+    if (broker.toLowerCase() === "health") {
+      router.replace("/brokers");
+      return;
+    }
     setBrokerNotice(`${broker.toUpperCase()}: ${message}`);
     setBrokerNoticeTone(status === "success" ? "success" : "error");
-  }, [brokerQuery]);
+  }, [brokerQuery, router]);
 
   useEffect(() => {
     function handleBrokerAuthMessage(event: MessageEvent) {
@@ -128,6 +180,14 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   async function refreshBrokers() {
     const result = await fetchBrokerConnections();
     setBrokers(result);
+    try {
+      const health = await fetchBrokerHealth(true);
+      setBrokerHealth(brokerHealthMap(health));
+    } catch {
+      setBrokerHealth(
+        unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
+      );
+    }
     setError("");
   }
 
@@ -262,15 +322,21 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
 
   const connectedCount = brokers.filter((broker) => broker.connected).length;
   const configuredCount = brokers.filter((broker) => broker.configured).length;
+  const healthyCount = Object.values(brokerHealth).filter((item) => item.valid).length;
   const webReadyCount = brokers.filter((broker) => brokerSupportsWebAuth(broker)).length;
   const missingConfigCount = brokers.filter((broker) => broker.missing_config.length > 0).length;
   const metrics = [
     { label: "Registered Brokers", value: String(brokers.length) },
     { label: "Connected", value: String(connectedCount) },
+    { label: "Token Healthy", value: String(healthyCount) },
     { label: "Configured", value: String(configuredCount) },
     { label: "Web App Ready", value: String(webReadyCount) },
     { label: "Needs Config", value: String(missingConfigCount) },
   ];
+  const displayError =
+    error && brokers.length === 0 && !error.toLowerCase().includes("broker not found: health")
+      ? error
+      : "";
 
   return (
     <>
@@ -303,8 +369,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
               </div>
             )}
             {loading && <div className="muted">Loading broker connections...</div>}
-            {error && <div className="alert alert-danger mb-0">{error}</div>}
-            {!loading && !error && (
+            {displayError && <div className="alert alert-danger mb-0">{displayError}</div>}
+            {!loading && !displayError && (
               <div className="row g-3">
                 {metrics.map(({ label, value }) => (
                   <div className="col-12 col-sm-6 col-lg-4 col-xl" key={label}>
@@ -326,7 +392,11 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
               <div className="p-3">
                 {brokers.length ? (
                   <div className="row g-3">
-                    {brokers.map((broker) => (
+                    {brokers.map((broker) => {
+                      const health = brokerHealth[broker.broker_id];
+                      const healthTone = health?.valid ? "green" : health ? "red" : "gold";
+                      const healthLabel = health?.valid ? "API green" : health ? "API red" : "API checking";
+                      return (
                       <div className="col-12 col-lg-6" key={broker.broker_id}>
                         <div className="broker-card h-100">
                           <div className="d-flex justify-content-between align-items-start gap-3">
@@ -334,17 +404,26 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
                               <div className="fw-semibold fs-5">{broker.display_name}</div>
                               <div className="muted small">{broker.notes}</div>
                             </div>
-                            <span
-                              className={`badge-soft ${
-                                broker.connected
-                                  ? "green"
-                                  : broker.configured
-                                    ? "gold"
-                                    : "red"
-                              }`}
-                            >
-                              {broker.status.replaceAll("_", " ")}
-                            </span>
+                            <div className="d-flex flex-column gap-2 align-items-end">
+                              <span
+                                className={`badge-soft ${
+                                  broker.connected
+                                    ? "green"
+                                    : broker.configured
+                                      ? "gold"
+                                      : "red"
+                                }`}
+                              >
+                                {broker.status.replaceAll("_", " ")}
+                              </span>
+                              <span className={`badge-soft ${healthTone}`}>
+                                {healthLabel}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3 small muted">
+                            Broker Health: {health?.message ?? "Checking broker API token..."}
+                            {health?.latency_ms != null ? ` (${health.latency_ms} ms)` : ""}
                           </div>
                           <div className="mt-3 d-flex flex-wrap gap-2">
                             {broker.capabilities.map((capability) => (
@@ -416,7 +495,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="empty-state">No brokers registered.</div>
