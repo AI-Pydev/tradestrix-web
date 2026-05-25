@@ -474,6 +474,27 @@ pre,
   box-shadow: 0 0 0 3px rgba(255, 109, 135, 0.12);
 }
 
+.platform-broker-health-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 68px;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid rgba(241, 178, 77, 0.28);
+  border-radius: 999px;
+  color: #ffe2a0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(14, 27, 46, 0.9);
+}
+
+.platform-broker-health-refresh:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
 .platform-topbar-link {
   display: inline-flex;
   align-items: center;
@@ -2083,6 +2104,18 @@ a {
   .platform-broker-health-chip {
     min-height: 30px;
     padding: 0.42rem 0.5rem;
+  }
+
+  .platform-broker-health-refresh {
+    min-height: 30px;
+    min-width: 34px;
+    padding: 0.42rem 0.5rem;
+    font-size: 0;
+  }
+
+  .platform-broker-health-refresh::before {
+    content: "R";
+    font-size: 0.76rem;
   }
 
   .platform-broker-health-label {

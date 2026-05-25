@@ -1,27 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
 
 import {
-  authenticateKotakBroker,
-  BrokerHealth,
-  BrokerConnection,
-  disconnectBroker,
-  fetchBrokerConnections,
-  fetchBrokerHealth,
-  startBrokerAuth,
+    authenticateKotakBroker,
+    BrokerConnection,
+    BrokerHealth,
+    disconnectBroker,
+    fetchBrokerConnections,
+    fetchBrokerHealthByBroker,
+    startBrokerAuth,
 } from "@/lib/api";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
-const BROKER_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
 const BROKER_HEALTH_ORDER = ["kotakneo", "upstox", "kite"];
-const BROKER_HEALTH_LABELS: Record<string, string> = {
-  kotakneo: "Kotak",
-  upstox: "Upstox",
-  kite: "Kite",
-};
+
+function normalizeBrokerHealthId(value: string) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  if (normalized === "kotak" || normalized === "kotakneo") {
+    return "kotakneo";
+  }
+  if (normalized === "upstox") {
+    return "upstox";
+  }
+  if (normalized === "kite") {
+    return "kite";
+  }
+  return normalized;
+}
+
+function uniqueBrokerHealthIds(ids: string[]) {
+  return Array.from(new Set(ids.map((id) => normalizeBrokerHealthId(id)).filter(Boolean)));
+}
 
 function brokerSupportsWebAuth(broker: BrokerConnection) {
   return broker.capabilities.includes("webapp_ready");
@@ -35,30 +50,27 @@ function isKotakManualBroker(broker: BrokerConnection) {
   return broker.broker_id === "kotakneo" && broker.auth_mode === "manual";
 }
 
-function unavailableBrokerHealth(message: string) {
-  return Object.fromEntries(
-    BROKER_HEALTH_ORDER.map((brokerId) => [
-      brokerId,
-      {
-        broker_id: brokerId,
-        display_name: BROKER_HEALTH_LABELS[brokerId] ?? brokerId,
-        status: "red" as const,
-        valid: false,
-        configured: false,
-        token_present: false,
-        checked_at: new Date().toISOString(),
-        latency_ms: null,
-        message,
-      },
-    ]),
-  );
+function brokerHealthTone(health: BrokerHealth | undefined) {
+  if (health === undefined) {
+    return "gold";
+  }
+  if (health.status === "green" || health.valid) {
+    return "green";
+  }
+  if (health.status === "red") {
+    return "red";
+  }
+  return "gold";
 }
 
-function brokerHealthMap(health: BrokerHealth[]) {
-  return {
-    ...unavailableBrokerHealth("Broker health check missing from API response."),
-    ...Object.fromEntries(health.map((item) => [item.broker_id, item])),
-  };
+function brokerHealthLabel(tone: "green" | "red" | "gold") {
+  if (tone === "green") {
+    return "API green";
+  }
+  if (tone === "red") {
+    return "API red";
+  }
+  return "API checking";
 }
 
 type BrokersShellProps = {
@@ -78,6 +90,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   const [brokerNotice, setBrokerNotice] = useState("");
   const [brokerNoticeTone, setBrokerNoticeTone] = useState<"success" | "error">("success");
   const [brokerAction, setBrokerAction] = useState("");
+  const [brokerHealthRefreshing, setBrokerHealthRefreshing] = useState(false);
+  const [brokerHealthRefreshingId, setBrokerHealthRefreshingId] = useState<string | null>(null);
   const [copiedBrokerId, setCopiedBrokerId] = useState<string | null>(null);
   const [kotakModalBroker, setKotakModalBroker] = useState<BrokerConnection | null>(null);
   const [kotakSubmitting, setKotakSubmitting] = useState(false);
@@ -102,18 +116,6 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
         }
         setBrokers(result);
         setError("");
-        try {
-          const health = await fetchBrokerHealth();
-          if (active) {
-            setBrokerHealth(brokerHealthMap(health));
-          }
-        } catch {
-          if (active) {
-            setBrokerHealth(
-              unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
-            );
-          }
-        }
       } catch (err) {
         if (!active) {
           return;
@@ -127,12 +129,89 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     }
 
     load();
-    const intervalId = window.setInterval(load, BROKER_HEALTH_INTERVAL_MS);
     return () => {
       active = false;
-      window.clearInterval(intervalId);
     };
   }, []);
+
+  async function refreshBrokerHealth() {
+    setBrokerHealthRefreshing(true);
+    try {
+      const brokerIds = uniqueBrokerHealthIds(
+        brokers.length > 0 ? brokers.map((item) => item.broker_id) : [...BROKER_HEALTH_ORDER],
+      );
+
+      const settled = await Promise.allSettled(
+        brokerIds.map(async (brokerId) => {
+          const health = await fetchBrokerHealthByBroker(brokerId, true);
+          return { brokerId: normalizeBrokerHealthId(brokerId), health };
+        }),
+      );
+
+      const updates: Record<string, BrokerHealth> = {};
+      let failedCount = 0;
+      let firstError = "";
+      for (const item of settled) {
+        if (item.status === "fulfilled") {
+          updates[item.value.brokerId] = item.value.health;
+        } else {
+          failedCount += 1;
+          if (!firstError) {
+            firstError = item.reason instanceof Error ? item.reason.message : String(item.reason);
+          }
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setBrokerHealth((current) => ({ ...current, ...updates }));
+      }
+
+      if (failedCount === 0) {
+        setBrokerNotice("");
+      } else if (failedCount < settled.length) {
+        setBrokerNotice(`Health refreshed for ${settled.length - failedCount}/${settled.length} brokers.`);
+        setBrokerNoticeTone("success");
+      } else {
+        const detail = firstError || "Unknown error";
+        const message = detail.startsWith("Broker health refresh failed.")
+          ? detail
+          : `Broker health refresh failed. ${detail}`;
+        setBrokerNotice(message);
+        setBrokerNoticeTone("error");
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Unknown error";
+      const message = detail.startsWith("Broker health refresh failed.")
+        ? detail
+        : `Broker health refresh failed. ${detail}`;
+      setBrokerNotice(message);
+      setBrokerNoticeTone("error");
+    } finally {
+      setBrokerHealthRefreshing(false);
+    }
+  }
+
+  async function refreshBrokerHealthForBroker(brokerId: string) {
+    const normalizedId = normalizeBrokerHealthId(brokerId);
+    setBrokerHealthRefreshingId(normalizedId);
+    try {
+      const health = await fetchBrokerHealthByBroker(normalizedId, true);
+      setBrokerHealth((current) => ({
+        ...current,
+        [normalizedId]: health,
+      }));
+      setBrokerNotice("");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Unknown error";
+      const message = detail.startsWith("Broker health refresh failed.")
+        ? detail
+        : `Broker health refresh failed. ${detail}`;
+      setBrokerNotice(message);
+      setBrokerNoticeTone("error");
+    } finally {
+      setBrokerHealthRefreshingId(null);
+    }
+  }
 
   useEffect(() => {
     const broker = brokerQuery?.broker;
@@ -180,14 +259,7 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
   async function refreshBrokers() {
     const result = await fetchBrokerConnections();
     setBrokers(result);
-    try {
-      const health = await fetchBrokerHealth(true);
-      setBrokerHealth(brokerHealthMap(health));
-    } catch {
-      setBrokerHealth(
-        unavailableBrokerHealth("Broker health API unavailable. Restart backend or check auth."),
-      );
-    }
+    await refreshBrokerHealth();
     setError("");
   }
 
@@ -359,8 +431,16 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
             <h1 className="hero-title">Broker Connections</h1>
             <p className="hero-subtitle">
               Dedicated surface for broker authentication, redirect readiness, connection state, and reconnect flows.
-              Refreshes every 10 seconds.
+              Use manual refresh to verify live broker API health.
             </p>
+            <button
+              className="btn btn-outline-light btn-sm"
+              disabled={brokerHealthRefreshing}
+              onClick={() => void refreshBrokerHealth()}
+              type="button"
+            >
+              {brokerHealthRefreshing ? "Checking..." : "Refresh API Health"}
+            </button>
           </div>
           <div className="p-3">
             {brokerNotice && (
@@ -393,9 +473,12 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
                 {brokers.length ? (
                   <div className="row g-3">
                     {brokers.map((broker) => {
-                      const health = brokerHealth[broker.broker_id];
-                      const healthTone = health?.valid ? "green" : health ? "red" : "gold";
-                      const healthLabel = health?.valid ? "API green" : health ? "API red" : "API checking";
+                      const normalizedBrokerId = normalizeBrokerHealthId(broker.broker_id);
+                      const health = brokerHealth[normalizedBrokerId];
+                      const healthTone = brokerHealthTone(health);
+                      const healthLabel = brokerHealthLabel(healthTone);
+                      const brokerHealthRefreshDisabled =
+                        brokerHealthRefreshing || brokerHealthRefreshingId === normalizedBrokerId;
                       return (
                       <div className="col-12 col-lg-6" key={broker.broker_id}>
                         <div className="broker-card h-100">
@@ -419,6 +502,14 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
                               <span className={`badge-soft ${healthTone}`}>
                                 {healthLabel}
                               </span>
+                              <button
+                                className="btn btn-outline-light btn-sm"
+                                disabled={brokerHealthRefreshDisabled}
+                                onClick={() => void refreshBrokerHealthForBroker(broker.broker_id)}
+                                type="button"
+                              >
+                                {brokerHealthRefreshingId === normalizedBrokerId ? "Refreshing..." : "Refresh API"}
+                              </button>
                             </div>
                           </div>
                           <div className="mt-3 small muted">
