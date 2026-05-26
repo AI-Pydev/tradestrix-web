@@ -10,3 +10,6 @@ tests
 tsconfig.tsbuildinfo
 lint_output.txt
 output.txt
+# Exclude all Markdown docs — Next.js doesn't import any at runtime.
+**/*.md
+**/*.MD
