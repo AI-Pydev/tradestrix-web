@@ -155,6 +155,27 @@ function fmtPnl(value: number | null | undefined) {
   return `₹${sign}${value.toFixed(2)}`;
 }
 
+function isDuplicateIgnoredEvent(event: ActivityRow) {
+  return (
+    event.status === "ignored" &&
+    event.trade_id == null &&
+    String(event.detail || "").toLowerCase().includes("duplicate ignored")
+  );
+}
+
+function preferTradeEvent(current: ActivityRow | null, incoming: ActivityRow) {
+  if (!current) {
+    return incoming;
+  }
+  const rank = (event: ActivityRow) => {
+    if (event.status === "accepted") return 3;
+    if (event.status === "rejected") return 2;
+    if (event.status === "ignored") return 1;
+    return 0;
+  };
+  return rank(incoming) >= rank(current) ? incoming : current;
+}
+
 function cleanActivityDetail(value?: string | null) {
   const text = String(value || "").trim();
   if (!text) {
@@ -242,6 +263,9 @@ export function TradingViewAlertsShell() {
     for (const event of rowsAscending) {
       const tradeId = event.trade_id ?? null;
       const action = String(event.normalized_action || "").toUpperCase();
+      if (isDuplicateIgnoredEvent(event)) {
+        continue;
+      }
       let row = tradeId != null ? byTradeId.get(tradeId) ?? null : null;
 
       if (action === "ENTRY") {
@@ -252,7 +276,7 @@ export function TradingViewAlertsShell() {
             byTradeId.set(tradeId, row);
           }
         }
-        row.entry = event;
+        row.entry = preferTradeEvent(row.entry, event);
         continue;
       }
 
@@ -273,7 +297,7 @@ export function TradingViewAlertsShell() {
             byTradeId.set(tradeId, row);
           }
         }
-        row.exit = event;
+        row.exit = preferTradeEvent(row.exit, event);
         continue;
       }
 
