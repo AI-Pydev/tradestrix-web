@@ -2221,10 +2221,135 @@ a {
     flex-direction: column;
     align-items: stretch;
   }
+
+  /* Managed Bot Fleet table -> stacked card layout on mobile.
+     The 11-column table is unusable on a 360px viewport even with horizontal
+     scroll, so each row becomes a self-contained card with label/value pairs
+     keyed by the data-label attribute on each <td>. */
+  .managed-bots-table-wrap {
+    overflow-x: visible;
+  }
+
+  .managed-bots-table {
+    border-collapse: separate;
+    display: block;
+  }
+
+  .managed-bots-table thead {
+    display: none;
+  }
+
+  .managed-bots-table tbody,
+  .managed-bots-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .managed-bots-table tbody tr {
+    background: rgba(15, 24, 47, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+  }
+
+  .managed-bots-table tbody tr:hover > * {
+    background: transparent;
+  }
+
+  .managed-bots-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  }
+
+  .managed-bots-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .managed-bots-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    max-width: 38%;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #ffca5c;
+    padding-top: 2px;
+  }
+
+  .managed-bots-table tbody td > * {
+    text-align: right;
+  }
+
+  /* "Job" cell carries the headline — make it left-aligned and full-width so
+     the job name has room to breathe. Same for the expanded details row. */
+  .managed-bots-table tbody td[data-label="Job"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .managed-bots-table tbody td[data-label="Job"] > * {
+    text-align: left;
+  }
+
+  .managed-bots-table tbody td[data-label="Job"]::before {
+    flex: 0 0 auto;
+    max-width: none;
+    margin-bottom: 4px;
+  }
+
+  /* Expanded "Details" row spans the full card without a label gutter. */
+  .managed-bots-table tbody td[colspan] {
+    display: block;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .managed-bots-table tbody td[colspan]::before {
+    display: none;
+  }
+
+  .managed-bots-table tbody td[colspan] > * {
+    text-align: left;
+  }
+
+  /* Store path can be very long; let it wrap and shrink. */
+  .managed-bots-table tbody td[data-label="Store"] .small {
+    word-break: break-all;
+  }
+
+  /* Action buttons should stretch across the card row on mobile. */
+  .managed-bots-table tbody td[data-label="Actions"] > div {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 576px) {
   .landing-kpi-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* On very narrow phones the action buttons need to stack instead of wrap
+     awkwardly mid-button. Also tighten the label gutter. */
+  .managed-bots-table tbody td::before {
+    flex-basis: 42%;
+    max-width: 42%;
+    font-size: 0.65rem;
+  }
+
+  .managed-bots-table tbody td[data-label="Actions"] > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .managed-bots-table tbody td[data-label="Actions"] .btn {
+    width: 100%;
   }
 }
