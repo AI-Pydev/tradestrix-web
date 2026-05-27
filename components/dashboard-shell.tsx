@@ -1587,8 +1587,8 @@ export function DashboardShell() {
                       </button>
                     </div>
                   </div>
-                  <div className="table-responsive">
-                    <table className="table table-dark-shell align-middle">
+                  <div className="table-responsive managed-bots-table-wrap">
+                    <table className="table table-dark-shell align-middle managed-bots-table">
                       <thead>
                         <tr>
                           {managedJobsView === "history" ? <th>Select</th> : null}
@@ -1618,7 +1618,7 @@ export function DashboardShell() {
                             <Fragment key={job.job_id}>
                               <tr>
                                 {managedJobsView === "history" ? (
-                                  <td>
+                                  <td data-label="Select">
                                     {isManagedBotDeletable(job) ? (
                                       <input
                                         checked={selectedManagedBotIds.includes(job.job_id)}
@@ -1636,10 +1636,10 @@ export function DashboardShell() {
                                     )}
                                   </td>
                                 ) : null}
-                                <td>
+                                <td data-label="Status">
                                   <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
                                 </td>
-                                <td>
+                                <td data-label="Mode">
                                   <label className="d-flex align-items-center gap-2 mb-0">
                                     <input
                                       checked={job.execution_mode === "live"}
@@ -1656,18 +1656,18 @@ export function DashboardShell() {
                                     </span>
                                   </label>
                                 </td>
-                                <td>
+                                <td data-label="Job">
                                   <div className="fw-semibold">{job.job_name}</div>
                                   <div className="muted small">{job.strategy_label}</div>
                                   <div className="muted small">{job.job_id}</div>
                                 </td>
-                                <td>
+                                <td data-label="Instrument">
                                   <div>{job.instrument_key}</div>
                                   <div className="muted small">
                                     {job.side.toUpperCase()} | PID {job.pid ?? "-"}
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Store">
                                   <div className="small">{job.store_path}</div>
                                   <div className="muted small">
                                     <button
@@ -1686,7 +1686,7 @@ export function DashboardShell() {
                                     </div>
                                   ) : null}
                                 </td>
-                                <td>
+                                <td data-label="Open Trade">
                                   {job.has_open_trade ? (
                                     <div>
                                       <div className="fw-semibold">{job.open_trade_option ?? "Open"}</div>
@@ -1703,7 +1703,7 @@ export function DashboardShell() {
                                     <span className="muted">No</span>
                                   )}
                                 </td>
-                                <td>
+                                <td data-label="LTP / P&L">
                                   {job.has_open_trade ? (
                                     <div>
                                       <div className="fw-semibold">
@@ -1726,9 +1726,9 @@ export function DashboardShell() {
                                     </div>
                                   )}
                                 </td>
-                                <td>{fmtDate(job.started_at)}</td>
-                                <td>{job.last_log_at ? fmtDate(job.last_log_at) : "-"}</td>
-                                <td>
+                                <td data-label="Started">{fmtDate(job.started_at)}</td>
+                                <td data-label="Last Log">{job.last_log_at ? fmtDate(job.last_log_at) : "-"}</td>
+                                <td data-label="Actions">
                                   <div className="d-flex flex-wrap gap-2">
                                     <button
                                       className="btn btn-outline-light btn-sm"
