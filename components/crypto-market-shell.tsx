@@ -12,9 +12,9 @@ import {
     DeltaDemoTrackedOrder,
     DeltaOptionChainResponse,
     DeltaSavedStrategyResponse,
-    SharedStrategyId,
     DeltaStrategyCandidate,
     DeltaStrategyPreviewResponse,
+    SharedStrategyId,
     createDeltaSavedStrategy,
     deleteDeltaSavedStrategy,
     fetchDeltaCryptoDashboard,
@@ -95,6 +95,8 @@ function getCandidateBookSize(candidate: DeltaStrategyCandidate | null | undefin
 type CryptoFormState = {
   underlying_asset_symbol: string;
   expiry_date: string;
+  instrument_type: "option" | "future";
+  direction: "long" | "short";
   rows_limit: number;
   option_preference: "call" | "put" | "both";
   target_delta: number;
@@ -116,6 +118,8 @@ type CryptoFormState = {
 const DEFAULT_FORM: CryptoFormState = {
   underlying_asset_symbol: "BTC",
   expiry_date: "",
+  instrument_type: "option",
+  direction: "long",
   rows_limit: 12,
   option_preference: "both",
   target_delta: 0.35,
@@ -171,8 +175,14 @@ function defaultCryptoAlertName(symbol: string, side: "call" | "put") {
 
 function resolveCryptoAlertName(prev: CryptoFormState, symbol: string, side: "call" | "put") {
   const current = prev.alert_name.trim();
-  const isGeneratedName = /^M-CRYPTO-DELTA-[A-Z0-9]+-(CALL|PUT)$/.test(current);
-  return !current || isGeneratedName ? defaultCryptoAlertName(symbol, side) : prev.alert_name;
+  const isGeneratedName = /^M-CRYPTO-DELTA-[A-Z0-9]+-(CALL|PUT|FUTURE-(LONG|SHORT))$/.test(current);
+  if (current && !isGeneratedName) {
+    return prev.alert_name;
+  }
+  if (prev.instrument_type === "future") {
+    return `M-CRYPTO-DELTA-${symbol || "BTC"}-FUTURE-${prev.direction.toUpperCase()}`;
+  }
+  return defaultCryptoAlertName(symbol, side);
 }
 
 export function CryptoMarketShell() {
@@ -231,28 +241,37 @@ export function CryptoMarketShell() {
   });
   const visibleOrders = ordersView === "today" ? ordersToday : ordersHistory;
   const activeCandidate =
-    form.candidate_side === "call" ? strategyPreview?.call_candidate ?? null : strategyPreview?.put_candidate ?? null;
-  const candidateBookPrice = getCandidateBookPrice(activeCandidate, form.order_side);
-  const candidateBookSize = getCandidateBookSize(activeCandidate, form.order_side);
+    form.instrument_type === "future"
+      ? null
+      : form.candidate_side === "call"
+        ? strategyPreview?.call_candidate ?? null
+        : strategyPreview?.put_candidate ?? null;
+  const candidateBookPrice =
+    form.instrument_type === "future" ? null : getCandidateBookPrice(activeCandidate, form.order_side);
+  const candidateBookSize =
+    form.instrument_type === "future" ? null : getCandidateBookSize(activeCandidate, form.order_side);
   const resolvedLimitPrice =
-    form.order_type === "limit_order" ? Number(form.limit_price) || candidateBookPrice || undefined : undefined;
-  const sizeFitsVisibleBook = candidateBookSize == null ? false : Number(form.size) <= candidateBookSize;
-  const boundedRiskReady = form.order_side === "buy" || form.allow_unbounded_risk;
+    form.instrument_type === "future" || form.order_type !== "limit_order"
+      ? undefined
+      : Number(form.limit_price) || candidateBookPrice || undefined;
+  const sizeFitsVisibleBook =
+    form.instrument_type === "future" ? true : candidateBookSize == null ? false : Number(form.size) <= candidateBookSize;
+  const boundedRiskReady = form.instrument_type === "future" || form.order_side === "buy" || form.allow_unbounded_risk;
   const canPlaceDemoOrder = Boolean(
     dashboard?.configured &&
       demoEnvironment &&
-      activeCandidate &&
       !orderPlacing &&
       boundedRiskReady &&
       form.size >= 1 &&
-      candidateBookPrice &&
-      candidateBookSize &&
+      (form.instrument_type === "future" || activeCandidate) &&
+      (form.instrument_type === "future" || candidateBookPrice) &&
+      (form.instrument_type === "future" || candidateBookSize) &&
       sizeFitsVisibleBook &&
-      (form.order_type !== "limit_order" || resolvedLimitPrice),
+      (form.instrument_type === "future" || form.order_type !== "limit_order" || resolvedLimitPrice),
   );
 
   useEffect(() => {
-    if (form.order_type !== "limit_order") {
+    if (form.instrument_type === "future" || form.order_type !== "limit_order") {
       return;
     }
     if (!candidateBookPrice || Number.isNaN(candidateBookPrice)) {
@@ -399,7 +418,9 @@ export function CryptoMarketShell() {
       const result = await placeDeltaDemoOrder({
         underlying_asset_symbol: form.underlying_asset_symbol,
         expiry_date: form.expiry_date || undefined,
+        instrument_type: form.instrument_type,
         candidate_side: form.candidate_side,
+        direction: form.direction,
         order_side: form.order_side,
         order_type: form.order_type,
         size: Math.max(1, Number(form.size) || 1),
@@ -572,15 +593,19 @@ export function CryptoMarketShell() {
                 ? "Delta demo/testnet base URL is active, so Python scanner demo orders and TradingView alert executions stay inside the separate demo environment."
                 : "Crypto demo order placement is blocked until DELTA_API_BASE_URL points to the Delta testnet/demo URL."}
             </div>
-            {activeCandidate && (
+            {form.instrument_type === "future" ? (
+              <div className="alert alert-secondary">
+                Future demo orders use Delta perpetual or nearest futures selection and are submitted as market orders from this page.
+              </div>
+            ) : activeCandidate ? (
               <div className={`alert ${sizeFitsVisibleBook ? "alert-secondary" : "alert-warning"}`}>
                 {`Active ${form.candidate_side.toUpperCase()} ${form.order_side.toUpperCase()} book uses ${
                   form.order_side === "buy" ? "best ask" : "best bid"
                 } ${fmtUsd(candidateBookPrice)} with visible size ${fmtNumber(candidateBookSize, 4)}.`}
                 {!sizeFitsVisibleBook && " Lower the order size or choose a more liquid contract before placing the demo order."}
               </div>
-            )}
-            {!boundedRiskReady && (
+            ) : null}
+            {!boundedRiskReady && form.instrument_type !== "future" && (
               <div className="alert alert-warning">
                 Crypto option sell entries are blocked until the unbounded-risk override is enabled.
               </div>
@@ -649,9 +674,36 @@ export function CryptoMarketShell() {
                     </select>
                   </div>
                   <div className="col-12 col-md-4">
+                    <label className="form-label">Execution Instrument</label>
+                    <select
+                      className="form-select"
+                      value={form.instrument_type}
+                      onChange={(e) =>
+                        setForm((prev) => {
+                          const nextInstrumentType = e.target.value as "option" | "future";
+                          const nextForm: CryptoFormState = {
+                            ...prev,
+                            instrument_type: nextInstrumentType,
+                            order_side: nextInstrumentType === "future" ? (prev.direction === "short" ? "sell" : "buy") : prev.order_side,
+                            order_type: nextInstrumentType === "future" ? "market_order" : prev.order_type,
+                            limit_price: nextInstrumentType === "future" ? "" : prev.limit_price,
+                          };
+                          return {
+                            ...nextForm,
+                            alert_name: resolveCryptoAlertName(nextForm, nextForm.underlying_asset_symbol, nextForm.candidate_side),
+                          };
+                        })
+                      }
+                    >
+                      <option value="option">Option</option>
+                      <option value="future">Future</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-4">
                     <label className="form-label">Expiry</label>
                     <select
                       className="form-select"
+                      disabled={form.instrument_type === "future"}
                       value={form.expiry_date}
                       onChange={(e) => setForm((prev) => ({ ...prev, expiry_date: e.target.value }))}
                     >
@@ -693,6 +745,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Strategy Preference</label>
                     <select
                       className="form-select"
+                      disabled={form.instrument_type === "future"}
                       value={form.option_preference}
                       onChange={(e) =>
                         setForm((prev) => {
@@ -719,6 +772,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Execution Profile</label>
                     <select
                       className="form-select"
+                      disabled={form.instrument_type === "future"}
                       value={form.strategy_type}
                       onChange={(e) =>
                         setForm((prev) => ({
@@ -738,6 +792,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Target Delta</label>
                     <input
                       className="form-control"
+                      disabled={form.instrument_type === "future"}
                       max={0.95}
                       min={0.05}
                       step="0.01"
@@ -750,6 +805,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Max Mark Price</label>
                     <input
                       className="form-control"
+                      disabled={form.instrument_type === "future"}
                       min={1}
                       step="0.01"
                       type="number"
@@ -761,6 +817,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Min Open Interest</label>
                     <input
                       className="form-control"
+                      disabled={form.instrument_type === "future"}
                       min={0}
                       step="0.01"
                       type="number"
@@ -769,67 +826,108 @@ export function CryptoMarketShell() {
                     />
                   </div>
 
-                  <div className="col-12 col-md-4">
-                    <label className="form-label">Candidate Side</label>
-                    <select
-                      className="form-select"
-                      value={form.candidate_side}
-                      onChange={(e) =>
-                        setForm((prev) => {
-                          const nextSide = e.target.value as "call" | "put";
-                          return {
-                            ...prev,
-                            candidate_side: nextSide,
-                            strategy_type: supportsStrategy(nextSide, prev.strategy_type)
-                              ? prev.strategy_type
-                              : defaultStrategyIdForSide(nextSide),
-                            alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, nextSide),
-                          };
-                        })
-                      }
-                    >
-                      <option value="call">Call Candidate</option>
-                      <option value="put">Put Candidate</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <label className="form-label">Order Side</label>
-                    <select
-                      className="form-select"
-                      value={form.order_side}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          order_side: e.target.value as "buy" | "sell",
-                          limit_price:
-                            prev.order_type === "limit_order" && activeCandidate
-                              ? String(getCandidateBookPrice(activeCandidate, e.target.value as "buy" | "sell") ?? prev.limit_price)
-                              : prev.limit_price,
-                        }))
-                      }
-                    >
-                      <option value="buy">Buy</option>
-                      <option value="sell">Sell</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <label className="form-label">Order Type</label>
-                    <select
-                      className="form-select"
-                      value={form.order_type}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          order_type: e.target.value as "market_order" | "limit_order",
-                          limit_price:
-                            e.target.value === "limit_order" && candidateBookPrice ? String(candidateBookPrice) : prev.limit_price,
-                        }))
-                      }
-                    >
-                      <option value="market_order">Market</option>
-                      <option value="limit_order">Limit</option>
-                    </select>
-                  </div>
+                  {form.instrument_type === "future" ? (
+                    <>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Direction</label>
+                        <select
+                          className="form-select"
+                          value={form.direction}
+                          onChange={(e) =>
+                            setForm((prev) => {
+                              const nextDirection = e.target.value as "long" | "short";
+                              const nextForm: CryptoFormState = {
+                                ...prev,
+                                direction: nextDirection,
+                                order_side: nextDirection === "short" ? "sell" : "buy",
+                                order_type: "market_order",
+                                limit_price: "",
+                              };
+                              return {
+                                ...nextForm,
+                                alert_name: resolveCryptoAlertName(nextForm, nextForm.underlying_asset_symbol, nextForm.candidate_side),
+                              };
+                            })
+                          }
+                        >
+                          <option value="long">Long Future</option>
+                          <option value="short">Short Future</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Order Side</label>
+                        <input className="form-control" readOnly value={form.direction === "short" ? "sell" : "buy"} />
+                      </div>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Order Type</label>
+                        <input className="form-control" readOnly value="market_order" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Candidate Side</label>
+                        <select
+                          className="form-select"
+                          value={form.candidate_side}
+                          onChange={(e) =>
+                            setForm((prev) => {
+                              const nextSide = e.target.value as "call" | "put";
+                              return {
+                                ...prev,
+                                candidate_side: nextSide,
+                                strategy_type: supportsStrategy(nextSide, prev.strategy_type)
+                                  ? prev.strategy_type
+                                  : defaultStrategyIdForSide(nextSide),
+                                alert_name: resolveCryptoAlertName(prev, prev.underlying_asset_symbol, nextSide),
+                              };
+                            })
+                          }
+                        >
+                          <option value="call">Call Candidate</option>
+                          <option value="put">Put Candidate</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Order Side</label>
+                        <select
+                          className="form-select"
+                          value={form.order_side}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              order_side: e.target.value as "buy" | "sell",
+                              limit_price:
+                                prev.order_type === "limit_order" && activeCandidate
+                                  ? String(getCandidateBookPrice(activeCandidate, e.target.value as "buy" | "sell") ?? prev.limit_price)
+                                  : prev.limit_price,
+                            }))
+                          }
+                        >
+                          <option value="buy">Buy</option>
+                          <option value="sell">Sell</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Order Type</label>
+                        <select
+                          className="form-select"
+                          value={form.order_type}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              order_type: e.target.value as "market_order" | "limit_order",
+                              limit_price:
+                                e.target.value === "limit_order" && candidateBookPrice ? String(candidateBookPrice) : prev.limit_price,
+                            }))
+                          }
+                        >
+                          <option value="market_order">Market</option>
+                          <option value="limit_order">Limit</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                   <div className="col-12 col-md-4">
                     <label className="form-label">Order Size</label>
                     <input
@@ -844,7 +942,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Limit Price</label>
                     <input
                       className="form-control"
-                      disabled={form.order_type !== "limit_order"}
+                      disabled={form.instrument_type === "future" || form.order_type !== "limit_order"}
                       placeholder="Optional for market"
                       type="number"
                       value={form.limit_price}
@@ -855,6 +953,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Max Premium Risk</label>
                     <input
                       className="form-control"
+                      disabled={form.instrument_type === "future"}
                       min={1}
                       step="0.01"
                       type="number"
@@ -866,6 +965,7 @@ export function CryptoMarketShell() {
                     <label className="form-label">Max Spread %</label>
                     <input
                       className="form-control"
+                      disabled={form.instrument_type === "future"}
                       max={100}
                       min={0.1}
                       step="0.1"
@@ -881,6 +981,7 @@ export function CryptoMarketShell() {
                         checked={form.allow_unbounded_risk}
                         className="form-check-input"
                         id="crypto-allow-unbounded-risk"
+                        disabled={form.instrument_type === "future"}
                         type="checkbox"
                         onChange={(e) => setForm((prev) => ({ ...prev, allow_unbounded_risk: e.target.checked }))}
                       />

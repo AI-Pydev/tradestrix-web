@@ -4,18 +4,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-    createDeltaTradingViewTemplate,
-    deleteDeltaTradingViewTemplate,
-    DeltaCryptoDashboardResponse,
-    DeltaCryptoUnderlying,
-    DeltaTradingViewTemplateResponse,
-    fetchDeltaCryptoDashboard,
-    fetchTradingViewAlertTemplateEvents,
-    listDeltaTradingViewTemplates,
-    listTradingViewAlertTemplates,
-    SharedStrategyId,
-    TradingViewAlertTemplateStats,
-    TradingViewWebhookEvent,
+  createDeltaTradingViewTemplate,
+  deleteDeltaTradingViewTemplate,
+  DeltaCryptoDashboardResponse,
+  DeltaCryptoUnderlying,
+  DeltaTradingViewTemplateResponse,
+  fetchDeltaCryptoDashboard,
+  fetchTradingViewAlertTemplateEvents,
+  listDeltaTradingViewTemplates,
+  listTradingViewAlertTemplates,
+  SharedStrategyId,
+  TradingViewAlertTemplateStats,
+  TradingViewWebhookEvent,
 } from "@/lib/api";
 
 function isDemoBaseUrl(url?: string | null) {
@@ -58,6 +58,8 @@ type TemplateFormState = {
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
+  lots: number;
+  leverage: number;
   target_delta: number;
   max_mark_price: number;
   min_open_interest: number;
@@ -169,8 +171,8 @@ function activityStatusBadge(status?: string | null) {
 }
 
 const DEFAULT_FORM: TemplateFormState = {
-  alert_name: "M-CRYPTO-DELTA-BTC-CALL",
-  instrument_type: "option",
+  alert_name: "M-CRYPTO-DELTA-BTC-FUTURE-LONG",
+  instrument_type: "future",
   underlying_asset_symbol: "BTC",
   expiry_date: "",
   option_preference: "both",
@@ -180,6 +182,8 @@ const DEFAULT_FORM: TemplateFormState = {
   order_side: "buy",
   order_type: "market_order",
   size: 1,
+  lots: 1,
+  leverage: 50,
   target_delta: 0.35,
   max_mark_price: 2000,
   min_open_interest: 0,
@@ -309,6 +313,8 @@ export function CryptoTradingViewTemplatesShell() {
         order_side: orderSide,
         order_type: form.order_type,
         size: Math.max(1, Number(form.size) || 1),
+        lots: Math.max(1, Number(form.lots) || 1),
+        leverage: Math.max(1, Number(form.leverage) || 1),
         option_preference: form.option_preference,
         target_delta: form.target_delta,
         max_mark_price: form.max_mark_price,
@@ -438,7 +444,7 @@ export function CryptoTradingViewTemplatesShell() {
         <div className="hero-header">
           <h1 className="hero-title">Crypto TradingView Templates</h1>
           <p className="hero-subtitle">
-            Dedicated template desk for Delta crypto alerts. TradingView sends the signal, and each template keeps the backend execution profile.
+            Dedicated template desk for Delta crypto alerts. TradingView sends the signal, and each template keeps the backend execution profile. This page is crypto-only and separate from Indian market templates.
           </p>
         </div>
         <div className="p-3">
@@ -483,7 +489,7 @@ export function CryptoTradingViewTemplatesShell() {
             <h2 className="panel-title">Template Builder</h2>
             <div className="p-3">
               <div className="small muted mb-3">
-                This mirrors `/tradingview-alerts`, but for Delta crypto. Choose option for ATM option entries or future for directional Delta futures entries.
+                This mirrors `/tradingview-alerts`, but for Delta crypto. Choose option for ATM option entries or future for directional Delta futures entries. Crypto Lots and Delta Leverage here do not use NSE/BSE lot conventions.
               </div>
               <div className="row g-3">
                 <div className="col-12 col-md-6">
@@ -610,7 +616,7 @@ export function CryptoTradingViewTemplatesShell() {
                   </div>
                 )}
                 <div className="col-12 col-md-4">
-                  <label className="form-label" htmlFor="crypto-tv-size">Size</label>
+                  <label className="form-label" htmlFor="crypto-tv-size">Order Size (Base Contracts)</label>
                   <input
                     id="crypto-tv-size"
                     className="form-control"
@@ -620,6 +626,31 @@ export function CryptoTradingViewTemplatesShell() {
                     onChange={(e) => setForm((prev) => ({ ...prev, size: Math.max(1, Number(e.target.value) || 1) }))}
                   />
                 </div>
+                <div className="col-12 col-md-4">
+                  <label className="form-label" htmlFor="crypto-tv-lots">Crypto Lot Multiplier</label>
+                  <input
+                    id="crypto-tv-lots"
+                    className="form-control"
+                    min={1}
+                    type="number"
+                    value={form.lots}
+                    onChange={(e) => setForm((prev) => ({ ...prev, lots: Math.max(1, Number(e.target.value) || 1) }))}
+                  />
+                </div>
+                {form.instrument_type === "future" ? (
+                  <div className="col-12 col-md-4">
+                    <label className="form-label" htmlFor="crypto-tv-leverage">Delta Leverage (x)</label>
+                    <input
+                      id="crypto-tv-leverage"
+                      className="form-control"
+                      min={1}
+                      type="number"
+                      value={form.leverage}
+                      onChange={(e) => setForm((prev) => ({ ...prev, leverage: Math.max(1, Number(e.target.value) || 1) }))}
+                    />
+                    <div className="small muted mt-1">Effective order size = base contracts x crypto lot multiplier.</div>
+                  </div>
+                ) : null}
                 <div className="col-12 d-flex flex-wrap gap-2">
                   <button
                     className="btn btn-warning"
@@ -722,7 +753,7 @@ export function CryptoTradingViewTemplatesShell() {
                         <strong>Template Setup:</strong> {templateSetupLabel(template)}
                       </div>
                       <div>
-                        <strong>Order:</strong> {template.order_side.toUpperCase()} {template.order_type} x {template.size}
+                        <strong>Order:</strong> {template.order_side.toUpperCase()} {template.order_type} | Base {template.size} | Crypto Lots {template.lots} | Delta Leverage {template.leverage}x
                       </div>
                       <div>
                         <strong>Pine Strategy ID:</strong> {template.pine_strategy_id}
@@ -872,13 +903,18 @@ export function CryptoTradingViewTemplatesShell() {
                           <th>Action</th>
                           <th>Status</th>
                           <th>Exec</th>
-                          <th>Entry LTP</th>
-                          <th>Exit LTP</th>
+                          <th>Entry Fill</th>
+                          <th>Exit Fill</th>
+                          <th>PnL (USD)</th>
+                          <th>Fee (USD)</th>
                           <th>Detail</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {activityEvents.map((event, idx) => (
+                        {activityEvents.map((event, idx) => {
+                          const pnlVal = asNumber(event.pnl);
+                          const feeVal = asNumber(event.commission);
+                          return (
                           <tr key={`${event.received_at}-${idx}`}>
                             <td className="small">{fmtDateTime(event.received_at)}</td>
                             <td className="mono">{event.normalized_action || "-"}</td>
@@ -890,9 +926,16 @@ export function CryptoTradingViewTemplatesShell() {
                             <td className="small">{event.execution_status ?? "-"}</td>
                             <td className="mono">{fmtPrice(asNumber(event.entry_ltp) ?? payloadNumber(event.payload, "entry_ltp", "entry_price", "ltp"))}</td>
                             <td className="mono">{fmtPrice(asNumber(event.exit_ltp) ?? payloadNumber(event.payload, "exit_ltp", "exit_price"))}</td>
+                            <td className={`mono ${pnlVal == null ? "" : pnlVal >= 0 ? "text-success" : "text-danger"}`}>
+                              {pnlVal != null ? fmtNumber(pnlVal, 4) : "-"}
+                            </td>
+                            <td className="mono text-danger">
+                              {feeVal != null ? `-${fmtNumber(feeVal, 4)}` : "-"}
+                            </td>
                             <td className="small">{cleanActivityDetail(event.detail) || "-"}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
