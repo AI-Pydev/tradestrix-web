@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   fetchInstrumentCatalog,
   InstrumentCatalogResponse,
+  MarketDataBrokerId,
   runUpstoxOptionChainBacktest,
   UpstoxOptionChainBacktestRunRequest,
   UpstoxOptionChainBacktestRunResponse,
@@ -83,6 +84,51 @@ const PUT_STRATEGY_OPTIONS = [
   { value: "momentum_put", label: "Momentum PUT" },
 ];
 
+const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
+  { value: "dhan", label: "Dhan" },
+  { value: "kite", label: "Kite" },
+  { value: "upstox", label: "Upstox" },
+];
+const BACKTEST_INTERVAL_OPTIONS = [
+  { value: "1", label: "1m" },
+  { value: "5", label: "5m" },
+  { value: "15", label: "15m" },
+  { value: "25", label: "25m" },
+  { value: "60", label: "60m" },
+];
+const DEFAULT_BACKTEST_MARKET_DATA_BROKER: MarketDataBrokerId = "dhan";
+const DEFAULT_BACKTEST_FALLBACK_BROKER: MarketDataBrokerId = "kite";
+
+function isMarketDataBrokerId(value: string | null | undefined): value is MarketDataBrokerId {
+  return MARKET_DATA_BROKERS.some((option) => option.value === value);
+}
+
+function optionIntervalValue(value: string) {
+  return `${value}minute`;
+}
+
+function normalizeMinuteInterval(value: string) {
+  return String(value || "1")
+    .trim()
+    .toLowerCase()
+    .replace("minutes", "")
+    .replace("minute", "")
+    .replace("min", "") || "1";
+}
+
+function brokerLabel(value: string | null | undefined) {
+  return MARKET_DATA_BROKERS.find((option) => option.value === value)?.label ?? value ?? "None";
+}
+
+type BacktestComparisonRow = {
+  broker: MarketDataBrokerId;
+  fallback_broker: MarketDataBrokerId | null;
+  status: "ok" | "error";
+  duration_ms: number;
+  message: string;
+  result?: UpstoxOptionChainBacktestRunResponse;
+};
+
 function defaultStrategyIdForSide(side: BotSide) {
   return side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2";
 }
@@ -105,14 +151,18 @@ export function UpstoxBacktestShell() {
   const [backtestMessageTone, setBacktestMessageTone] = useState<"success" | "error">("success");
   const [backtestResult, setBacktestResult] = useState<UpstoxOptionChainBacktestRunResponse | null>(null);
   const [backtestLogs, setBacktestLogs] = useState<string[]>([]);
+  const [comparisonRunning, setComparisonRunning] = useState(false);
+  const [comparisonRows, setComparisonRows] = useState<BacktestComparisonRow[]>([]);
   const [backtestForm, setBacktestForm] = useState<UpstoxOptionChainBacktestRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     side: "call",
     strategy_id: "tv_ha_call_v2",
+    market_data_broker: DEFAULT_BACKTEST_MARKET_DATA_BROKER,
+    fallback_broker: DEFAULT_BACKTEST_FALLBACK_BROKER,
     from_date: defaultDates.from_date,
     to_date: defaultDates.to_date,
     underlying_unit: "minutes",
-    underlying_interval: "3",
+    underlying_interval: "5",
     option_interval: "1minute",
     current_option_unit: "minutes",
     current_option_interval: "1",
@@ -158,8 +208,19 @@ export function UpstoxBacktestShell() {
   async function handleRunBacktest() {
     try {
       setBacktestRunning(true);
+      const marketDataBroker = isMarketDataBrokerId(backtestForm.market_data_broker)
+        ? backtestForm.market_data_broker
+        : DEFAULT_BACKTEST_MARKET_DATA_BROKER;
+      const fallbackBroker =
+        backtestForm.fallback_broker && backtestForm.fallback_broker !== marketDataBroker
+          ? backtestForm.fallback_broker
+          : DEFAULT_BACKTEST_FALLBACK_BROKER !== marketDataBroker
+            ? DEFAULT_BACKTEST_FALLBACK_BROKER
+            : null;
       const payload: UpstoxOptionChainBacktestRunRequest = {
         ...backtestForm,
+        market_data_broker: marketDataBroker,
+        fallback_broker: fallbackBroker,
         export_csv: backtestForm.export_csv?.trim() ? backtestForm.export_csv.trim() : null,
       };
       const result = await runUpstoxOptionChainBacktest(payload);
@@ -184,6 +245,54 @@ export function UpstoxBacktestShell() {
       setBacktestLogs([]);
     } finally {
       setBacktestRunning(false);
+    }
+  }
+
+  function comparisonFallbackForBroker(broker: MarketDataBrokerId): MarketDataBrokerId | null {
+    if (backtestForm.fallback_broker && backtestForm.fallback_broker !== broker) {
+      return backtestForm.fallback_broker;
+    }
+    return broker === "kite" ? "upstox" : "kite";
+  }
+
+  async function handleCompareBrokers() {
+    setComparisonRunning(true);
+    setComparisonRows([]);
+    const rows: BacktestComparisonRow[] = [];
+    try {
+      for (const option of MARKET_DATA_BROKERS) {
+        const broker = option.value;
+        const fallbackBroker = comparisonFallbackForBroker(broker);
+        const startedAt = performance.now();
+        try {
+          const payload: UpstoxOptionChainBacktestRunRequest = {
+            ...backtestForm,
+            market_data_broker: broker,
+            fallback_broker: fallbackBroker,
+            export_csv: null,
+          };
+          const result = await runUpstoxOptionChainBacktest(payload);
+          rows.push({
+            broker,
+            fallback_broker: fallbackBroker,
+            status: "ok",
+            duration_ms: Math.round(performance.now() - startedAt),
+            message: result.message,
+            result,
+          });
+        } catch (err) {
+          rows.push({
+            broker,
+            fallback_broker: fallbackBroker,
+            status: "error",
+            duration_ms: Math.round(performance.now() - startedAt),
+            message: err instanceof Error ? err.message : "Backtest failed",
+          });
+        }
+        setComparisonRows([...rows]);
+      }
+    } finally {
+      setComparisonRunning(false);
     }
   }
 
@@ -301,6 +410,51 @@ export function UpstoxBacktestShell() {
                             : "Classic TV-HA engine for the selected side."}
                         </div>
                       </div>
+                      <div className="col-12 col-md-6 col-xl-3">
+                        <label className="form-label">Market Data</label>
+                        <select
+                          className="form-select"
+                          value={backtestForm.market_data_broker}
+                          onChange={(e) => {
+                            const broker = e.target.value as MarketDataBrokerId;
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              market_data_broker: broker,
+                              fallback_broker: prev.fallback_broker === broker ? null : prev.fallback_broker,
+                            }));
+                          }}
+                        >
+                          {MARKET_DATA_BROKERS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-3">
+                        <label className="form-label">Fallback Data</label>
+                        <select
+                          className="form-select"
+                          value={backtestForm.fallback_broker ?? ""}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              fallback_broker: e.target.value ? (e.target.value as MarketDataBrokerId) : null,
+                            }))
+                          }
+                        >
+                          <option value="">None</option>
+                          {MARKET_DATA_BROKERS.map((option) => (
+                            <option
+                              key={option.value}
+                              value={option.value}
+                              disabled={option.value === backtestForm.market_data_broker}
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="col-12 col-md-6 col-xl-2">
                         <label className="form-label">From Date</label>
                         <input
@@ -329,6 +483,47 @@ export function UpstoxBacktestShell() {
                             setBacktestForm((prev) => ({ ...prev, strike_offset: Number(e.target.value) || 0 }))
                           }
                         />
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-2">
+                        <label className="form-label">Underlying TF</label>
+                        <select
+                          className="form-select"
+                          value={normalizeMinuteInterval(backtestForm.underlying_interval)}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              underlying_unit: "minutes",
+                              underlying_interval: e.target.value,
+                            }))
+                          }
+                        >
+                          {BACKTEST_INTERVAL_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-2">
+                        <label className="form-label">Option TF</label>
+                        <select
+                          className="form-select"
+                          value={normalizeMinuteInterval(backtestForm.current_option_interval)}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              option_interval: optionIntervalValue(e.target.value),
+                              current_option_unit: "minutes",
+                              current_option_interval: e.target.value,
+                            }))
+                          }
+                        >
+                          {BACKTEST_INTERVAL_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="col-12 col-md-6 col-xl-4">
                         <label className="form-label">Export CSV</label>
@@ -386,6 +581,14 @@ export function UpstoxBacktestShell() {
                         <button className="btn btn-warning" disabled={backtestRunning} onClick={handleRunBacktest}>
                           {backtestRunning ? "Running..." : "Run Backtest"}
                         </button>
+                        <button
+                          className="btn btn-outline-light"
+                          disabled={backtestRunning || comparisonRunning}
+                          onClick={() => void handleCompareBrokers()}
+                          type="button"
+                        >
+                          {comparisonRunning ? "Comparing..." : "Compare Brokers"}
+                        </button>
                         <div className="muted">
                           {catalogLoading
                             ? "Loading available instruments..."
@@ -400,11 +603,11 @@ export function UpstoxBacktestShell() {
                 <div className="dashboard-panel h-100" id="backtest-notes">
                   <h2 className="panel-title">Backtest Notes</h2>
                   <div className="p-3 muted">
-                    This tab keeps the live dashboard focused on monitoring and bot control, while the backtest workflow
-                    gets its own space for inputs, summary metrics, trade review, and logs.
+                    Use this page to test Dhan-aware backtests. Select Dhan as Market Data, keep Kite as fallback, then
+                    run the backtest and check the Logs section for `BACKTEST_START` and `BACKTEST_COMPLETE`.
                     <div className="mt-3">
-                      Default engine intervals stay aligned with the earlier dashboard version:
-                      underlying `3m`, option `1m`, and current option refresh `1m`.
+                      Dhan intraday candles support 1m, 5m, 15m, 25m, and 60m intervals. Wider intervals can reduce
+                      signal count, so zero P/L often means no entries matched the strategy at that timeframe.
                     </div>
                     <div className="mt-3">
                       `NC HA CALL Entry` keeps the underlying scan on Heikin Ashi candles and adds the newer
@@ -442,12 +645,59 @@ export function UpstoxBacktestShell() {
           </div>
         )}
 
+        {comparisonRows.length > 0 && (
+          <section className="dashboard-panel mb-4" id="broker-comparison-results">
+            <h2 className="panel-title">Broker Comparison</h2>
+            <div className="p-3">
+              <div className="table-responsive">
+                <table className="table table-dark-shell align-middle">
+                  <thead>
+                    <tr>
+                      <th>Broker</th>
+                      <th>Fallback</th>
+                      <th>Status</th>
+                      <th>Trades</th>
+                      <th>Win Rate</th>
+                      <th>Total PnL</th>
+                      <th>Avg PnL</th>
+                      <th>Runtime</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonRows.map((row) => {
+                      const summary = row.result?.summary;
+                      return (
+                        <tr key={row.broker}>
+                          <td>{brokerLabel(row.broker)}</td>
+                          <td>{brokerLabel(row.fallback_broker)}</td>
+                          <td>{row.status === "ok" ? "OK" : "Error"}</td>
+                          <td>{summary ? summary.trades : "-"}</td>
+                          <td>{summary ? `${summary.win_rate}%` : "-"}</td>
+                          <td>{summary ? fmtMoney(summary.total_pnl) : "-"}</td>
+                          <td>{summary ? fmtMoney(summary.average_pnl) : "-"}</td>
+                          <td>{fmtNumber(row.duration_ms)} ms</td>
+                          <td className="small muted">{row.message}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="dashboard-panel mb-4" id="backtest-results">
           <h2 className="panel-title">Backtest Results</h2>
           {!backtestResult && <div className="empty-state">Run a backtest to populate summary metrics and recent trades.</div>}
           {backtestResult && (
             <div className="p-3">
               <div className="small muted mb-2">Strategy: {backtestResult.strategy_label}</div>
+              <div className="small muted mb-2">
+                Data: {backtestResult.market_data_broker || backtestForm.market_data_broker}
+                {backtestResult.fallback_broker ? ` -> ${backtestResult.fallback_broker}` : ""}
+              </div>
               <div className="small muted mb-3">
                 Showing the latest {fmtNumber(Math.min(backtestResult.trades.length, 20))} trades for{" "}
                 {backtestResult.instrument_key} between {backtestResult.from_date} and {backtestResult.to_date}.

@@ -9,6 +9,7 @@ import {
     fetchUpstoxManagedBotJobs,
     InstrumentCatalogResponse,
     InstrumentItem,
+    MarketDataBrokerId,
     runStrategyAssignments,
     squareOffUpstoxManagedBot,
     startUpstoxManagedBot,
@@ -22,6 +23,11 @@ import {
 
 type BotSide = "call" | "put";
 type ManagedAction = "stop" | "square";
+const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
+  { value: "dhan", label: "Dhan" },
+  { value: "upstox", label: "Upstox" },
+  { value: "kite", label: "Kite" },
+];
 
 type LauncherRowState = {
   selected: boolean;
@@ -40,6 +46,8 @@ type LauncherFilters = {
 
 type LauncherSettings = {
   execution_mode: "paper" | "live";
+  market_data_broker: MarketDataBrokerId;
+  fallback_broker: MarketDataBrokerId | null;
   expiry: string;
   candle_interval: string;
   strike_offset: number;
@@ -284,6 +292,8 @@ export function MultiBotLauncherShell() {
   });
   const [settings, setSettings] = useState<LauncherSettings>({
     execution_mode: "paper",
+    market_data_broker: "upstox",
+    fallback_broker: "kite",
     expiry: "",
     candle_interval: "3",
     strike_offset: 0,
@@ -585,8 +595,8 @@ export function MultiBotLauncherShell() {
       instrument_key: request.item.instrument_key,
       expiry: settings.expiry.trim() ? settings.expiry.trim() : null,
       execution_mode: settings.execution_mode,
-      market_data_broker: "upstox",
-      fallback_broker: "kite",
+      market_data_broker: settings.market_data_broker,
+      fallback_broker: settings.fallback_broker,
       force_fallback_for_test: false,
       side: request.side,
       strategy_id: assignedStrategy?.strategy_id ?? defaultStrategyIdForSide(request.side),
@@ -953,6 +963,52 @@ export function MultiBotLauncherShell() {
                         >
                           <option value="paper">Paper</option>
                           <option value="live">Live</option>
+                        </select>
+                      </div>
+                      <div className="col-6 col-md-2">
+                        <label className="form-label">Data Broker</label>
+                        <select
+                          className="form-select"
+                          value={settings.market_data_broker}
+                          onChange={(e) => {
+                            const marketDataBroker = e.target.value as MarketDataBrokerId;
+                            setSettings((prev) => ({
+                              ...prev,
+                              market_data_broker: marketDataBroker,
+                              fallback_broker:
+                                prev.fallback_broker === marketDataBroker ? null : prev.fallback_broker,
+                            }));
+                          }}
+                        >
+                          {MARKET_DATA_BROKERS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-6 col-md-2">
+                        <label className="form-label">Fallback</label>
+                        <select
+                          className="form-select"
+                          value={settings.fallback_broker ?? ""}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              fallback_broker: e.target.value ? (e.target.value as MarketDataBrokerId) : null,
+                            }))
+                          }
+                        >
+                          <option value="">None</option>
+                          {MARKET_DATA_BROKERS.map((option) => (
+                            <option
+                              key={option.value}
+                              value={option.value}
+                              disabled={settings.market_data_broker === option.value}
+                            >
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div className="col-6 col-md-2">

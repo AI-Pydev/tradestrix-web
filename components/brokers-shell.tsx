@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
-const BROKER_HEALTH_ORDER = ["kotakneo", "upstox", "kite"];
+const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite"];
 
 function normalizeBrokerHealthId(value: string) {
   const normalized = String(value || "")
@@ -24,6 +24,9 @@ function normalizeBrokerHealthId(value: string) {
     .replace(/[^a-z0-9]/g, "");
   if (normalized === "kotak" || normalized === "kotakneo") {
     return "kotakneo";
+  }
+  if (normalized === "dhan") {
+    return "dhan";
   }
   if (normalized === "upstox") {
     return "upstox";
