@@ -531,8 +531,8 @@ export type UpstoxOptionChainBotRunRequest = {
   expiry?: string | null;
   execution_mode: "paper" | "live";
   execution_broker?: "kotak" | "upstox" | "kite" | null;
-  market_data_broker: "upstox" | "kite";
-  fallback_broker?: "upstox" | "kite" | null;
+  market_data_broker: MarketDataBrokerId;
+  fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
   side: "call" | "put";
   strategy_id: string;
@@ -582,8 +582,8 @@ export type UpstoxManagedBotStartRequest = {
   expiry?: string | null;
   execution_mode: "paper" | "live";
   execution_broker?: "kotak" | "upstox" | "kite" | null;
-  market_data_broker: "upstox" | "kite";
-  fallback_broker?: "upstox" | "kite" | null;
+  market_data_broker: MarketDataBrokerId;
+  fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
   side: "call" | "put";
   strategy_id: string;
@@ -1411,10 +1411,14 @@ export type DeltaTradingViewTemplateResponse = {
   message: string;
 };
 
+export type MarketDataBrokerId = "upstox" | "kite" | "dhan";
+
 export type UpstoxOptionChainBacktestRunRequest = {
   instrument_key: string;
   side: "call" | "put";
   strategy_id: string;
+  market_data_broker: MarketDataBrokerId;
+  fallback_broker?: MarketDataBrokerId | null;
   from_date: string;
   to_date: string;
   underlying_unit: string;
@@ -1468,6 +1472,8 @@ export type UpstoxOptionChainBacktestRunResponse = {
   export_csv?: string | null;
   instrument_key: string;
   side: string;
+  market_data_broker?: string | null;
+  fallback_broker?: string | null;
   from_date: string;
   to_date: string;
 };
@@ -1587,7 +1593,7 @@ const BROKER_HEALTH_DETAIL_ENDPOINTS = [
   "/api/v1/broker-health/{brokerId}",
   "/api/v1/brokers/{brokerId}/health",
 ] as const;
-const BROKER_HEALTH_BROKERS = ["kotakneo", "upstox", "kite"] as const;
+const BROKER_HEALTH_BROKERS = ["dhan", "kotakneo", "upstox", "kite"] as const;
 
 function canonicalHealthBrokerId(value: string) {
   const normalized = String(value || "")
@@ -1596,6 +1602,9 @@ function canonicalHealthBrokerId(value: string) {
     .replace(/[^a-z0-9]/g, "");
   if (normalized === "kotak" || normalized === "kotakneo") {
     return "kotakneo";
+  }
+  if (normalized === "dhan") {
+    return "dhan";
   }
   if (normalized === "upstox") {
     return "upstox";

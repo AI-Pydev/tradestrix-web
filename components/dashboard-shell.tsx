@@ -13,6 +13,7 @@ import {
     fetchUpstoxManagedBotDashboardSummary,
     fetchUpstoxManagedBotTrades,
     InstrumentCatalogResponse,
+    MarketDataBrokerId,
     previewUpstoxOptionChainBot,
     runUpstoxOptionChainBot,
     setUpstoxManagedBotMode,
@@ -40,6 +41,11 @@ type ManagedJobsView = "today" | "history";
 type ManagedJobsHistoryPreset = "yesterday" | "last7" | "last30" | "custom";
 const DASHBOARD_REFRESH_MS = 15000;
 const MANAGED_BOTS_REFRESH_MS = 15000;
+const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
+  { value: "dhan", label: "Dhan" },
+  { value: "upstox", label: "Upstox" },
+  { value: "kite", label: "Kite" },
+];
 
 function executionMetricTone(label: string, value: number) {
   if ((label === "Active Jobs" || label === "Open Bot Trades") && value > 0) {
@@ -1297,7 +1303,7 @@ export function DashboardShell() {
                       value={botForm.market_data_broker}
                       onChange={(e) =>
                         setBotForm((prev) => {
-                          const marketDataBroker = e.target.value as "upstox" | "kite";
+                          const marketDataBroker = e.target.value as MarketDataBrokerId;
                           const fallbackBroker =
                             prev.fallback_broker === marketDataBroker ? null : prev.fallback_broker;
                           return {
@@ -1308,8 +1314,11 @@ export function DashboardShell() {
                         })
                       }
                     >
-                      <option value="upstox">Upstox</option>
-                      <option value="kite">Kite</option>
+                      {MARKET_DATA_BROKERS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
@@ -1358,18 +1367,21 @@ export function DashboardShell() {
                         setBotForm((prev) => ({
                           ...prev,
                           fallback_broker: e.target.value
-                            ? (e.target.value as "upstox" | "kite")
+                            ? (e.target.value as MarketDataBrokerId)
                             : null,
                         }))
                       }
                     >
                       <option value="">None</option>
-                      <option value="upstox" disabled={botForm.market_data_broker === "upstox"}>
-                        Upstox
-                      </option>
-                      <option value="kite" disabled={botForm.market_data_broker === "kite"}>
-                        Kite
-                      </option>
+                      {MARKET_DATA_BROKERS.map((option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                          disabled={botForm.market_data_broker === option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
