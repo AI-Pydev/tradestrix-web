@@ -672,6 +672,19 @@ export type UpstoxManagedBotDashboardSummary = {
   updated_at: string;
 };
 
+export type UpstoxEntryRejectionReasonCount = {
+  reason_code: string;
+  total: number;
+};
+
+export type UpstoxEntryRejectionSummary = {
+  since_hours: number;
+  instrument_key?: string | null;
+  strategy_id?: string | null;
+  total_events: number;
+  reason_counts: UpstoxEntryRejectionReasonCount[];
+};
+
 export type UpstoxManagedBotPage = {
   items: UpstoxManagedBotJob[];
   total_count: number;
@@ -1277,7 +1290,9 @@ export type DeltaDemoOrdersResponse = {
 export type DeltaDemoOrderRequest = {
   underlying_asset_symbol: string;
   expiry_date?: string | null;
+  instrument_type?: "option" | "future";
   candidate_side: "call" | "put";
+  direction?: "long" | "short";
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
@@ -1357,6 +1372,8 @@ export type DeltaTradingViewTemplateRequest = {
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
+  lots: number;
+  leverage: number;
   option_preference: "call" | "put" | "both";
   target_delta: number;
   max_mark_price: number;
@@ -1385,6 +1402,8 @@ export type DeltaTradingViewTemplateResponse = {
   order_side: "buy" | "sell";
   order_type: "market_order" | "limit_order";
   size: number;
+  lots: number;
+  leverage: number;
   access_token: string;
   pine_strategy_id: string;
   session: string;
@@ -1546,6 +1565,7 @@ export type TradingViewWebhookEvent = {
   exit_ltp?: number | null;
   pnl?: number | null;
   total_pnl?: number | null;
+  commission?: number | null;
   india_vix?: number | null;
   payload?: Record<string, unknown> | null;
 };
@@ -1974,6 +1994,27 @@ export async function fetchUpstoxManagedBotJobs() {
 
 export async function fetchUpstoxManagedBotDashboardSummary() {
   return getBackendJson<UpstoxManagedBotDashboardSummary>("/api/v1/upstox/option-chain-bot/dashboard/summary");
+}
+
+export async function fetchUpstoxEntryRejectionSummary(params?: {
+  since_hours?: number;
+  instrument_key?: string;
+  strategy_id?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params?.since_hours != null) {
+    search.set("since_hours", String(params.since_hours));
+  }
+  if (params?.instrument_key) {
+    search.set("instrument_key", params.instrument_key);
+  }
+  if (params?.strategy_id) {
+    search.set("strategy_id", params.strategy_id);
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<UpstoxEntryRejectionSummary>(
+    `/api/v1/upstox/option-chain-bot/dashboard/rejections${suffix}`,
+  );
 }
 
 export async function fetchUpstoxManagedBotDashboardJobs(params?: {

@@ -8,6 +8,7 @@ import {
     DashboardSnapshot,
     deleteUpstoxManagedBot,
     fetchDashboardData,
+    fetchUpstoxEntryRejectionSummary,
     fetchUpstoxManagedBotDashboardJobs,
     fetchUpstoxManagedBotDashboardSummary,
     fetchUpstoxManagedBotTrades,
@@ -19,6 +20,7 @@ import {
     startUpstoxManagedBot,
     stopUpstoxManagedBot,
     TradeRecord,
+    UpstoxEntryRejectionSummary,
     UpstoxManagedBotDashboardSummary,
     UpstoxManagedBotJob,
     UpstoxManagedBotStartRequest,
@@ -247,6 +249,43 @@ function managedBotExecutionTone(line?: string) {
   return "blue";
 }
 
+function reasonCodePatterns(reasonCode?: string | null): string[] {
+  const normalized = String(reasonCode || "").trim().toLowerCase();
+  if (!normalized) {
+    return [];
+  }
+  const table: Record<string, string[]> = {
+    no_signal: ["no", "entry signal"],
+    entry_filter: ["entry filter", "ema20"],
+    time_window: ["no_trade_window", "trading window"],
+    exit_active: ["exit signal is active"],
+    min_bid_qty: ["min_entry_bid_qty", "bid quantity"],
+    min_volume: ["min_entry_volume", "volume"],
+    min_oi: ["min_entry_oi", "open interest"],
+    spread: ["spread"],
+    oi_wall: ["oi wall"],
+    security_mismatch: ["security id", "security-id"],
+    selection_failed: ["option selection failed"],
+    live_validation: ["live entry validation", "wait"],
+    broker_rejected: ["rejected", "broker error"],
+  };
+  return table[normalized] ?? [normalized.replace(/_/g, " "), normalized];
+}
+
+function managedJobMatchesReasonHint(job: UpstoxManagedBotJob, reasonCode?: string | null) {
+  const patterns = reasonCodePatterns(reasonCode);
+  if (!patterns.length) {
+    return false;
+  }
+  const haystack = [
+    latestManagedBotExecutionLine(job) || "",
+    ...(job.recent_logs ?? []).slice(-10),
+  ]
+    .join("\n")
+    .toLowerCase();
+  return patterns.some((pattern) => haystack.includes(pattern));
+}
+
 function managedBotHistoryRange(
   preset: ManagedJobsHistoryPreset,
   customFrom: string,
@@ -306,6 +345,11 @@ export function DashboardShell() {
   const [managedAutoStorePath, setManagedAutoStorePath] = useState(true);
   const [managedBots, setManagedBots] = useState<UpstoxManagedBotJob[]>([]);
   const [managedBotsSummary, setManagedBotsSummary] = useState<UpstoxManagedBotDashboardSummary | null>(null);
+  const [rejectionSummary, setRejectionSummary] = useState<UpstoxEntryRejectionSummary | null>(null);
+  const [rejectionSummaryError, setRejectionSummaryError] = useState("");
+  const [rejectionSinceHours, setRejectionSinceHours] = useState(24);
+  const [rejectionInstrumentFilter, setRejectionInstrumentFilter] = useState("all");
+  const [rejectionStrategyFilter, setRejectionStrategyFilter] = useState("all");
   const [managedBotsLoading, setManagedBotsLoading] = useState(true);
   const [managedBotAction, setManagedBotAction] = useState<string>("");
   const [expandedBotJobId, setExpandedBotJobId] = useState<string>("");
@@ -319,6 +363,9 @@ export function DashboardShell() {
   const [managedJobsHistoryFrom, setManagedJobsHistoryFrom] = useState("");
   const [managedJobsHistoryTo, setManagedJobsHistoryTo] = useState("");
   const [managedJobsStrategyFilter, setManagedJobsStrategyFilter] = useState("all");
+  const [managedJobsInstrumentFilter, setManagedJobsInstrumentFilter] = useState("all");
+  const [managedJobsReasonHint, setManagedJobsReasonHint] = useState<string | null>(null);
+  const [managedJobsMatchedOnly, setManagedJobsMatchedOnly] = useState(false);
   const [managedJobsLiveOnly, setManagedJobsLiveOnly] = useState(false);
   const [managedBotsTotalCount, setManagedBotsTotalCount] = useState(0);
   const [managedBotsCurrentPage, setManagedBotsCurrentPage] = useState(1);
@@ -440,6 +487,65 @@ export function DashboardShell() {
   useEffect(() => {
     let active = true;
     let loadingRequest = false;
+
+    async function loadRejections() {
+      if (loadingRequest) {
+        return;
+      }
+      try {
+        loadingRequest = true;
+        if (typeof fetchUpstoxEntryRejectionSummary !== "function") {
+          if (!active) {
+            return;
+          }
+          setRejectionSummary({
+            since_hours: rejectionSinceHours,
+            instrument_key:
+              rejectionInstrumentFilter !== "all" ? rejectionInstrumentFilter : null,
+            strategy_id: rejectionStrategyFilter !== "all" ? rejectionStrategyFilter : null,
+            total_events: 0,
+            reason_counts: [],
+          });
+          setRejectionSummaryError(
+            "Telemetry client is stale in dev bundle. Save this file or restart Next dev server.",
+          );
+          return;
+        }
+        const result = await fetchUpstoxEntryRejectionSummary({
+          since_hours: rejectionSinceHours,
+          instrument_key:
+            rejectionInstrumentFilter !== "all" ? rejectionInstrumentFilter : undefined,
+          strategy_id: rejectionStrategyFilter !== "all" ? rejectionStrategyFilter : undefined,
+        });
+        if (!active) {
+          return;
+        }
+        setRejectionSummary(result);
+        setRejectionSummaryError("");
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+        setRejectionSummary(null);
+        setRejectionSummaryError(
+          err instanceof Error ? err.message : "Failed to load rejection telemetry",
+        );
+      } finally {
+        loadingRequest = false;
+      }
+    }
+
+    loadRejections();
+    const intervalId = window.setInterval(loadRejections, MANAGED_BOTS_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [rejectionInstrumentFilter, rejectionSinceHours, rejectionStrategyFilter]);
+
+  useEffect(() => {
+    let active = true;
+    let loadingRequest = false;
     const historyRange =
       managedJobsView === "history"
         ? managedBotHistoryRange(
@@ -503,6 +609,7 @@ export function DashboardShell() {
   useEffect(() => {
     setManagedBotsCurrentPage(1);
   }, [
+    managedJobsInstrumentFilter,
     managedBotsPageSize,
     managedJobsHistoryFrom,
     managedJobsHistoryPreset,
@@ -514,6 +621,7 @@ export function DashboardShell() {
   useEffect(() => {
     setSelectedManagedBotIds([]);
   }, [
+    managedJobsInstrumentFilter,
     managedBotsCurrentPage,
     managedBotsPageSize,
     managedJobsHistoryFrom,
@@ -827,6 +935,20 @@ export function DashboardShell() {
     }
   }
 
+  function jumpToManagedFleetWithTelemetryFilters(reasonCode?: string) {
+    setManagedJobsView("history");
+    setManagedJobsStrategyFilter(rejectionStrategyFilter);
+    setManagedJobsInstrumentFilter(rejectionInstrumentFilter);
+    setManagedJobsReasonHint(reasonCode ? String(reasonCode) : null);
+    setManagedJobsMatchedOnly(Boolean(reasonCode));
+    setManagedJobsLiveOnly(false);
+    setManagedBotsCurrentPage(1);
+    document.getElementById("managed-bot-fleet")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   const activeManagedBots = managedBotsSummary?.active_jobs ?? managedBots.filter((job) =>
     job.status === "starting" || job.status === "running" || job.status === "stopping",
   ).length;
@@ -866,13 +988,54 @@ export function DashboardShell() {
   )
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
-  const filteredTodayManagedBots = todayManagedBots;
-  const filteredHistoricalManagedBots = historicalManagedBots;
+  const managedJobsInstrumentOptions = Array.from(
+    new Set(managedBots.map((job) => job.instrument_key)),
+  )
+    .filter((value) => Boolean(value))
+    .sort((a, b) => a.localeCompare(b));
+  const rejectionInstrumentOptions = Array.from(
+    new Set([
+      botForm.instrument_key,
+      ...managedBots.map((job) => job.instrument_key),
+      ...instruments.indices.map((item) => item.instrument_key),
+    ]),
+  )
+    .filter((value) => Boolean(value))
+    .sort((a, b) => a.localeCompare(b));
+  const rejectionStrategyOptions = Array.from(
+    new Map([
+      ...CALL_STRATEGY_OPTIONS.map((item) => [item.value, item.label] as const),
+      ...PUT_STRATEGY_OPTIONS.map((item) => [item.value, item.label] as const),
+      ...managedJobsStrategyOptions.map((item) => [item.value, item.label] as const),
+    ]).entries(),
+  )
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const filteredTodayManagedBots =
+    managedJobsInstrumentFilter === "all"
+      ? todayManagedBots
+      : todayManagedBots.filter((job) => job.instrument_key === managedJobsInstrumentFilter);
+  const filteredHistoricalManagedBots =
+    managedJobsInstrumentFilter === "all"
+      ? historicalManagedBots
+      : historicalManagedBots.filter(
+          (job) => job.instrument_key === managedJobsInstrumentFilter,
+        );
   const visibleManagedBots = managedJobsView === "today" ? filteredTodayManagedBots : filteredHistoricalManagedBots;
   const modeFilteredManagedBots = managedJobsLiveOnly
     ? visibleManagedBots.filter((job) => job.execution_mode === "live")
     : visibleManagedBots;
-  const deletableVisibleManagedBotIds = modeFilteredManagedBots
+  const highlightedManagedJobIds = new Set(
+    modeFilteredManagedBots
+      .filter((job) => managedJobMatchesReasonHint(job, managedJobsReasonHint))
+      .map((job) => job.job_id),
+  );
+  const highlightedManagedJobsCount = highlightedManagedJobIds.size;
+  const reasonFilteredManagedBots =
+    managedJobsMatchedOnly && managedJobsReasonHint
+      ? modeFilteredManagedBots.filter((job) => highlightedManagedJobIds.has(job.job_id))
+      : modeFilteredManagedBots;
+  const deletableVisibleManagedBotIds = reasonFilteredManagedBots
     .filter((job) => isManagedBotDeletable(job))
     .map((job) => job.job_id);
   const allVisibleManagedBotsSelected =
@@ -882,12 +1045,12 @@ export function DashboardShell() {
   const carryForwardManagedBots = filteredTodayManagedBots.filter(
     (job) => managedBotIsLive(job) && managedBotStartedKey(job) !== todayKey,
   ).length;
-  const visibleManagedRealizedPnl = modeFilteredManagedBots.reduce((sum, job) => sum + Number(job.total_realized_pnl || 0), 0);
-  const visibleManagedTotalPnl = modeFilteredManagedBots.reduce(
+  const visibleManagedRealizedPnl = reasonFilteredManagedBots.reduce((sum, job) => sum + Number(job.total_realized_pnl || 0), 0);
+  const visibleManagedTotalPnl = reasonFilteredManagedBots.reduce(
     (sum, job) => sum + Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0),
     0,
   );
-  const visibleManagedTotalLoss = modeFilteredManagedBots.reduce((sum, job) => {
+  const visibleManagedTotalLoss = reasonFilteredManagedBots.reduce((sum, job) => {
     const total = Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0);
     return total < 0 ? sum + Math.abs(total) : sum;
   }, 0);
@@ -902,6 +1065,7 @@ export function DashboardShell() {
     { label: "Fleet Realized P/L", value: fleetRealizedPnl, display: fmtMoney(fleetRealizedPnl) },
     { label: "Tradable Symbols", value: trackedExecutionSymbols, display: String(trackedExecutionSymbols) },
   ];
+  const topRejectionReasons = (rejectionSummary?.reason_counts ?? []).slice(0, 5);
 
   return (
     <main className="app-shell">
@@ -937,6 +1101,104 @@ export function DashboardShell() {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="dashboard-panel p-3 mt-3">
+                  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h3 className="panel-title mb-0">
+                      Entry Rejection Telemetry (last {rejectionSinceHours}h)
+                    </h3>
+                    <span className="small muted">
+                      Total events: {rejectionSummary?.total_events ?? 0}
+                    </span>
+                  </div>
+                  <div className="row g-2 mb-2">
+                    <div className="col-12 col-md-4">
+                      <label className="form-label small mb-1">Window</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={rejectionSinceHours}
+                        onChange={(e) => setRejectionSinceHours(Number(e.target.value) || 24)}
+                      >
+                        <option value={6}>Last 6h</option>
+                        <option value={24}>Last 24h</option>
+                        <option value={72}>Last 72h</option>
+                        <option value={168}>Last 7d</option>
+                      </select>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <label className="form-label small mb-1">Instrument</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={rejectionInstrumentFilter}
+                        onChange={(e) => setRejectionInstrumentFilter(e.target.value)}
+                      >
+                        <option value="all">All</option>
+                        {rejectionInstrumentOptions.map((instrumentKey) => (
+                          <option key={instrumentKey} value={instrumentKey}>
+                            {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <label className="form-label small mb-1">Strategy</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={rejectionStrategyFilter}
+                        onChange={(e) => setRejectionStrategyFilter(e.target.value)}
+                      >
+                        <option value="all">All</option>
+                        {rejectionStrategyOptions.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mb-2">
+                    <button
+                      className="btn btn-sm btn-outline-light"
+                      onClick={() => jumpToManagedFleetWithTelemetryFilters()}
+                      type="button"
+                    >
+                      Open Matching Managed Jobs
+                    </button>
+                  </div>
+                  {rejectionSummaryError ? (
+                    <div className="small text-danger mb-2">{rejectionSummaryError}</div>
+                  ) : null}
+                  {topRejectionReasons.length === 0 ? (
+                    <div className="small muted">
+                      No rejection events recorded in the selected window.
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th scope="col">Reason</th>
+                            <th className="text-end" scope="col">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {topRejectionReasons.map((item) => (
+                            <tr
+                              key={item.reason_code}
+                              onClick={() =>
+                                jumpToManagedFleetWithTelemetryFilters(item.reason_code)
+                              }
+                              style={{ cursor: "pointer" }}
+                              title="Open managed jobs with current telemetry filters"
+                            >
+                              <td>{item.reason_code}</td>
+                              <td className="text-end">{fmtNumber(item.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -1358,7 +1620,11 @@ export function DashboardShell() {
                     )}
                   </div>
                 )}
-                <div className="mt-4 border rounded p-3" style={{ borderColor: "var(--line)" }}>
+                <div
+                  className="mt-4 border rounded p-3"
+                  id="managed-bot-fleet"
+                  style={{ borderColor: "var(--line)" }}
+                >
                   <div className="fw-semibold mb-2">Live Bot Log</div>
                   <div className="small muted mb-2">Shows output captured from the latest bot cycle run inside FastAPI.</div>
                   <pre className="mb-0 small" style={{ maxHeight: 260, overflow: "auto", whiteSpace: "pre-wrap" }}>
@@ -1418,13 +1684,13 @@ export function DashboardShell() {
                             <span className="badge-soft blue">Started today {todayStartedManagedBots}</span>
                             <span className="badge-soft gold">Carry-forward live {carryForwardManagedBots}</span>
                             <span className="badge-soft blue">
-                              Showing {modeFilteredManagedBots.length} of {managedBotsTotalCount} active jobs
+                              Showing {reasonFilteredManagedBots.length} of {managedBotsTotalCount} active jobs
                             </span>
                           </>
                         ) : (
                           <>
                             <span className="badge-soft blue">
-                              Showing {modeFilteredManagedBots.length} of {managedBotsTotalCount} historical jobs
+                              Showing {reasonFilteredManagedBots.length} of {managedBotsTotalCount} historical jobs
                             </span>
                           </>
                         )}
@@ -1440,6 +1706,11 @@ export function DashboardShell() {
                         <span className={`badge-soft ${visibleManagedTotalLoss > 0 ? "red" : "blue"}`}>
                           Total Loss {fmtMoney(visibleManagedTotalLoss)}
                         </span>
+                        {managedJobsReasonHint ? (
+                          <span className="badge-soft blue">
+                            Reason hint: {managedJobsReasonHint} (matched {highlightedManagedJobsCount})
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="execution-jobs-filter-shell">
@@ -1459,6 +1730,21 @@ export function DashboardShell() {
                         </select>
                       </label>
                       <label className="execution-jobs-filter-field">
+                        <span>Instrument</span>
+                        <select
+                          className="execution-jobs-filter-input"
+                          onChange={(e) => setManagedJobsInstrumentFilter(e.target.value)}
+                          value={managedJobsInstrumentFilter}
+                        >
+                          <option value="all">All instruments</option>
+                          {managedJobsInstrumentOptions.map((instrumentKey) => (
+                            <option key={instrumentKey} value={instrumentKey}>
+                              {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="execution-jobs-filter-field">
                         <span>Live only</span>
                         <div className="d-flex align-items-center gap-2">
                           <input
@@ -1467,6 +1753,37 @@ export function DashboardShell() {
                             type="checkbox"
                           />
                           <span className="muted small">execution_mode=live</span>
+                        </div>
+                      </label>
+                      <label className="execution-jobs-filter-field">
+                        <span>Reason Hint</span>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="muted small">
+                            {managedJobsReasonHint ?? "None"}
+                          </span>
+                          <button
+                            className="btn btn-outline-light btn-sm"
+                            disabled={!managedJobsReasonHint}
+                            onClick={() => {
+                              setManagedJobsReasonHint(null);
+                              setManagedJobsMatchedOnly(false);
+                            }}
+                            type="button"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </label>
+                      <label className="execution-jobs-filter-field">
+                        <span>Show Only Matched</span>
+                        <div className="d-flex align-items-center gap-2">
+                          <input
+                            checked={managedJobsMatchedOnly}
+                            disabled={!managedJobsReasonHint}
+                            onChange={(e) => setManagedJobsMatchedOnly(e.target.checked)}
+                            type="checkbox"
+                          />
+                          <span className="muted small">reason hint matches only</span>
                         </div>
                       </label>
                       <label className="execution-jobs-filter-field">
@@ -1537,6 +1854,18 @@ export function DashboardShell() {
                       {managedBotsTotalCount === 0
                         ? "No jobs in this view."
                         : `Page ${managedBotsCurrentPage} of ${managedBotsTotalPages} • ${managedBotsTotalCount} total job(s)`}
+                    </div>
+                    <div className="small muted d-flex align-items-center gap-2">
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 999,
+                          background: "rgba(46, 186, 143, 0.5)",
+                          display: "inline-block",
+                        }}
+                      />
+                      Highlighted rows match current reason hint.
                     </div>
                     <div className="d-flex flex-wrap gap-2">
                       {managedJobsView === "history" ? (
@@ -1611,12 +1940,19 @@ export function DashboardShell() {
                               Loading managed bot jobs...
                             </td>
                           </tr>
-                        ) : modeFilteredManagedBots.length ? (
-                          modeFilteredManagedBots.map((job) => {
+                        ) : reasonFilteredManagedBots.length ? (
+                          reasonFilteredManagedBots.map((job) => {
                             const latestExecutionLine = latestManagedBotExecutionLine(job);
+                            const reasonMatch = highlightedManagedJobIds.has(job.job_id);
                             return (
                             <Fragment key={job.job_id}>
-                              <tr>
+                              <tr
+                                style={
+                                  managedJobsReasonHint && reasonMatch
+                                    ? { backgroundColor: "rgba(46, 186, 143, 0.08)" }
+                                    : undefined
+                                }
+                              >
                                 {managedJobsView === "history" ? (
                                   <td data-label="Select">
                                     {isManagedBotDeletable(job) ? (
