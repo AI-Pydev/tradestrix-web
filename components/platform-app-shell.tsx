@@ -136,7 +136,7 @@ const baseNavGroups: NavGroup[] = [
       {
         href: "/strategy-qualification",
         label: "Qualification",
-        caption: "Auto strategy buckets",
+        caption: "Auto backtest cycle + buckets",
         monogram: "SQ",
       },
       {
@@ -265,7 +265,7 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   },
   "/strategy-qualification": {
     title: "Strategy Qualification",
-    subtitle: "Automated backtest scoring and launch bucket management",
+    subtitle: "Rolling auto-backtest cycle, scoring, issues, and launch buckets",
   },
   "/custom-candle-lab": {
     title: "Custom Candle Lab",

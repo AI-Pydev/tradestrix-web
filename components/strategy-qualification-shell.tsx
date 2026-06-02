@@ -4,9 +4,26 @@ import { useEffect, useState } from "react";
 
 import {
   enqueueStrategyQualification,
+  fetchAutoQualificationSettings,
+  fetchQualificationCycle,
+  fetchQualificationCycleInstruments,
+  fetchQualificationCycleIssues,
   fetchStrategyQualificationJob,
   fetchStrategyQualificationCandidates,
   fetchStrategyQualificationRegistry,
+  fetchStrategyQualificationResults,
+  pauseQualificationCycle,
+  resumeQualificationCycle,
+  startQualificationCycle,
+  stopQualificationCycle,
+  updateAutoQualificationSettings,
+  AutoQualificationSettings,
+  QualificationCycleInstruments,
+  QualificationCycleIssues,
+  QualificationCycleStatus,
+  QualificationInstrumentState,
+  QualificationLoopMode,
+  StrategyQualificationRunResult,
   StrategyQualificationBatch,
   StrategyQualificationRunRequest,
   StrategyRegistryEntry,
@@ -65,6 +82,12 @@ function money(value: number) {
   }).format(value);
 }
 
+function stateBadgeClass(state: QualificationInstrumentState) {
+  if (state === "running") return "text-bg-warning";
+  if (state === "done") return "text-bg-success";
+  return "text-bg-secondary";
+}
+
 function splitCsv(value: string) {
   return value
     .split(",")
@@ -118,6 +141,113 @@ export function StrategyQualificationShell() {
   const [registry, setRegistry] = useState<StrategyRegistryEntry[]>([]);
   const [candidates, setCandidates] = useState<Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>>({});
 
+  const [autoSettings, setAutoSettings] = useState<AutoQualificationSettings | null>(null);
+  const [cycle, setCycle] = useState<QualificationCycleStatus | null>(null);
+  const [instruments, setInstruments] = useState<QualificationCycleInstruments | null>(null);
+  const [issues, setIssues] = useState<QualificationCycleIssues | null>(null);
+  const [cycleResults, setCycleResults] = useState<StrategyQualificationRunResult[]>([]);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoMessage, setAutoMessage] = useState("");
+  const [sliceSize, setSliceSize] = useState(4);
+  const [loopMode, setLoopMode] = useState<QualificationLoopMode>("once");
+  const [windowDays, setWindowDays] = useState(182);
+  const [compare5m, setCompare5m] = useState(false);
+
+  async function refreshCycle() {
+    // Settle each call independently — one failing endpoint must not blank the
+    // others (a rejected Promise.all was leaving the Enabled toggle stuck off).
+    const [settings, cycleStatus, cycleInstruments, results] = await Promise.allSettled([
+      fetchAutoQualificationSettings(),
+      fetchQualificationCycle(),
+      fetchQualificationCycleInstruments(),
+      fetchStrategyQualificationResults(200),
+    ]);
+    if (settings.status === "fulfilled") setAutoSettings(settings.value);
+    if (cycleStatus.status === "fulfilled") setCycle(cycleStatus.value);
+    if (cycleInstruments.status === "fulfilled") setInstruments(cycleInstruments.value);
+    if (results.status === "fulfilled") setCycleResults(results.value);
+
+    const failure = [settings, cycleStatus, cycleInstruments, results].find(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    if (failure) {
+      const reason = failure.reason;
+      setAutoMessage(reason instanceof Error ? reason.message : "Cycle refresh failed");
+    }
+  }
+
+  async function refreshIssues() {
+    try {
+      setIssues(await fetchQualificationCycleIssues());
+    } catch (err) {
+      setAutoMessage(err instanceof Error ? err.message : "Issues refresh failed");
+    }
+  }
+
+  async function toggleAuto(enabled: boolean) {
+    setAutoBusy(true);
+    setAutoMessage("");
+    try {
+      setAutoSettings(await updateAutoQualificationSettings(enabled));
+      setAutoMessage(enabled ? "Auto backtest enabled" : "Auto backtest disabled");
+    } catch (err) {
+      setAutoMessage(err instanceof Error ? err.message : "Toggle failed");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  async function startCycle() {
+    setAutoBusy(true);
+    setAutoMessage("");
+    try {
+      const next = await startQualificationCycle({
+        slice_size: sliceSize,
+        loop_mode: loopMode,
+        window_days: windowDays,
+        timeframes: compare5m ? ["3m", "5m"] : ["3m"],
+      });
+      setCycle(next);
+      setAutoMessage(`Cycle ${next.cycle_id ?? ""} started (${next.total} instruments)`);
+      await refreshCycle();
+    } catch (err) {
+      setAutoMessage(err instanceof Error ? err.message : "Start cycle failed");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  async function stopCycle() {
+    setAutoBusy(true);
+    setAutoMessage("");
+    try {
+      const next = await stopQualificationCycle();
+      setCycle(next);
+      setAutoMessage("Cycle stopped and slice lock cleared");
+      await refreshCycle();
+    } catch (err) {
+      setAutoMessage(err instanceof Error ? err.message : "Stop cycle failed");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  async function pauseOrResume() {
+    setAutoBusy(true);
+    setAutoMessage("");
+    try {
+      const paused = cycle?.status === "paused";
+      const next = paused ? await resumeQualificationCycle() : await pauseQualificationCycle();
+      setCycle(next);
+      setAutoMessage(paused ? "Cycle resumed" : "Cycle paused (progress kept)");
+      await refreshCycle();
+    } catch (err) {
+      setAutoMessage(err instanceof Error ? err.message : "Pause/resume failed");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
   async function refresh() {
     const [nextRegistry, nextCandidates] = await Promise.all([
       fetchStrategyQualificationRegistry(),
@@ -129,6 +259,13 @@ export function StrategyQualificationShell() {
 
   useEffect(() => {
     refresh().catch((err) => setMessage(err instanceof Error ? err.message : "Refresh failed"));
+    refreshCycle();
+    refreshIssues();
+    // Heartbeat: poll only the small cycle/settings payload while running.
+    const timer = setInterval(() => {
+      refreshCycle();
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   async function runBatch() {
@@ -304,6 +441,314 @@ export function StrategyQualificationShell() {
 
         {message ? <div className="alert alert-secondary mt-3 mb-0">{message}</div> : null}
       </section>
+
+      <section className="dashboard-panel mt-4">
+        <div className="d-flex flex-wrap justify-content-between gap-3 align-items-end">
+          <div>
+            <p className="section-eyebrow mb-1">Automation</p>
+            <h2 className="h4 mb-0">Auto Backtest (Rolling Cycle)</h2>
+            <small className="text-secondary">
+              Sweeps every verified index + stock in slices, off-market, persisting each result as it completes.
+            </small>
+          </div>
+          <div className="d-flex align-items-center gap-3">
+            <div className="form-check form-switch mb-0">
+              <input
+                checked={Boolean(autoSettings?.auto_enabled)}
+                className="form-check-input"
+                disabled={autoBusy}
+                id="auto-enabled-switch"
+                onChange={(event) => toggleAuto(event.target.checked)}
+                role="switch"
+                type="checkbox"
+              />
+              <label className="form-check-label" htmlFor="auto-enabled-switch">
+                {autoSettings?.auto_enabled ? "Enabled" : "Disabled"}
+              </label>
+            </div>
+            {cycle && (cycle.status === "running" || cycle.status === "paused") ? (
+              <button
+                className={`btn ${cycle.status === "paused" ? "btn-success" : "btn-warning"}`}
+                disabled={autoBusy}
+                onClick={pauseOrResume}
+                type="button"
+              >
+                {cycle.status === "paused" ? "▶ Resume" : "⏸ Pause"}
+              </button>
+            ) : null}
+            <button className="btn btn-outline-light" disabled={autoBusy} onClick={stopCycle} type="button">
+              Stop
+            </button>
+            <button className="btn btn-primary" disabled={autoBusy} onClick={startCycle} type="button">
+              {autoBusy ? "Working" : "Start Cycle"}
+            </button>
+          </div>
+        </div>
+
+        <div className="row g-3 mt-1 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label">Slice size</label>
+            <input
+              className="form-control"
+              max={50}
+              min={1}
+              onChange={(event) => setSliceSize(Math.max(1, Number(event.target.value) || 1))}
+              type="number"
+              value={sliceSize}
+            />
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label">Loop mode</label>
+            <select
+              className="form-select"
+              onChange={(event) => setLoopMode(event.target.value as QualificationLoopMode)}
+              value={loopMode}
+            >
+              <option value="once">Once, then pause</option>
+              <option value="daily">Once per day</option>
+              <option value="continuous">Continuous</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label">Backtest window</label>
+            <select
+              className="form-select"
+              onChange={(event) => setWindowDays(Number(event.target.value))}
+              value={windowDays}
+            >
+              <option value={182}>6 months</option>
+              <option value={90}>3 months</option>
+              <option value={30}>1 month</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label">Timeframes</label>
+            <div className="form-check form-switch">
+              <input
+                checked={compare5m}
+                className="form-check-input"
+                id="compare-5m-switch"
+                onChange={(event) => setCompare5m(event.target.checked)}
+                role="switch"
+                type="checkbox"
+              />
+              <label className="form-check-label" htmlFor="compare-5m-switch">
+                {compare5m ? "3m + 5m" : "3m only"}
+              </label>
+            </div>
+          </div>
+          <div className="col-12 col-md-8 d-flex gap-2 flex-wrap">
+            <button className="btn btn-outline-light btn-sm" onClick={refreshCycle} type="button">
+              Refresh status
+            </button>
+            <button className="btn btn-outline-light btn-sm" onClick={refreshIssues} type="button">
+              Refresh issues
+            </button>
+            {autoSettings ? (
+              <span className="badge text-bg-secondary align-self-center">
+                toggle source: {autoSettings.source}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {cycle ? (
+          <div className="mt-3">
+            <div className="d-flex flex-wrap justify-content-between gap-2">
+              <span>
+                <strong>Status:</strong> {cycle.status}
+                {cycle.cycle_id ? ` · ${cycle.cycle_id}` : ""}
+                {cycle.reason ? ` · ${cycle.reason}` : ""}
+              </span>
+              <span>
+                {cycle.done}/{cycle.total} done · {cycle.pending} pending · loop: {cycle.loop_mode}
+              </span>
+            </div>
+            {cycle.blocked_reason ? (
+              <div className="alert alert-warning mt-2 mb-0 py-2">
+                Not advancing: {cycle.blocked_reason}
+              </div>
+            ) : null}
+            <div className="progress mt-2" role="progressbar" style={{ height: 22 }}>
+              <div
+                className="progress-bar"
+                style={{ width: `${Math.min(100, Math.max(0, cycle.percent))}%` }}
+              >
+                {cycle.percent}%
+              </div>
+            </div>
+            <div className="d-flex flex-wrap gap-3 mt-2 text-secondary small">
+              {cycle.from_date ? <span>window: {cycle.from_date} → {cycle.to_date}</span> : null}
+              {cycle.timeframes?.length ? <span>timeframes: {cycle.timeframes.join(", ")}</span> : null}
+              {cycle.strategy_ids?.length ? (
+                <span>strategies: {cycle.strategy_ids.length} ({cycle.strategy_ids.join(", ")})</span>
+              ) : null}
+              {cycle.last_slice_at ? <span>last slice: {cycle.last_slice_at}</span> : null}
+              {cycle.last_error ? <span className="text-warning">last error: {cycle.last_error}</span> : null}
+            </div>
+            <div className="mt-2 d-flex flex-wrap align-items-center gap-2">
+              <span className="text-secondary small">Now running:</span>
+              {instruments?.running.length ? (
+                instruments.running.map((row) => (
+                  <span className="badge text-bg-warning" key={`running-${row.instrument_key}`}>
+                    <span className="spinner-grow spinner-grow-sm me-1" role="status" /> {row.symbol}
+                  </span>
+                ))
+              ) : (
+                <span className="text-secondary small">
+                  {cycle.status === "running" ? "waiting for next slice…" : "—"}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {autoMessage ? <div className="alert alert-secondary mt-3 mb-0">{autoMessage}</div> : null}
+      </section>
+
+      {instruments ? (
+        <section className="dashboard-panel mt-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 className="h5 mb-0">Instruments</h2>
+            <div className="d-flex gap-2">
+              <span className="badge text-bg-warning">running {instruments.counts.running}</span>
+              <span className="badge text-bg-success">done {instruments.counts.done}</span>
+              <span className="badge text-bg-secondary">pending {instruments.counts.pending}</span>
+            </div>
+          </div>
+          <div className="table-responsive mt-2" style={{ maxHeight: 360, overflowY: "auto" }}>
+            <table className="table table-dark table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Instrument</th>
+                  <th>Kind</th>
+                </tr>
+              </thead>
+              <tbody>
+                {instruments.instruments.map((row) => (
+                  <tr key={`inst-${row.instrument_key}`}>
+                    <td>
+                      <span className={`badge ${stateBadgeClass(row.state)}`}>
+                        {row.state === "running" ? (
+                          <span className="spinner-grow spinner-grow-sm me-1" role="status" />
+                        ) : null}
+                        {row.state}
+                      </span>
+                    </td>
+                    <td>{row.symbol}</td>
+                    <td>{row.kind || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {cycleResults.length ? (
+        <section className="dashboard-panel mt-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 className="h5 mb-0">Cycle Results</h2>
+            <span className="badge text-bg-secondary">{cycleResults.length} latest runs</span>
+          </div>
+          <div className="table-responsive mt-2" style={{ maxHeight: 420, overflowY: "auto" }}>
+            <table className="table table-dark table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Instrument</th>
+                  <th>TF</th>
+                  <th>Side</th>
+                  <th>Strategy</th>
+                  <th>Trades</th>
+                  <th>Win%</th>
+                  <th>Net PnL</th>
+                  <th>PF</th>
+                  <th>Qualification</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cycleResults.map((row) => (
+                  <tr key={`cr-${row.id}`}>
+                    <td>{row.strategy.symbol}</td>
+                    <td>{row.strategy.timeframe}</td>
+                    <td>{row.strategy.side.toUpperCase()}</td>
+                    <td>{row.strategy.name}</td>
+                    <td>{row.metrics.total_trades}</td>
+                    <td>{row.metrics.win_rate}</td>
+                    <td>{money(row.metrics.net_pnl)}</td>
+                    <td>{row.metrics.profit_factor ?? "-"}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          row.qualification_status === "QUALIFIED"
+                            ? "text-bg-success"
+                            : "text-bg-secondary"
+                        }`}
+                      >
+                        {row.qualification_status}
+                      </span>{" "}
+                      {row.qualification_score}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {issues ? (
+        <section className="dashboard-panel mt-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 className="h5 mb-0">Issues / Fix List</h2>
+            <div className="d-flex gap-2">
+              <span className="badge text-bg-danger">failed {issues.summary.failed}</span>
+              <span className="badge text-bg-warning">stuck {issues.summary.stuck}</span>
+              <span className="badge text-bg-info">no trades {issues.summary.no_trades}</span>
+              <span className="badge text-bg-secondary">not run {issues.summary.not_run}</span>
+            </div>
+          </div>
+          <div className="table-responsive mt-2">
+            <table className="table table-dark table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Instrument</th>
+                  <th>Kind</th>
+                  <th>Side</th>
+                  <th>Strategy</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(["failed", "stuck", "no_trades", "not_run"] as const).flatMap((category) =>
+                  issues[category].slice(0, 50).map((row, index) => (
+                    <tr key={`${category}-${row.instrument_key}-${row.strategy_id ?? index}`}>
+                      <td>{category}</td>
+                      <td>{row.symbol || row.instrument_key}</td>
+                      <td>{row.kind || "-"}</td>
+                      <td>{row.side ? row.side.toUpperCase() : "-"}</td>
+                      <td>{row.strategy_id || "-"}</td>
+                      <td style={{ minWidth: 280 }}>
+                        {row.error_message || row.qualification_reason || "-"}
+                      </td>
+                    </tr>
+                  )),
+                )}
+                {!issues.summary.failed &&
+                !issues.summary.stuck &&
+                !issues.summary.no_trades &&
+                !issues.summary.not_run ? (
+                  <tr>
+                    <td colSpan={6}>No issues recorded in the current cycle.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section className="dashboard-panel mt-4">
         <div className="row g-3">

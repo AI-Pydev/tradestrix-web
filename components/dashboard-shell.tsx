@@ -6,6 +6,7 @@ import { Fragment, useEffect, useState } from "react";
 import {
     bulkDeleteUpstoxManagedBots,
     DashboardSnapshot,
+    deleteAllUpstoxManagedBotHistory,
     deleteUpstoxManagedBot,
     fetchDashboardData,
     fetchUpstoxEntryRejectionSummary,
@@ -893,6 +894,47 @@ export function DashboardShell() {
       setManagedBotsTotalPages(jobsPage.total_pages);
     } catch (err) {
       setBotMessage(err instanceof Error ? err.message : "Failed to bulk delete managed bot history");
+      setBotMessageTone("error");
+    } finally {
+      setManagedBotAction("");
+    }
+  }
+
+  async function handleDeleteAllManagedBotHistory() {
+    const confirmed = window.confirm(
+      "Delete all historical managed bot logs? Active jobs and jobs with open trades will be kept.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setManagedBotAction("delete-all-history");
+      const result = await deleteAllUpstoxManagedBotHistory();
+      const message =
+        result.failed_count > 0
+          ? `Delete all logs finished: deleted ${result.deleted_count}, failed ${result.failed_count}.`
+          : `Deleted ${result.deleted_count} historical log(s).`;
+      setBotMessage(message);
+      setBotMessageTone(result.failed_count > 0 ? "error" : "success");
+      setSelectedManagedBotIds([]);
+      setExpandedBotJobId("");
+      const [summary, jobsPage] = await Promise.all([
+        fetchUpstoxManagedBotDashboardSummary(),
+        fetchUpstoxManagedBotDashboardJobs({
+          ...buildJobListingParams(managedJobsView, managedJobsHistoryRange),
+          limit: managedBotsPageSize,
+          page: 1,
+          strategy_id: managedJobsStrategyFilter,
+        }),
+      ]);
+      setManagedBotsSummary(summary);
+      setManagedBots(jobsPage.items);
+      setManagedBotsTotalCount(jobsPage.total_count);
+      setManagedBotsCurrentPage(jobsPage.page);
+      setManagedBotsTotalPages(jobsPage.total_pages);
+    } catch (err) {
+      setBotMessage(err instanceof Error ? err.message : "Failed to delete all managed bot logs");
       setBotMessageTone("error");
     } finally {
       setManagedBotAction("");
@@ -1905,6 +1947,14 @@ export function DashboardShell() {
                             {managedBotAction === "bulk-delete"
                               ? "Deleting..."
                               : `Delete Selected (${selectedManagedBotIds.length})`}
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={managedBotsTotalCount === 0 || managedBotAction === "delete-all-history"}
+                            onClick={handleDeleteAllManagedBotHistory}
+                            type="button"
+                          >
+                            {managedBotAction === "delete-all-history" ? "Deleting..." : "Delete All Logs"}
                           </button>
                         </>
                       ) : null}
