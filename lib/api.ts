@@ -1030,6 +1030,84 @@ export type StrategyRegistryEntry = {
   updated_at?: string | null;
 };
 
+export type AutoQualificationSettings = {
+  auto_enabled: boolean;
+  source: "redis" | "env";
+  env_default: boolean;
+};
+
+export type QualificationLoopMode = "once" | "daily" | "continuous";
+
+export type QualificationCycleStatus = {
+  status: string;
+  loop_mode: QualificationLoopMode;
+  cycle_id?: string | null;
+  started_at?: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+  slice_size: number;
+  window_days: number;
+  strategy_ids: string[];
+  timeframes: string[];
+  total: number;
+  done: number;
+  pending: number;
+  percent: number;
+  last_slice_at?: string | null;
+  last_error?: string | null;
+  reason?: string;
+  slice_locked?: boolean;
+  market_hours?: boolean;
+  blocked_reason?: string | null;
+};
+
+export type QualificationCycleStartRequest = {
+  slice_size: number;
+  loop_mode: QualificationLoopMode;
+  strategy_ids?: string[];
+  window_days?: number;
+  timeframes?: string[];
+};
+
+export type QualificationIssueRow = {
+  instrument_key: string;
+  symbol: string;
+  kind?: string;
+  side?: string;
+  strategy_id?: string;
+  status?: string;
+  qualification_status?: string;
+  qualification_reason?: string;
+  error_message?: string;
+};
+
+export type QualificationInstrumentState = "running" | "done" | "pending";
+
+export type QualificationInstrumentRow = {
+  instrument_key: string;
+  symbol: string;
+  kind?: string;
+  state: QualificationInstrumentState;
+};
+
+export type QualificationCycleInstruments = {
+  cycle_id?: string | null;
+  status: string;
+  counts: { running: number; done: number; pending: number };
+  running: QualificationInstrumentRow[];
+  instruments: QualificationInstrumentRow[];
+};
+
+export type QualificationCycleIssues = {
+  cycle_id?: string | null;
+  status: string;
+  summary: { failed: number; no_trades: number; stuck: number; not_run: number };
+  failed: QualificationIssueRow[];
+  no_trades: QualificationIssueRow[];
+  stuck: QualificationIssueRow[];
+  not_run: QualificationIssueRow[];
+};
+
 export type PaperDiscoveryCandidate = StrategyRegistryEntry & {
   latest_run: {
     id: number;
@@ -2171,9 +2249,87 @@ export async function fetchStrategyQualificationRegistry() {
   return getBackendJson<StrategyRegistryEntry[]>("/api/v1/strategy-qualification/registry");
 }
 
+export type StrategyQualificationRunResult = {
+  id: number;
+  batch_id: string;
+  strategy: StrategyRegistryEntry;
+  status: string;
+  from_date: string;
+  to_date: string;
+  metrics: StrategyQualificationMetrics;
+  qualification_status: string;
+  qualification_score: number;
+  qualification_reason: string;
+  error_message?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+};
+
+export async function fetchStrategyQualificationResults(limit = 200) {
+  return getBackendJson<StrategyQualificationRunResult[]>(
+    `/api/v1/strategy-qualification/results?limit=${limit}`,
+  );
+}
+
 export async function fetchStrategyQualificationCandidates(executionMode: "paper" | "live" | "all" = "paper") {
   return getBackendJson<Record<string, { call: StrategyRegistryEntry[]; put: StrategyRegistryEntry[] }>>(
     `/api/v1/strategy-qualification/auto-launch-candidates?execution_mode=${encodeURIComponent(executionMode)}`,
+  );
+}
+
+export async function fetchAutoQualificationSettings() {
+  return getBackendJson<AutoQualificationSettings>(
+    "/api/v1/strategy-qualification/auto-settings",
+  );
+}
+
+export async function updateAutoQualificationSettings(autoEnabled: boolean) {
+  return putBackendJsonWithBody<AutoQualificationSettings, { auto_enabled: boolean }>(
+    "/api/v1/strategy-qualification/auto-settings",
+    { auto_enabled: autoEnabled },
+  );
+}
+
+export async function fetchQualificationCycle() {
+  return getBackendJson<QualificationCycleStatus>(
+    "/api/v1/strategy-qualification/cycle",
+  );
+}
+
+export async function stopQualificationCycle() {
+  return postBackendJson<QualificationCycleStatus>(
+    "/api/v1/strategy-qualification/cycle/stop",
+  );
+}
+
+export async function pauseQualificationCycle() {
+  return postBackendJson<QualificationCycleStatus>(
+    "/api/v1/strategy-qualification/cycle/pause",
+  );
+}
+
+export async function resumeQualificationCycle() {
+  return postBackendJson<QualificationCycleStatus>(
+    "/api/v1/strategy-qualification/cycle/resume",
+  );
+}
+
+export async function startQualificationCycle(payload: QualificationCycleStartRequest) {
+  return postBackendJsonWithBody<QualificationCycleStatus, QualificationCycleStartRequest>(
+    "/api/v1/strategy-qualification/cycle/start",
+    payload,
+  );
+}
+
+export async function fetchQualificationCycleIssues() {
+  return getBackendJson<QualificationCycleIssues>(
+    "/api/v1/strategy-qualification/cycle/issues",
+  );
+}
+
+export async function fetchQualificationCycleInstruments() {
+  return getBackendJson<QualificationCycleInstruments>(
+    "/api/v1/strategy-qualification/cycle/instruments",
   );
 }
 
@@ -2233,6 +2389,12 @@ export async function bulkDeleteUpstoxManagedBots(jobIds: string[]) {
   >("/api/v1/upstox/option-chain-bot/jobs/bulk-delete", {
     job_ids: jobIds,
   });
+}
+
+export async function deleteAllUpstoxManagedBotHistory() {
+  return deleteBackendJson<UpstoxManagedBotBulkDeleteResponse>(
+    "/api/v1/upstox/option-chain-bot/jobs/history",
+  );
 }
 
 export async function previewUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRequest) {
