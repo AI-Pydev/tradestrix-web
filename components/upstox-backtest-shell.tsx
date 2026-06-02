@@ -91,6 +91,7 @@ const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
 ];
 const BACKTEST_INTERVAL_OPTIONS = [
   { value: "1", label: "1m" },
+  { value: "3", label: "3m" },
   { value: "5", label: "5m" },
   { value: "15", label: "15m" },
   { value: "25", label: "25m" },
