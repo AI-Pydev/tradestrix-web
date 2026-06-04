@@ -1079,6 +1079,7 @@ export type QualificationIssueRow = {
   qualification_status?: string;
   qualification_reason?: string;
   error_message?: string;
+  started_at?: string | null;
 };
 
 export type QualificationInstrumentState = "running" | "done" | "pending";
@@ -1536,6 +1537,8 @@ export type UpstoxOptionChainBacktestTrade = {
   pnl_points: number;
   pnl_amount: number;
   reason: string;
+  loss_reason_code?: string | null;
+  loss_reason?: string | null;
 };
 
 export type UpstoxOptionChainBacktestRunResponse = {

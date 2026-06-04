@@ -89,13 +89,32 @@ const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
   { value: "kite", label: "Kite" },
   { value: "upstox", label: "Upstox" },
 ];
-const BACKTEST_INTERVAL_OPTIONS = [
+type BacktestIntervalOption = {
+  value: string;
+  label: string;
+  requestUnit?: string;
+  requestInterval?: string;
+  expiredInterval?: string;
+};
+
+const UNDERLYING_INTERVAL_OPTIONS: BacktestIntervalOption[] = [
   { value: "1", label: "1m" },
   { value: "3", label: "3m" },
   { value: "5", label: "5m" },
   { value: "15", label: "15m" },
   { value: "25", label: "25m" },
   { value: "60", label: "60m" },
+];
+
+const OPTION_INTERVAL_OPTIONS: BacktestIntervalOption[] = [
+  {
+    value: "15s",
+    label: "15s",
+    requestUnit: "minutes",
+    requestInterval: "1",
+    expiredInterval: "1minute",
+  },
+  ...UNDERLYING_INTERVAL_OPTIONS,
 ];
 const DEFAULT_BACKTEST_MARKET_DATA_BROKER: MarketDataBrokerId = "dhan";
 const DEFAULT_BACKTEST_FALLBACK_BROKER: MarketDataBrokerId = "kite";
@@ -106,6 +125,18 @@ function isMarketDataBrokerId(value: string | null | undefined): value is Market
 
 function optionIntervalValue(value: string) {
   return `${value}minute`;
+}
+
+function optionTfRequest(value: string): Required<BacktestIntervalOption> {
+  const selected = OPTION_INTERVAL_OPTIONS.find((option) => option.value === value) ?? OPTION_INTERVAL_OPTIONS[1];
+  const requestInterval = selected.requestInterval ?? selected.value;
+  return {
+    value: selected.value,
+    label: selected.label,
+    requestUnit: selected.requestUnit ?? "minutes",
+    requestInterval,
+    expiredInterval: selected.expiredInterval ?? optionIntervalValue(requestInterval),
+  };
 }
 
 function normalizeMinuteInterval(value: string) {
@@ -170,8 +201,8 @@ export function UpstoxBacktestShell() {
     strike_offset: 0,
     lots: 1,
     max_entry_ltp: 1000,
-    sl_premium_pct: 0.35,
-    target_premium_pct: 0.65,
+    sl_premium_pct: 0.2,
+    target_premium_pct: 0.36,
     export_csv: "logs/upstox/tv_ha_call_option_backtest_api.csv",
   });
   const instruments = instrumentOptions(catalog);
@@ -222,6 +253,9 @@ export function UpstoxBacktestShell() {
         ...backtestForm,
         market_data_broker: marketDataBroker,
         fallback_broker: fallbackBroker,
+        option_interval: optionTfRequest(backtestForm.current_option_interval).expiredInterval,
+        current_option_unit: optionTfRequest(backtestForm.current_option_interval).requestUnit,
+        current_option_interval: optionTfRequest(backtestForm.current_option_interval).requestInterval,
         export_csv: backtestForm.export_csv?.trim() ? backtestForm.export_csv.trim() : null,
       };
       const result = await runUpstoxOptionChainBacktest(payload);
@@ -270,6 +304,9 @@ export function UpstoxBacktestShell() {
             ...backtestForm,
             market_data_broker: broker,
             fallback_broker: fallbackBroker,
+            option_interval: optionTfRequest(backtestForm.current_option_interval).expiredInterval,
+            current_option_unit: optionTfRequest(backtestForm.current_option_interval).requestUnit,
+            current_option_interval: optionTfRequest(backtestForm.current_option_interval).requestInterval,
             export_csv: null,
           };
           const result = await runUpstoxOptionChainBacktest(payload);
@@ -498,7 +535,7 @@ export function UpstoxBacktestShell() {
                             }))
                           }
                         >
-                          {BACKTEST_INTERVAL_OPTIONS.map((option) => (
+                          {UNDERLYING_INTERVAL_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -509,17 +546,18 @@ export function UpstoxBacktestShell() {
                         <label className="form-label">Option TF</label>
                         <select
                           className="form-select"
-                          value={normalizeMinuteInterval(backtestForm.current_option_interval)}
-                          onChange={(e) =>
+                          value={backtestForm.current_option_interval}
+                          onChange={(e) => {
+                            const selected = optionTfRequest(e.target.value);
                             setBacktestForm((prev) => ({
                               ...prev,
-                              option_interval: optionIntervalValue(e.target.value),
-                              current_option_unit: "minutes",
-                              current_option_interval: e.target.value,
-                            }))
-                          }
+                              option_interval: selected.expiredInterval,
+                              current_option_unit: selected.requestUnit,
+                              current_option_interval: selected.value,
+                            }));
+                          }}
                         >
-                          {BACKTEST_INTERVAL_OPTIONS.map((option) => (
+                          {OPTION_INTERVAL_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -717,6 +755,7 @@ export function UpstoxBacktestShell() {
                       <th>Qty</th>
                       <th>PnL</th>
                       <th>Reason</th>
+                      <th>Loss Reason</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -733,11 +772,14 @@ export function UpstoxBacktestShell() {
                           <td>{trade.quantity}</td>
                           <td>{fmtMoney(trade.pnl_amount)}</td>
                           <td>{trade.reason}</td>
+                          <td className="small muted" style={{ minWidth: 260 }}>
+                            {trade.loss_reason || "-"}
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={10} className="empty-state">
+                        <td colSpan={11} className="empty-state">
                           No backtest trades generated.
                         </td>
                       </tr>
