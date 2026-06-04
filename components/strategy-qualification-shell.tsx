@@ -60,8 +60,8 @@ function defaultRequest(): StrategyQualificationRunRequest {
     strike_offset: 0,
     lots: 1,
     max_entry_ltp: 1000,
-    sl_premium_pct: 0.35,
-    target_premium_pct: 0.65,
+    sl_premium_pct: 0.2,
+    target_premium_pct: 0.36,
     rules: {
       min_trades: 50,
       min_win_rate: 55,
@@ -125,6 +125,23 @@ function failureReasons(summary: StrategyQualificationBatch["summary"] | undefin
       return { reason: row.reason, count: row.count };
     })
     .filter((item): item is FailureReason => Boolean(item));
+}
+
+function issueRowKey(
+  category: "failed" | "stuck" | "no_trades" | "not_run",
+  row: QualificationCycleIssues["failed"][number],
+  index: number,
+) {
+  return [
+    category,
+    row.instrument_key,
+    row.side ?? "any",
+    row.strategy_id ?? "none",
+    row.status ?? "unknown",
+    row.qualification_status ?? "unknown",
+    row.started_at ?? "not-started",
+    index,
+  ].join("-");
 }
 
 function sleep(ms: number) {
@@ -724,7 +741,7 @@ export function StrategyQualificationShell() {
               <tbody>
                 {(["failed", "stuck", "no_trades", "not_run"] as const).flatMap((category) =>
                   issues[category].slice(0, 50).map((row, index) => (
-                    <tr key={`${category}-${row.instrument_key}-${row.strategy_id ?? index}`}>
+                    <tr key={issueRowKey(category, row, index)}>
                       <td>{category}</td>
                       <td>{row.symbol || row.instrument_key}</td>
                       <td>{row.kind || "-"}</td>
