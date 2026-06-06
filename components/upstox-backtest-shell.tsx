@@ -119,6 +119,59 @@ const OPTION_INTERVAL_OPTIONS: BacktestIntervalOption[] = [
 const DEFAULT_BACKTEST_MARKET_DATA_BROKER: MarketDataBrokerId = "dhan";
 const DEFAULT_BACKTEST_FALLBACK_BROKER: MarketDataBrokerId = "kite";
 
+// Minute intervals each broker can serve natively. Brokers omitted here accept
+// every interval in UNDERLYING_INTERVAL_OPTIONS. Dhan only supports these, and
+// its adapter would otherwise SILENTLY snap an unsupported interval (3m -> 5m),
+// changing the strategy timeframe. This drives the timeframe dropdown so an
+// unsupported TF can't be picked for the chosen broker. The backend enforces the
+// same rule (interval_aware_chain / _BROKER_NATIVE_MINUTE_INTERVALS in
+// app/services/upstox_strategy_bridge.py) — keep the two in sync.
+const BROKER_SUPPORTED_MINUTE_INTERVALS: Partial<Record<MarketDataBrokerId, string[]>> = {
+  dhan: ["1", "5", "15", "25", "60"],
+};
+
+const BROKER_DEFAULT_INTERVAL: Record<MarketDataBrokerId, string> = {
+  dhan: "5",
+  kite: "3",
+  upstox: "3",
+};
+
+function underlyingIntervalsForBroker(broker: MarketDataBrokerId): BacktestIntervalOption[] {
+  const allowed = BROKER_SUPPORTED_MINUTE_INTERVALS[broker];
+  if (!allowed) {
+    return UNDERLYING_INTERVAL_OPTIONS;
+  }
+  return UNDERLYING_INTERVAL_OPTIONS.filter((option) => allowed.includes(option.value));
+}
+
+function optionIntervalsForBroker(broker: MarketDataBrokerId): BacktestIntervalOption[] {
+  const allowed = BROKER_SUPPORTED_MINUTE_INTERVALS[broker];
+  if (!allowed) {
+    return OPTION_INTERVAL_OPTIONS;
+  }
+  // "15s" requests a 1m candle under the hood, which every broker supports.
+  return OPTION_INTERVAL_OPTIONS.filter(
+    (option) => option.value === "15s" || allowed.includes(option.value),
+  );
+}
+
+function coerceUnderlyingIntervalForBroker(broker: MarketDataBrokerId, current: string): string {
+  const allowed = BROKER_SUPPORTED_MINUTE_INTERVALS[broker];
+  const normalized = normalizeMinuteInterval(current);
+  if (!allowed || allowed.includes(normalized)) {
+    return normalized;
+  }
+  return BROKER_DEFAULT_INTERVAL[broker] ?? allowed[0];
+}
+
+function coerceOptionIntervalForBroker(broker: MarketDataBrokerId, current: string): string {
+  const allowed = BROKER_SUPPORTED_MINUTE_INTERVALS[broker];
+  if (!allowed || current === "15s" || allowed.includes(current)) {
+    return current;
+  }
+  return BROKER_DEFAULT_INTERVAL[broker] ?? allowed[0];
+}
+
 function isMarketDataBrokerId(value: string | null | undefined): value is MarketDataBrokerId {
   return MARKET_DATA_BROKERS.some((option) => option.value === value);
 }
@@ -455,11 +508,28 @@ export function UpstoxBacktestShell() {
                           value={backtestForm.market_data_broker}
                           onChange={(e) => {
                             const broker = e.target.value as MarketDataBrokerId;
-                            setBacktestForm((prev) => ({
-                              ...prev,
-                              market_data_broker: broker,
-                              fallback_broker: prev.fallback_broker === broker ? null : prev.fallback_broker,
-                            }));
+                            setBacktestForm((prev) => {
+                              const underlyingInterval = coerceUnderlyingIntervalForBroker(
+                                broker,
+                                prev.underlying_interval,
+                              );
+                              const optionValue = coerceOptionIntervalForBroker(
+                                broker,
+                                prev.current_option_interval,
+                              );
+                              const option = optionTfRequest(optionValue);
+                              return {
+                                ...prev,
+                                market_data_broker: broker,
+                                fallback_broker:
+                                  prev.fallback_broker === broker ? null : prev.fallback_broker,
+                                underlying_unit: "minutes",
+                                underlying_interval: underlyingInterval,
+                                option_interval: option.expiredInterval,
+                                current_option_unit: option.requestUnit,
+                                current_option_interval: option.value,
+                              };
+                            });
                           }}
                         >
                           {MARKET_DATA_BROKERS.map((option) => (
@@ -535,11 +605,13 @@ export function UpstoxBacktestShell() {
                             }))
                           }
                         >
-                          {UNDERLYING_INTERVAL_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
+                          {underlyingIntervalsForBroker(backtestForm.market_data_broker).map(
+                            (option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ),
+                          )}
                         </select>
                       </div>
                       <div className="col-12 col-md-6 col-xl-2">
@@ -557,11 +629,13 @@ export function UpstoxBacktestShell() {
                             }));
                           }}
                         >
-                          {OPTION_INTERVAL_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
+                          {optionIntervalsForBroker(backtestForm.market_data_broker).map(
+                            (option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ),
+                          )}
                         </select>
                       </div>
                       <div className="col-12 col-md-6 col-xl-4">
@@ -754,6 +828,7 @@ export function UpstoxBacktestShell() {
                       <th>Exit Opt</th>
                       <th>Qty</th>
                       <th>PnL</th>
+                      <th>Entry Reason</th>
                       <th>Reason</th>
                       <th>Loss Reason</th>
                     </tr>
@@ -771,6 +846,9 @@ export function UpstoxBacktestShell() {
                           <td>{fmtMoney(trade.exit_option)}</td>
                           <td>{trade.quantity}</td>
                           <td>{fmtMoney(trade.pnl_amount)}</td>
+                          <td className="small muted" style={{ minWidth: 220 }}>
+                            {trade.entry_reason || "-"}
+                          </td>
                           <td>{trade.reason}</td>
                           <td className="small muted" style={{ minWidth: 260 }}>
                             {trade.loss_reason || "-"}
@@ -779,7 +857,7 @@ export function UpstoxBacktestShell() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={11} className="empty-state">
+                        <td colSpan={12} className="empty-state">
                           No backtest trades generated.
                         </td>
                       </tr>

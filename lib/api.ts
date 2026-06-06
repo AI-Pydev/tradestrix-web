@@ -1537,6 +1537,7 @@ export type UpstoxOptionChainBacktestTrade = {
   pnl_points: number;
   pnl_amount: number;
   reason: string;
+  entry_reason?: string | null;
   loss_reason_code?: string | null;
   loss_reason?: string | null;
 };
