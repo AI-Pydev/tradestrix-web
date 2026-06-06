@@ -86,6 +86,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "BR",
       },
       {
+        href: "/symbol-map",
+        label: "Symbol Map",
+        caption: "Broker symbol mappings",
+        monogram: "SM",
+      },
+      {
         href: "/tradingview-alerts",
         label: "TV Alerts",
         caption: "Webhook templates",
