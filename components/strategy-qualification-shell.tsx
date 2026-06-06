@@ -29,6 +29,31 @@ import {
   StrategyRegistryEntry,
 } from "@/lib/api";
 
+const QUALIFICATION_STRATEGY_OPTIONS = [
+  { value: "tv_ha_call_v2", label: "TV-HA CALL v2", side: "call" },
+  { value: "nc_ha_call_entry", label: "NC HA CALL Entry", side: "call" },
+  { value: "auto_atm_otm_call", label: "Auto ATM-OTM CALL", side: "call" },
+  { value: "fibo_nk_call", label: "FIBO-NK CALL", side: "call" },
+  { value: "jk_oc_call", label: "JK OC CALL", side: "call" },
+  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT", side: "call" },
+  { value: "jk_al_call", label: "JK AL CALL", side: "call" },
+  { value: "ol_oh_call", label: "OL-OH CALL", side: "call" },
+  { value: "momentum_call", label: "Momentum CALL", side: "call" },
+  { value: "tv_ha_put_v2", label: "TV-HA PUT v2", side: "put" },
+  { value: "fibo_nk_put", label: "FIBO-NK PUT", side: "put" },
+  { value: "jk_ema_put", label: "JK EMA PUT", side: "put" },
+  { value: "jk_al_put", label: "JK AL PUT", side: "put" },
+  { value: "ol_oh_put", label: "OL-OH PUT", side: "put" },
+  { value: "momentum_put", label: "Momentum PUT", side: "put" },
+] as const;
+
+const DEFAULT_INSTRUMENT_OPTIONS = [
+  { value: "NSE_INDEX|Nifty 50", label: "Nifty 50", kind: "index" },
+  { value: "NSE_INDEX|Nifty Bank", label: "Nifty Bank", kind: "index" },
+  { value: "NSE_INDEX|Nifty Fin Service", label: "Nifty Fin Service", kind: "index" },
+  { value: "BSE_INDEX|SENSEX", label: "SENSEX", kind: "index" },
+] as const;
+
 function dateInput(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -50,7 +75,15 @@ function defaultRequest(): StrategyQualificationRunRequest {
     to_date: dateInput(toDate),
     include_call: true,
     include_put: true,
-    strategy_ids: ["fibo_nk_call", "ol_oh_call", "nc_ha_call_entry", "fibo_nk_put", "tv_ha_put_v2"],
+    strategy_ids: [
+      "fibo_nk_call",
+      "ol_oh_call",
+      "nc_ha_call_entry",
+      "jk_al_call",
+      "fibo_nk_put",
+      "tv_ha_put_v2",
+      "jk_al_put",
+    ],
     timeframe: "3m",
     underlying_unit: "minutes",
     underlying_interval: "3",
@@ -86,13 +119,6 @@ function stateBadgeClass(state: QualificationInstrumentState) {
   if (state === "running") return "text-bg-warning";
   if (state === "done") return "text-bg-success";
   return "text-bg-secondary";
-}
-
-function splitCsv(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 type FailureReason = {
@@ -150,8 +176,6 @@ function sleep(ms: number) {
 
 export function StrategyQualificationShell() {
   const [form, setForm] = useState<StrategyQualificationRunRequest>(() => defaultRequest());
-  const [instrumentText, setInstrumentText] = useState(form.instrument_keys.join(", "));
-  const [strategyText, setStrategyText] = useState(form.strategy_ids.join(", "));
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<StrategyQualificationBatch | null>(null);
@@ -289,12 +313,7 @@ export function StrategyQualificationShell() {
     setRunning(true);
     setMessage("");
     try {
-      const payload = {
-        ...form,
-        instrument_keys: splitCsv(instrumentText),
-        strategy_ids: splitCsv(strategyText),
-      };
-      const queued = await enqueueStrategyQualification(payload);
+      const queued = await enqueueStrategyQualification(form);
       setMessage(`Job ${queued.task_id} queued`);
       let next: StrategyQualificationBatch | null = queued.batch ?? null;
       for (let attempt = 0; !next && attempt < 360; attempt += 1) {
@@ -324,6 +343,53 @@ export function StrategyQualificationShell() {
 
   const summary = result?.summary;
   const topFailureReasons = failureReasons(summary);
+  const instrumentOptions = Array.from(
+    new Map(
+      [
+        ...DEFAULT_INSTRUMENT_OPTIONS,
+        ...registry.map((item) => ({
+          value: item.instrument_key,
+          label: item.symbol || item.instrument_key,
+          kind: item.instrument_key.includes("_INDEX|") ? "index" : "stock",
+        })),
+        ...(instruments?.instruments ?? []).map((item) => ({
+          value: item.instrument_key,
+          label: item.symbol || item.instrument_key,
+          kind: item.kind || (item.instrument_key.includes("_INDEX|") ? "index" : "stock"),
+        })),
+      ].map((item) => [item.value, item]),
+    ).values(),
+  );
+  const instrumentLabels = new Map(instrumentOptions.map((item) => [item.value, item.label]));
+  const toggleInstrument = (instrumentKey: string) => {
+    setForm((prev) => ({
+      ...prev,
+      instrument_keys: prev.instrument_keys.includes(instrumentKey)
+        ? prev.instrument_keys.filter((item) => item !== instrumentKey)
+        : [...prev.instrument_keys, instrumentKey],
+    }));
+  };
+  const strategyOptions = Array.from(
+    new Map(
+      [
+        ...QUALIFICATION_STRATEGY_OPTIONS,
+        ...registry.map((item) => ({
+          value: item.strategy_id,
+          label: item.name || item.strategy_id,
+          side: item.side,
+        })),
+      ].map((item) => [item.value, item]),
+    ).values(),
+  );
+  const strategyLabels = new Map(strategyOptions.map((item) => [item.value, item.label]));
+  const toggleStrategy = (strategyId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      strategy_ids: prev.strategy_ids.includes(strategyId)
+        ? prev.strategy_ids.filter((item) => item !== strategyId)
+        : [...prev.strategy_ids, strategyId],
+    }));
+  };
   const flatCandidates = Object.entries(candidates).flatMap(([instrumentKey, sides]) =>
     (["call", "put"] as const).flatMap((side) =>
       sides[side].map((item) => ({ ...item, instrument_key: instrumentKey, side })),
@@ -346,21 +412,119 @@ export function StrategyQualificationShell() {
         <div className="row g-3 mt-2">
           <div className="col-12 col-xl-5">
             <label className="form-label">Instruments</label>
-            <textarea
-              className="form-control"
-              onChange={(event) => setInstrumentText(event.target.value)}
-              rows={4}
-              value={instrumentText}
-            />
+            <details className="multi-select-dropdown position-relative">
+              <summary className="form-select">
+                {form.instrument_keys.length
+                  ? `${form.instrument_keys.length} instruments selected`
+                  : "Select instruments"}
+              </summary>
+              <div className="multi-select-dropdown-menu">
+                <div className="d-flex justify-content-between gap-2 border-bottom border-secondary-subtle pb-2 mb-2">
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        instrument_keys: instrumentOptions.map((item) => item.value),
+                      }))
+                    }
+                    type="button"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={() => setForm((prev) => ({ ...prev, instrument_keys: [] }))}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {instrumentOptions.map((option) => (
+                  <label className="multi-select-dropdown-option" key={option.value}>
+                    <input
+                      checked={form.instrument_keys.includes(option.value)}
+                      className="form-check-input"
+                      onChange={() => toggleInstrument(option.value)}
+                      type="checkbox"
+                    />
+                    <span className="flex-grow-1">
+                      {option.label}
+                      <small className="d-block text-secondary">{option.value}</small>
+                    </span>
+                    <span className="badge text-bg-info">{option.kind.toUpperCase()}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+            <div className="d-flex flex-wrap gap-1 mt-2">
+              {form.instrument_keys.map((instrumentKey) => (
+                <button
+                  className="badge rounded-pill text-bg-secondary border-0"
+                  key={instrumentKey}
+                  onClick={() => toggleInstrument(instrumentKey)}
+                  title={`Remove ${instrumentLabels.get(instrumentKey) ?? instrumentKey}`}
+                  type="button"
+                >
+                  {instrumentLabels.get(instrumentKey) ?? instrumentKey} x
+                </button>
+              ))}
+            </div>
           </div>
           <div className="col-12 col-xl-5">
             <label className="form-label">Strategies</label>
-            <textarea
-              className="form-control"
-              onChange={(event) => setStrategyText(event.target.value)}
-              rows={4}
-              value={strategyText}
-            />
+            <details className="multi-select-dropdown position-relative">
+              <summary className="form-select">
+                {form.strategy_ids.length
+                  ? `${form.strategy_ids.length} strategies selected`
+                  : "Select strategies"}
+              </summary>
+              <div className="multi-select-dropdown-menu">
+                <div className="d-flex justify-content-between gap-2 border-bottom border-secondary-subtle pb-2 mb-2">
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={() => setForm((prev) => ({ ...prev, strategy_ids: strategyOptions.map((item) => item.value) }))}
+                    type="button"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={() => setForm((prev) => ({ ...prev, strategy_ids: [] }))}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {strategyOptions.map((option) => (
+                  <label className="multi-select-dropdown-option" key={option.value}>
+                    <input
+                      checked={form.strategy_ids.includes(option.value)}
+                      className="form-check-input"
+                      onChange={() => toggleStrategy(option.value)}
+                      type="checkbox"
+                    />
+                    <span className="flex-grow-1">{option.label}</span>
+                    <span className={`badge ${option.side === "call" ? "text-bg-success" : "text-bg-danger"}`}>
+                      {option.side.toUpperCase()}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </details>
+            <div className="d-flex flex-wrap gap-1 mt-2">
+              {form.strategy_ids.map((strategyId) => (
+                <button
+                  className="badge rounded-pill text-bg-secondary border-0"
+                  key={strategyId}
+                  onClick={() => toggleStrategy(strategyId)}
+                  title={`Remove ${strategyLabels.get(strategyId) ?? strategyId}`}
+                  type="button"
+                >
+                  {strategyLabels.get(strategyId) ?? strategyId} ×
+                </button>
+              ))}
+            </div>
           </div>
           <div className="col-6 col-xl-1">
             <label className="form-label">From</label>

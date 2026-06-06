@@ -72,6 +72,7 @@ const CALL_STRATEGY_OPTIONS = [
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_oc_call", label: "JK OC CALL" },
   { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
+  { value: "jk_al_call", label: "JK AL CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
   { value: "momentum_call", label: "Momentum CALL" },
 ];
@@ -80,6 +81,7 @@ const PUT_STRATEGY_OPTIONS = [
   { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
   { value: "jk_ema_put", label: "JK EMA PUT" },
+  { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
   { value: "momentum_put", label: "Momentum PUT" },
 ];

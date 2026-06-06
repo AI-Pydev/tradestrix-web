@@ -1432,11 +1432,13 @@ export type SharedStrategyId =
   | "fibo_nk_call"
   | "jk_oc_call"
   | "jk_oc_call_opt_int"
+  | "jk_al_call"
   | "ol_oh_call"
   | "momentum_call"
   | "tv_ha_put_v2"
   | "fibo_nk_put"
   | "jk_ema_put"
+  | "jk_al_put"
   | "ol_oh_put"
   | "momentum_put";
 
