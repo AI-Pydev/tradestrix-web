@@ -1795,6 +1795,55 @@ export async function fetchBrokerConnections() {
   return getBackendJson<BrokerConnection[]>("/api/v1/brokers");
 }
 
+export type SymbolMappingRow = {
+  canonical_key: string;
+  display_name: string;
+  symbol: string;
+  asset_class: string;
+  aliases: string[];
+  broker_keys: Record<string, string[]>;
+  dhan_underlying_scrip: number | null;
+  dhan_underlying_seg: string | null;
+  source: "default" | "override" | "custom";
+  is_default: boolean;
+  coverage: Record<string, boolean>;
+  dhan_underlying_configured: boolean;
+};
+
+export type SymbolMapResponse = {
+  editable_brokers: string[];
+  dhan_supported: string[];
+  mappings: SymbolMappingRow[];
+};
+
+export type SymbolMappingUpsert = {
+  canonical_key: string;
+  display_name: string;
+  symbol: string;
+  asset_class: string;
+  aliases: string[];
+  broker_keys: Record<string, string[]>;
+  dhan_underlying_scrip: number | null;
+  dhan_underlying_seg: string | null;
+};
+
+export async function fetchSymbolMap() {
+  return getBackendJson<SymbolMapResponse>("/api/v1/brokers/symbol-map");
+}
+
+export async function upsertSymbolMapping(payload: SymbolMappingUpsert) {
+  return putBackendJsonWithBody<SymbolMappingRow, SymbolMappingUpsert>(
+    "/api/v1/brokers/symbol-map",
+    payload,
+  );
+}
+
+export async function deleteSymbolMapping(canonicalKey: string) {
+  return deleteBackendJson<{ status: string; canonical_key: string }>(
+    `/api/v1/brokers/symbol-map?canonical_key=${encodeURIComponent(canonicalKey)}`,
+  );
+}
+
 export async function fetchBrokerHealth(refresh = false) {
   const batchErrors: string[] = [];
 
