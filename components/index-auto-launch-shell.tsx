@@ -18,6 +18,7 @@ const CALL_STRATEGY_OPTIONS = [
   { value: "auto_atm_otm_call", label: "AUTO ATM OTM CALL" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
+  { value: "jk_al_call", label: "JK AL CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
   { value: "momentum_call", label: "Momentum CALL" },
 ];
@@ -25,6 +26,7 @@ const CALL_STRATEGY_OPTIONS = [
 const PUT_STRATEGY_OPTIONS = [
   { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
+  { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
   { value: "momentum_put", label: "Momentum PUT" },
 ];
