@@ -31,20 +31,13 @@ import {
 
 const QUALIFICATION_STRATEGY_OPTIONS = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2", side: "call" },
-  { value: "nc_ha_call_entry", label: "NC HA CALL Entry", side: "call" },
-  { value: "auto_atm_otm_call", label: "Auto ATM-OTM CALL", side: "call" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL", side: "call" },
-  { value: "jk_oc_call", label: "JK OC CALL", side: "call" },
-  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT", side: "call" },
   { value: "jk_al_call", label: "JK AL CALL", side: "call" },
   { value: "ol_oh_call", label: "OL-OH CALL", side: "call" },
-  { value: "momentum_call", label: "Momentum CALL", side: "call" },
   { value: "tv_ha_put_v2", label: "TV-HA PUT v2", side: "put" },
   { value: "fibo_nk_put", label: "FIBO-NK PUT", side: "put" },
-  { value: "jk_ema_put", label: "JK EMA PUT", side: "put" },
   { value: "jk_al_put", label: "JK AL PUT", side: "put" },
   { value: "ol_oh_put", label: "OL-OH PUT", side: "put" },
-  { value: "momentum_put", label: "Momentum PUT", side: "put" },
 ] as const;
 
 const DEFAULT_INSTRUMENT_OPTIONS = [
@@ -78,7 +71,6 @@ function defaultRequest(): StrategyQualificationRunRequest {
     strategy_ids: [
       "fibo_nk_call",
       "ol_oh_call",
-      "nc_ha_call_entry",
       "jk_al_call",
       "fibo_nk_put",
       "tv_ha_put_v2",
@@ -239,12 +231,17 @@ export function StrategyQualificationShell() {
   }
 
   async function startCycle() {
+    if (!form.strategy_ids.length) {
+      setAutoMessage("Select at least one strategy before starting a qualification cycle.");
+      return;
+    }
     setAutoBusy(true);
     setAutoMessage("");
     try {
       const next = await startQualificationCycle({
         slice_size: sliceSize,
         loop_mode: loopMode,
+        strategy_ids: form.strategy_ids,
         window_days: windowDays,
         timeframes: compare5m ? ["3m", "5m"] : ["3m"],
       });

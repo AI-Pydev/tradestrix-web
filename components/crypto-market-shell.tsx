@@ -140,11 +140,9 @@ const DEFAULT_FORM: CryptoFormState = {
 
 const CALL_STRATEGY_OPTIONS: { value: SharedStrategyId; label: string }[] = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
-  { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
   { value: "jk_al_call", label: "JK AL CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
-  { value: "momentum_call", label: "Momentum CALL" },
 ];
 
 const PUT_STRATEGY_OPTIONS: { value: SharedStrategyId; label: string }[] = [
@@ -152,7 +150,6 @@ const PUT_STRATEGY_OPTIONS: { value: SharedStrategyId; label: string }[] = [
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
   { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
-  { value: "momentum_put", label: "Momentum PUT" },
 ];
 
 function defaultStrategyIdForSide(side: "call" | "put"): SharedStrategyId {

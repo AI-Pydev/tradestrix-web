@@ -67,23 +67,16 @@ function defaultBacktestDateRange() {
 
 const CALL_STRATEGY_OPTIONS = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
-  { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
-  { value: "auto_atm_otm_call", label: "Auto ATM-OTM CALL" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
-  { value: "jk_oc_call", label: "JK OC CALL" },
-  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
   { value: "jk_al_call", label: "JK AL CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
-  { value: "momentum_call", label: "Momentum CALL" },
 ];
 
 const PUT_STRATEGY_OPTIONS = [
   { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
-  { value: "jk_ema_put", label: "JK EMA PUT" },
   { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
-  { value: "momentum_put", label: "Momentum PUT" },
 ];
 
 const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
@@ -498,9 +491,7 @@ export function UpstoxBacktestShell() {
                           ))}
                         </select>
                         <div className="small muted mt-1">
-                          {backtestForm.strategy_id === "nc_ha_call_entry"
-                            ? "HA-based early-entry engine from NC-CALL-ENTRY.pine."
-                            : "Classic TV-HA engine for the selected side."}
+                          Classic TV-HA engine for the selected side.
                         </div>
                       </div>
                       <div className="col-12 col-md-6 col-xl-3">
@@ -723,10 +714,6 @@ export function UpstoxBacktestShell() {
                     <div className="mt-3">
                       Dhan intraday candles support 1m, 5m, 15m, 25m, and 60m intervals. Wider intervals can reduce
                       signal count, so zero P/L often means no entries matched the strategy at that timeframe.
-                    </div>
-                    <div className="mt-3">
-                      `NC HA CALL Entry` keeps the underlying scan on Heikin Ashi candles and adds the newer
-                      early-entry path from your NC Pine script.
                     </div>
                   </div>
                 </div>
