@@ -1427,20 +1427,13 @@ export type DeltaSavedStrategyResponse = {
 
 export type SharedStrategyId =
   | "tv_ha_call_v2"
-  | "nc_ha_call_entry"
-  | "auto_atm_otm_call"
   | "fibo_nk_call"
-  | "jk_oc_call"
-  | "jk_oc_call_opt_int"
   | "jk_al_call"
   | "ol_oh_call"
-  | "momentum_call"
   | "tv_ha_put_v2"
   | "fibo_nk_put"
-  | "jk_ema_put"
   | "jk_al_put"
-  | "ol_oh_put"
-  | "momentum_put";
+  | "ol_oh_put";
 
 export type DeltaTradingViewTemplateRequest = {
   alert_name: string;

@@ -135,12 +135,9 @@ type BotSide = "call" | "put";
 
 const CALL_STRATEGY_OPTIONS = [
   { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
-  { value: "nc_ha_call_entry", label: "NC HA CALL Entry" },
   { value: "fibo_nk_call", label: "FIBO-NK CALL" },
-  { value: "jk_oc_call_opt_int", label: "JK OC CALL OPT INT" },
   { value: "jk_al_call", label: "JK AL CALL" },
   { value: "ol_oh_call", label: "OL-OH CALL" },
-  { value: "momentum_call", label: "Momentum CALL" },
 ];
 
 const PUT_STRATEGY_OPTIONS = [
@@ -148,7 +145,6 @@ const PUT_STRATEGY_OPTIONS = [
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
   { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
-  { value: "momentum_put", label: "Momentum PUT" },
 ];
 
 function defaultStrategyIdForSide(side: BotSide) {
@@ -1335,9 +1331,7 @@ export function DashboardShell() {
                       ))}
                     </select>
                     <div className="small muted mt-1">
-                      {botForm.strategy_id === "nc_ha_call_entry"
-                        ? "HA-based early-entry engine from NC-CALL-ENTRY.pine."
-                        : "Classic TV-HA engine for the selected side."}
+                      Classic TV-HA engine for the selected side.
                     </div>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
