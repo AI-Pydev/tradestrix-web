@@ -29,15 +29,15 @@ const PUT_STRATEGY_OPTIONS = [
 const STRATEGY_BASKET_PRESETS = [
   {
     key: "priority_core",
-    label: "Live Core Basket",
+    label: "All Strategies Basket",
   },
 ];
 
 const STRATEGY_BASKET_LABELS: Record<string, string> = Object.fromEntries(
   [
     ["default", "Default Basket"],
-    ["priority_core", "Live Core Basket"],
-    ["qualified_6mo", "6M Qualified Basket"],
+    ["priority_core", "All Strategies Basket"],
+    ["qualified_6mo", "All Strategies Basket"],
     ...STRATEGY_BASKET_PRESETS.map((preset): [string, string] => [preset.key, preset.label]),
   ],
 );
@@ -66,6 +66,16 @@ function qualifiedOptions(side: "call" | "put", strategyIds?: string[] | null) {
   const allowed = new Set(strategyIds ?? []);
   const options = side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
   return options.filter((item) => allowed.has(item.value));
+}
+
+function toggleStrategyId(strategyIds: string[] | undefined, strategyId: string) {
+  const current = new Set(strategyIds ?? []);
+  if (current.has(strategyId)) {
+    current.delete(strategyId);
+  } else {
+    current.add(strategyId);
+  }
+  return Array.from(current);
 }
 
 export function IndexAutoLaunchShell() {
@@ -195,6 +205,26 @@ export function IndexAutoLaunchShell() {
     }
   }
 
+  async function handleSetEnabledStrategies(side: "call" | "put", strategyIds: string[]) {
+    try {
+      setSavingPreset(`strategies-${side}`);
+      setError("");
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies(
+        side === "put"
+          ? { enabled_put_strategy_ids: strategyIds }
+          : { enabled_call_strategy_ids: strategyIds },
+      );
+      setStatus(result);
+      setMessage(`${side.toUpperCase()} auto-launch strategies updated.`);
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to update enabled strategies");
+      setMessageTone("error");
+    } finally {
+      setSavingPreset(null);
+    }
+  }
+
   const metrics = [
     { label: "Automation", value: status?.enabled ? "Enabled" : "Disabled", tone: boolTone(Boolean(status?.enabled)) },
     {
@@ -285,8 +315,8 @@ export function IndexAutoLaunchShell() {
             >
               <div className="metric-label">Qualified Strategy Basket</div>
               <div className="muted mt-1">
-                Index auto-launch now uses only the strategies that passed the six-month qualification filter for each
-                index and side.
+                Choose which supported strategies are included in index auto-run. Advanced Index CALL is intentionally
+                excluded from this launcher.
               </div>
               <div className="d-flex flex-wrap gap-2 mt-3">
                 {STRATEGY_BASKET_PRESETS.map((preset) => (
@@ -300,6 +330,48 @@ export function IndexAutoLaunchShell() {
                     {savingPreset === preset.key ? `Applying ${preset.label}...` : preset.label}
                   </button>
                 ))}
+              </div>
+              <div className="row g-3 mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <div className="col-12 col-lg-6">
+                  <div className="metric-label mb-2">CALL Strategies</div>
+                  <div className="d-flex flex-column gap-2">
+                    {CALL_STRATEGY_OPTIONS.map((option) => {
+                      const enabled = status?.config.enabled_call_strategy_ids ?? [];
+                      return (
+                        <label className="form-check" key={option.value}>
+                          <input
+                            checked={enabled.includes(option.value)}
+                            className="form-check-input"
+                            disabled={savingPreset !== null || action !== ""}
+                            onChange={() => void handleSetEnabledStrategies("call", toggleStrategyId(enabled, option.value))}
+                            type="checkbox"
+                          />
+                          <span className="form-check-label">{option.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="col-12 col-lg-6">
+                  <div className="metric-label mb-2">PUT Strategies</div>
+                  <div className="d-flex flex-column gap-2">
+                    {PUT_STRATEGY_OPTIONS.map((option) => {
+                      const enabled = status?.config.enabled_put_strategy_ids ?? [];
+                      return (
+                        <label className="form-check" key={option.value}>
+                          <input
+                            checked={enabled.includes(option.value)}
+                            className="form-check-input"
+                            disabled={savingPreset !== null || action !== ""}
+                            onChange={() => void handleSetEnabledStrategies("put", toggleStrategyId(enabled, option.value))}
+                            type="checkbox"
+                          />
+                          <span className="form-check-label">{option.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <div className="d-flex gap-2 align-items-end flex-wrap mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
                 <div>

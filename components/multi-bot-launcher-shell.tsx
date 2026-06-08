@@ -48,6 +48,8 @@ type LauncherSettings = {
   execution_mode: "paper" | "live";
   market_data_broker: MarketDataBrokerId;
   fallback_broker: MarketDataBrokerId | null;
+  call_strategy_ids: string[];
+  put_strategy_ids: string[];
   expiry: string;
   candle_interval: string;
   strike_offset: number;
@@ -82,6 +84,7 @@ type AssignmentControls = {
 type LaunchRequest = {
   item: InstrumentItem;
   side: BotSide;
+  strategy_id: string;
   lots: number;
   strike_offset: number;
 };
@@ -100,9 +103,35 @@ type PortfolioSummary = {
 const DEFAULT_STORE_PATH = "logs/upstox/tv_ha_call_option_chain_api.db";
 const START_DELAY_MS = 350;
 const CONTROL_DELAY_MS = 250;
+const CALL_STRATEGY_OPTIONS = [
+  { value: "tv_ha_call_v2", label: "TV-HA CALL v2" },
+  { value: "fibo_nk_call", label: "FIBO-NK CALL" },
+  { value: "jk_al_call", label: "JK AL CALL" },
+  { value: "ol_oh_call", label: "OL-OH CALL" },
+];
+const PUT_STRATEGY_OPTIONS = [
+  { value: "tv_ha_put_v2", label: "TV-HA PUT v2" },
+  { value: "fibo_nk_put", label: "FIBO-NK PUT" },
+  { value: "jk_al_put", label: "JK AL PUT" },
+  { value: "ol_oh_put", label: "OL-OH PUT" },
+];
 
 function defaultStrategyIdForSide(side: BotSide) {
   return side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2";
+}
+
+function strategyOptionsForSide(side: BotSide) {
+  return side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
+}
+
+function toggleStrategyId(strategyIds: string[], strategyId: string) {
+  const current = new Set(strategyIds);
+  if (current.has(strategyId)) {
+    current.delete(strategyId);
+  } else {
+    current.add(strategyId);
+  }
+  return Array.from(current);
 }
 
 function defaultRowState(): LauncherRowState {
@@ -181,9 +210,10 @@ function isoDateToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function buildJobName(prefix: string, item: InstrumentItem, side: BotSide) {
+function buildJobName(prefix: string, item: InstrumentItem, side: BotSide, strategyId?: string) {
   const trimmedPrefix = prefix.trim();
-  const base = `${item.label} ${side.toUpperCase()}`;
+  const strategySuffix = strategyId ? ` ${strategyLabel(side, strategyId)}` : "";
+  const base = `${item.label} ${side.toUpperCase()}${strategySuffix}`;
   return trimmedPrefix ? `${trimmedPrefix} ${base}` : base;
 }
 
@@ -221,6 +251,14 @@ function enabledSides(state: LauncherRowState, sideFilter?: BotSide) {
 
 function sideLabel(side: BotSide) {
   return side.toUpperCase();
+}
+
+function strategyLabel(side: BotSide, strategyId: string) {
+  return strategyOptionsForSide(side).find((item) => item.value === strategyId)?.label ?? strategyId;
+}
+
+function activeStrategyKey(job: UpstoxManagedBotJob) {
+  return `${job.instrument_key}:${job.side}:${job.strategy_id ?? defaultStrategyIdForSide(job.side)}`;
 }
 
 function pnlTone(value: number) {
@@ -294,6 +332,8 @@ export function MultiBotLauncherShell() {
     execution_mode: "paper",
     market_data_broker: "upstox",
     fallback_broker: "kite",
+    call_strategy_ids: [defaultStrategyIdForSide("call")],
+    put_strategy_ids: [defaultStrategyIdForSide("put")],
     expiry: "",
     candle_interval: "3",
     strike_offset: 0,
@@ -466,15 +506,13 @@ export function MultiBotLauncherShell() {
   }, [managedBots]);
 
   const activeJobMap = useMemo(() => {
-    const next = new Map<string, UpstoxManagedBotJob>();
+    const next = new Map<string, UpstoxManagedBotJob[]>();
     for (const job of managedBots) {
       if (!isActiveJob(job)) {
         continue;
       }
       const key = `${job.instrument_key}:${job.side}`;
-      if (!next.has(key)) {
-        next.set(key, job);
-      }
+      next.set(key, [...(next.get(key) ?? []), job]);
     }
     return next;
   }, [managedBots]);
@@ -522,7 +560,12 @@ export function MultiBotLauncherShell() {
       const lots = parseIntegerOverride(state.lots_override, settings.lots, 1);
       const strike_offset = parseIntegerOverride(state.strike_offset_override, settings.strike_offset);
       for (const side of enabledSides(state, sideFilter)) {
-        requests.push({ item, side, lots, strike_offset });
+        const selectedStrategyIds =
+          side === "put" ? settings.put_strategy_ids : settings.call_strategy_ids;
+        const strategyIds = selectedStrategyIds;
+        for (const strategy_id of strategyIds) {
+          requests.push({ item, side, strategy_id, lots, strike_offset });
+        }
       }
     }
     return requests;
@@ -539,14 +582,12 @@ export function MultiBotLauncherShell() {
     for (const item of items) {
       const state = rowState[item.instrument_key] ?? defaultRowState();
       for (const side of enabledSides(state, options?.side)) {
-        const job = activeJobMap.get(`${item.instrument_key}:${side}`);
-        if (!job) {
-          continue;
+        for (const job of activeJobMap.get(`${item.instrument_key}:${side}`) ?? []) {
+          if (options?.require_open_trade && !job.has_open_trade) {
+            continue;
+          }
+          targets.push(job);
         }
-        if (options?.require_open_trade && !job.has_open_trade) {
-          continue;
-        }
-        targets.push(job);
       }
     }
     return targets;
@@ -587,10 +628,9 @@ export function MultiBotLauncherShell() {
   }
 
   function toLaunchPayload(request: LaunchRequest): UpstoxManagedBotStartRequest {
-    const assignedStrategy = assignmentMap.get(`${request.item.instrument_key}:${request.side}`);
     const maxCycles = settings.max_cycles.trim() ? Math.max(1, Number(settings.max_cycles) || 1) : null;
     return {
-      job_name: buildJobName(settings.job_name_prefix, request.item, request.side),
+      job_name: buildJobName(settings.job_name_prefix, request.item, request.side, request.strategy_id),
       auto_store_path: true,
       instrument_key: request.item.instrument_key,
       expiry: settings.expiry.trim() ? settings.expiry.trim() : null,
@@ -599,7 +639,7 @@ export function MultiBotLauncherShell() {
       fallback_broker: settings.fallback_broker,
       force_fallback_for_test: false,
       side: request.side,
-      strategy_id: assignedStrategy?.strategy_id ?? defaultStrategyIdForSide(request.side),
+      strategy_id: request.strategy_id,
       candle_unit: "minutes",
       candle_interval: settings.candle_interval,
       strike_offset: request.strike_offset,
@@ -627,7 +667,7 @@ export function MultiBotLauncherShell() {
 
   async function launchRequests(requests: LaunchRequest[], sourceLabel: string) {
     if (!requests.length) {
-      setMessage("Select at least one instrument side to launch.");
+      setMessage("Select at least one instrument side and strategy to launch.");
       setMessageTone("error");
       return;
     }
@@ -644,14 +684,14 @@ export function MultiBotLauncherShell() {
     try {
       const latestJobs = await fetchUpstoxManagedBotJobs();
       setManagedBots(latestJobs);
-      const activeKeys = new Set(latestJobs.filter(isActiveJob).map((job) => `${job.instrument_key}:${job.side}`));
+      const activeKeys = new Set(latestJobs.filter(isActiveJob).map(activeStrategyKey));
 
       for (const request of requests) {
-        const key = `${request.item.instrument_key}:${request.side}`;
+        const key = `${request.item.instrument_key}:${request.side}:${request.strategy_id}`;
         if (activeKeys.has(key)) {
           skipped += 1;
           appendActivity(
-            `[${new Date().toLocaleTimeString()}] Skip ${request.item.label} ${sideLabel(request.side)}: already active`,
+            `[${new Date().toLocaleTimeString()}] Skip ${request.item.label} ${sideLabel(request.side)} ${strategyLabel(request.side, request.strategy_id)}: already active`,
           );
           continue;
         }
@@ -662,12 +702,12 @@ export function MultiBotLauncherShell() {
           started += 1;
           activeKeys.add(key);
           appendActivity(
-            `[${new Date().toLocaleTimeString()}] Started ${request.item.label} ${sideLabel(request.side)} as ${result.job_id} | strategy ${payload.strategy_id} | lots ${request.lots} | strike ${request.strike_offset}`,
+            `[${new Date().toLocaleTimeString()}] Started ${request.item.label} ${sideLabel(request.side)} as ${result.job_id} | strategy ${strategyLabel(request.side, payload.strategy_id)} | lots ${request.lots} | strike ${request.strike_offset}`,
           );
         } catch (err) {
           failed += 1;
           appendActivity(
-            `[${new Date().toLocaleTimeString()}] Failed ${request.item.label} ${sideLabel(request.side)}: ${
+            `[${new Date().toLocaleTimeString()}] Failed ${request.item.label} ${sideLabel(request.side)} ${strategyLabel(request.side, request.strategy_id)}: ${
               err instanceof Error ? err.message : "Unknown error"
             }`,
           );
@@ -1207,6 +1247,125 @@ export function MultiBotLauncherShell() {
                         />
                       </div>
                       <div className="col-12">
+                        <div
+                          className="p-3"
+                          style={{ border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(8, 19, 33, 0.28)" }}
+                        >
+                          <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                            <div>
+                              <div className="metric-label">Launch Strategies</div>
+                              <div className="muted mt-1">
+                                Pick one or more strategies per side before launching. Each checked strategy creates a
+                                separate bot for every selected instrument side.
+                              </div>
+                            </div>
+                            <div className="muted">
+                              Selected: {settings.call_strategy_ids.length} CALL | {settings.put_strategy_ids.length} PUT
+                            </div>
+                          </div>
+                          <div className="row g-3 mt-2">
+                            <div className="col-12 col-lg-6">
+                              <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <div className="fw-semibold">CALL Strategies</div>
+                                <div className="d-flex gap-2">
+                                  <button
+                                    className="btn btn-sm btn-outline-light"
+                                    type="button"
+                                    onClick={() =>
+                                      setSettings((prev) => ({
+                                        ...prev,
+                                        call_strategy_ids: CALL_STRATEGY_OPTIONS.map((option) => option.value),
+                                      }))
+                                    }
+                                  >
+                                    All
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-light"
+                                    type="button"
+                                    onClick={() =>
+                                      setSettings((prev) => ({
+                                        ...prev,
+                                        call_strategy_ids: [defaultStrategyIdForSide("call")],
+                                      }))
+                                    }
+                                  >
+                                    Default
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="d-flex flex-wrap gap-3">
+                                {CALL_STRATEGY_OPTIONS.map((option) => (
+                                  <label className="form-check" key={option.value}>
+                                    <input
+                                      checked={settings.call_strategy_ids.includes(option.value)}
+                                      className="form-check-input"
+                                      onChange={() =>
+                                        setSettings((prev) => ({
+                                          ...prev,
+                                          call_strategy_ids: toggleStrategyId(prev.call_strategy_ids, option.value),
+                                        }))
+                                      }
+                                      type="checkbox"
+                                    />
+                                    <span className="form-check-label">{option.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="col-12 col-lg-6">
+                              <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <div className="fw-semibold">PUT Strategies</div>
+                                <div className="d-flex gap-2">
+                                  <button
+                                    className="btn btn-sm btn-outline-light"
+                                    type="button"
+                                    onClick={() =>
+                                      setSettings((prev) => ({
+                                        ...prev,
+                                        put_strategy_ids: PUT_STRATEGY_OPTIONS.map((option) => option.value),
+                                      }))
+                                    }
+                                  >
+                                    All
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-light"
+                                    type="button"
+                                    onClick={() =>
+                                      setSettings((prev) => ({
+                                        ...prev,
+                                        put_strategy_ids: [defaultStrategyIdForSide("put")],
+                                      }))
+                                    }
+                                  >
+                                    Default
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="d-flex flex-wrap gap-3">
+                                {PUT_STRATEGY_OPTIONS.map((option) => (
+                                  <label className="form-check" key={option.value}>
+                                    <input
+                                      checked={settings.put_strategy_ids.includes(option.value)}
+                                      className="form-check-input"
+                                      onChange={() =>
+                                        setSettings((prev) => ({
+                                          ...prev,
+                                          put_strategy_ids: toggleStrategyId(prev.put_strategy_ids, option.value),
+                                        }))
+                                      }
+                                      type="checkbox"
+                                    />
+                                    <span className="form-check-label">{option.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-12">
                         <div className="d-flex flex-wrap gap-2">
                           <button
                             className="btn btn-warning"
@@ -1262,8 +1421,8 @@ export function MultiBotLauncherShell() {
                         </div>
                         <div className="muted mt-3">
                           Selected rows plus the enabled CALL and PUT checkboxes define the bulk launch, stop, and
-                          square-off target set. Row lots and strike offset can be left blank to inherit the shared
-                          defaults.
+                          square-off target set. The strategy chooser above controls how many bots each selected side
+                          queues.
                         </div>
                         <div className="muted mt-2">
                           Auto store paths are always enabled here so every bot gets its own runtime DB safely.
@@ -1406,8 +1565,8 @@ export function MultiBotLauncherShell() {
                               : assignmentSummary
                                 ? `Latest batch filtered ${assignmentSummary.total_instruments} instrument(s) from ${assignmentSummary.from_date} to ${assignmentSummary.to_date} with ${fmtPercent(
                                     assignmentSummary.min_win_rate,
-                                  )} minimum win rate and ${assignmentSummary.min_trades} minimum trades. Launches use assigned strategies when available and fall back to the default CALL or PUT strategy otherwise.`
-                                : "No assignment batch has been run yet. Launches will use the default CALL and PUT strategies until assignments are created."}
+                                  )} minimum win rate and ${assignmentSummary.min_trades} minimum trades. Saved assignments are shown in the table as qualification evidence; launches use the checked strategy list above.`
+                                : "No assignment batch has been run yet. Launches use the checked strategy list above."}
                           </div>
                         </div>
                       </div>
@@ -1724,7 +1883,7 @@ export function MultiBotLauncherShell() {
                               Lots {resolvedLots} | Strike {resolvedStrike}
                             </div>
                             <div className="muted small mt-2">
-                              Launch uses saved assignments where available, then falls back to side defaults.
+                              Launch uses the checked strategy list above.
                             </div>
                             {(activeJobKeySet.has(`${item.instrument_key}:call`) ||
                               activeJobKeySet.has(`${item.instrument_key}:put`)) && (

@@ -33,11 +33,12 @@ function fmtNumber(value: number) {
 
 function instrumentOptions(data: InstrumentCatalogResponse | null) {
   if (!data) {
-    return { indices: [], stocks: [] };
+    return { indices: [], stocks: [], commodities: [] };
   }
   return {
     indices: data.indices ?? [],
     stocks: data.stocks ?? [],
+    commodities: data.commodities ?? [],
   };
 }
 
@@ -254,6 +255,8 @@ export function UpstoxBacktestShell() {
     export_csv: "logs/upstox/tv_ha_call_option_backtest_api.csv",
   });
   const instruments = instrumentOptions(catalog);
+  const selectedCommodity =
+    instruments.commodities.find((item) => item.instrument_key === backtestForm.instrument_key) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -299,6 +302,7 @@ export function UpstoxBacktestShell() {
             : null;
       const payload: UpstoxOptionChainBacktestRunRequest = {
         ...backtestForm,
+        commodity_symbol: selectedCommodity?.symbol ?? null,
         market_data_broker: marketDataBroker,
         fallback_broker: fallbackBroker,
         option_interval: optionTfRequest(backtestForm.current_option_interval).expiredInterval,
@@ -350,6 +354,7 @@ export function UpstoxBacktestShell() {
         try {
           const payload: UpstoxOptionChainBacktestRunRequest = {
             ...backtestForm,
+            commodity_symbol: selectedCommodity?.symbol ?? null,
             market_data_broker: broker,
             fallback_broker: fallbackBroker,
             option_interval: optionTfRequest(backtestForm.current_option_interval).expiredInterval,
@@ -436,9 +441,17 @@ export function UpstoxBacktestShell() {
                           className="form-select"
                           value={backtestForm.instrument_key}
                           onChange={(e) => setBacktestForm((prev) => ({ ...prev, instrument_key: e.target.value }))}
-                          disabled={catalogLoading && instruments.indices.length === 0 && instruments.stocks.length === 0}
+                          disabled={
+                            catalogLoading &&
+                            instruments.indices.length === 0 &&
+                            instruments.stocks.length === 0 &&
+                            instruments.commodities.length === 0
+                          }
                         >
-                          {catalogLoading && !instruments.indices.length && !instruments.stocks.length && (
+                          {catalogLoading &&
+                            !instruments.indices.length &&
+                            !instruments.stocks.length &&
+                            !instruments.commodities.length && (
                             <option value={backtestForm.instrument_key}>Loading instruments...</option>
                           )}
                           <optgroup label="Indices">
@@ -452,6 +465,18 @@ export function UpstoxBacktestShell() {
                             {instruments.stocks.slice(0, 500).map((item) => (
                               <option key={item.instrument_key} value={item.instrument_key}>
                                 {instrumentLabel(item)}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Commodities">
+                            {instruments.commodities.map((item) => (
+                              <option
+                                key={item.instrument_key || item.symbol || item.label}
+                                value={item.instrument_key}
+                                disabled={!item.instrument_key}
+                              >
+                                {instrumentLabel(item)}
+                                {!item.instrument_key ? " - configure MCX key" : ""}
                               </option>
                             ))}
                           </optgroup>
@@ -698,7 +723,7 @@ export function UpstoxBacktestShell() {
                         <div className="muted">
                           {catalogLoading
                             ? "Loading available instruments..."
-                            : `Universe ready: ${instruments.indices.length} indices, ${instruments.stocks.length} stocks`}
+                            : `Universe ready: ${instruments.indices.length} indices, ${instruments.stocks.length} stocks, ${instruments.commodities.length} commodities`}
                         </div>
                       </div>
                     </div>

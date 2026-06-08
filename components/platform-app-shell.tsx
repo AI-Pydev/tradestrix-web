@@ -74,6 +74,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "ED",
       },
       {
+        href: "/trade-history",
+        label: "Trade History",
+        caption: "Daily and monthly PnL",
+        monogram: "TH",
+      },
+      {
         href: "/multi-bot-launcher",
         label: "Multi-Bot",
         caption: "Batch launcher",
@@ -228,6 +234,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
     title: "Execution Desk",
     subtitle: "Focused surface for bot launch, managed jobs, and trade operations",
+  },
+  "/trade-history": {
+    title: "Trade History",
+    subtitle: "Daily, monthly, paper, and live PnL review",
   },
   "/execution-dashboard": {
     title: "Execution Accordion",
