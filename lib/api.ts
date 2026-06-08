@@ -746,6 +746,80 @@ export type UpstoxManagedBotTrade = {
   status: string;
 };
 
+export type UpstoxTradeHistoryOption = {
+  value: string;
+  label: string;
+};
+
+export type UpstoxTradeHistorySummary = {
+  total_pnl: number;
+  raw_total_pnl: number;
+  brokerage_total: number;
+  gross_profit: number;
+  gross_loss: number;
+  trade_count: number;
+  closed_trade_count: number;
+  open_trade_count: number;
+  wins: number;
+  losses: number;
+  breakeven: number;
+  win_rate: number;
+  profit_factor: number;
+  max_drawdown: number;
+};
+
+export type UpstoxTradeHistoryBucket = {
+  date?: string;
+  month?: string;
+  pnl: number;
+  trade_count: number;
+  wins: number;
+  losses: number;
+  breakeven: number;
+};
+
+export type UpstoxTradeHistoryPoint = {
+  date: string;
+  pnl: number;
+};
+
+export type UpstoxTradeHistoryTrade = {
+  job_id: string;
+  job_name: string;
+  trade_id: number;
+  date: string;
+  execution_mode: string;
+  broker: string;
+  instrument_key: string;
+  instrument_label: string;
+  side: string;
+  strategy_id: string;
+  strategy_label: string;
+  option_symbol: string;
+  quantity: number;
+  entry_ltp: number;
+  exit_ltp?: number | null;
+  opened_at: string;
+  closed_at?: string | null;
+  exit_reason?: string | null;
+  status: string;
+  raw_pnl_amount?: number | null;
+  brokerage_amount: number;
+  pnl_amount?: number | null;
+};
+
+export type UpstoxTradeHistoryAnalytics = {
+  summary: UpstoxTradeHistorySummary;
+  daily: UpstoxTradeHistoryBucket[];
+  monthly: UpstoxTradeHistoryBucket[];
+  equity_curve: UpstoxTradeHistoryPoint[];
+  trades: UpstoxTradeHistoryTrade[];
+  options: {
+    instruments: UpstoxTradeHistoryOption[];
+    strategies: UpstoxTradeHistoryOption[];
+  };
+};
+
 export type UpstoxIndexAutoLaunchConfig = {
   enabled: boolean;
   verified_only: boolean;
@@ -753,6 +827,8 @@ export type UpstoxIndexAutoLaunchConfig = {
   include_put: boolean;
   default_call_strategy_id: string;
   default_put_strategy_id: string;
+  enabled_call_strategy_ids: string[];
+  enabled_put_strategy_ids: string[];
   enabled_strategy_basket_ids: string[];
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   candle_unit: string;
@@ -1489,6 +1565,7 @@ export type MarketDataBrokerId = "upstox" | "kite" | "dhan";
 
 export type UpstoxOptionChainBacktestRunRequest = {
   instrument_key: string;
+  commodity_symbol?: string | null;
   side: "call" | "put";
   strategy_id: string;
   market_data_broker: MarketDataBrokerId;
@@ -2135,6 +2212,8 @@ export async function fetchUpstoxEntryRejectionSummary(params?: {
   since_hours?: number;
   instrument_key?: string;
   strategy_id?: string;
+  include_brokerage?: boolean;
+  brokerage_per_trade?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.since_hours != null) {
@@ -2194,6 +2273,41 @@ export async function fetchUpstoxManagedBotTrades(jobId: string, limit = 100) {
   );
 }
 
+export async function fetchUpstoxTradeHistoryAnalytics(params?: {
+  start_date?: string;
+  end_date?: string;
+  execution_mode?: "all" | "paper" | "live";
+  instrument_key?: string;
+  strategy_id?: string;
+  include_brokerage?: boolean;
+  brokerage_per_trade?: number;
+}) {
+  const search = new URLSearchParams();
+  if (params?.start_date) {
+    search.set("start_date", params.start_date);
+  }
+  if (params?.end_date) {
+    search.set("end_date", params.end_date);
+  }
+  if (params?.execution_mode && params.execution_mode !== "all") {
+    search.set("execution_mode", params.execution_mode);
+  }
+  if (params?.instrument_key && params.instrument_key !== "all") {
+    search.set("instrument_key", params.instrument_key);
+  }
+  if (params?.strategy_id && params.strategy_id !== "all") {
+    search.set("strategy_id", params.strategy_id);
+  }
+  if (params?.include_brokerage) {
+    search.set("include_brokerage", "true");
+  }
+  if (params?.brokerage_per_trade != null) {
+    search.set("brokerage_per_trade", String(params.brokerage_per_trade));
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<UpstoxTradeHistoryAnalytics>(`/api/v1/upstox/option-chain-bot/trade-history${suffix}`);
+}
+
 export async function fetchUpstoxIndexAutoLaunchStatus() {
   return getBackendJson<UpstoxIndexAutoLaunchStatus>("/api/v1/upstox/option-chain-bot/index-auto-launch");
 }
@@ -2228,6 +2342,8 @@ export async function setUpstoxIndexAutoLaunchStrategy(
 export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   call_strategy_id?: string | null;
   put_strategy_id?: string | null;
+  enabled_call_strategy_ids?: string[] | null;
+  enabled_put_strategy_ids?: string[] | null;
   apply_to_targets?: boolean;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   enabled_strategy_basket_ids?: string[] | null;
@@ -2237,6 +2353,8 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
     {
       call_strategy_id?: string | null;
       put_strategy_id?: string | null;
+      enabled_call_strategy_ids?: string[] | null;
+      enabled_put_strategy_ids?: string[] | null;
       apply_to_targets?: boolean;
       execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
       enabled_strategy_basket_ids?: string[] | null;

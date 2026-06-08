@@ -40,6 +40,14 @@ const QUALIFICATION_STRATEGY_OPTIONS = [
   { value: "ol_oh_put", label: "OL-OH PUT", side: "put" },
 ] as const;
 
+const QUALIFICATION_STRATEGY_IDS = new Set<string>(
+  QUALIFICATION_STRATEGY_OPTIONS.map((option) => option.value),
+);
+
+function supportedStrategyIds(strategyIds: string[]) {
+  return strategyIds.filter((strategyId) => QUALIFICATION_STRATEGY_IDS.has(strategyId));
+}
+
 const DEFAULT_INSTRUMENT_OPTIONS = [
   { value: "NSE_INDEX|Nifty 50", label: "Nifty 50", kind: "index" },
   { value: "NSE_INDEX|Nifty Bank", label: "Nifty Bank", kind: "index" },
@@ -231,7 +239,8 @@ export function StrategyQualificationShell() {
   }
 
   async function startCycle() {
-    if (!form.strategy_ids.length) {
+    const strategyIds = supportedStrategyIds(form.strategy_ids);
+    if (!strategyIds.length) {
       setAutoMessage("Select at least one strategy before starting a qualification cycle.");
       return;
     }
@@ -241,7 +250,7 @@ export function StrategyQualificationShell() {
       const next = await startQualificationCycle({
         slice_size: sliceSize,
         loop_mode: loopMode,
-        strategy_ids: form.strategy_ids,
+        strategy_ids: strategyIds,
         window_days: windowDays,
         timeframes: compare5m ? ["3m", "5m"] : ["3m"],
       });
@@ -296,6 +305,7 @@ export function StrategyQualificationShell() {
   }
 
   useEffect(() => {
+    setForm((prev) => ({ ...prev, strategy_ids: supportedStrategyIds(prev.strategy_ids) }));
     refresh().catch((err) => setMessage(err instanceof Error ? err.message : "Refresh failed"));
     refreshCycle();
     refreshIssues();
@@ -310,7 +320,10 @@ export function StrategyQualificationShell() {
     setRunning(true);
     setMessage("");
     try {
-      const queued = await enqueueStrategyQualification(form);
+      const queued = await enqueueStrategyQualification({
+        ...form,
+        strategy_ids: supportedStrategyIds(form.strategy_ids),
+      });
       setMessage(`Job ${queued.task_id} queued`);
       let next: StrategyQualificationBatch | null = queued.batch ?? null;
       for (let attempt = 0; !next && attempt < 360; attempt += 1) {
@@ -370,11 +383,13 @@ export function StrategyQualificationShell() {
     new Map(
       [
         ...QUALIFICATION_STRATEGY_OPTIONS,
-        ...registry.map((item) => ({
-          value: item.strategy_id,
-          label: item.name || item.strategy_id,
-          side: item.side,
-        })),
+        ...registry
+          .filter((item) => QUALIFICATION_STRATEGY_IDS.has(item.strategy_id))
+          .map((item) => ({
+            value: item.strategy_id,
+            label: item.name || item.strategy_id,
+            side: item.side,
+          })),
       ].map((item) => [item.value, item]),
     ).values(),
   );
