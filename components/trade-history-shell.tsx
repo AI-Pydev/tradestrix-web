@@ -13,18 +13,30 @@ import {
 type ExecutionMode = "all" | "paper" | "live";
 type ScopeMode = "strategies" | "portfolios";
 
-function formatDateInput(date: Date) {
+function marketDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function shiftDateKey(value: string, days: number) {
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
 function defaultStartDate() {
-  const date = new Date();
-  date.setDate(date.getDate() - 30);
-  return formatDateInput(date);
+  return shiftDateKey(marketDateKey(new Date()), -30);
 }
 
 function defaultEndDate() {
-  return formatDateInput(new Date());
+  return marketDateKey(new Date());
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -47,11 +59,12 @@ function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "-";
   }
-  const parsed = new Date(value);
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
+  const parsed = new Date(hasTimezone ? value : `${value}+05:30`);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  return parsed.toLocaleString();
+  return parsed.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 }
 
 function pnlClass(value: number | null | undefined) {
@@ -95,8 +108,8 @@ function monthLabel(value: string) {
 function buildCalendarMonths(startDate: string, endDate: string, daily: UpstoxTradeHistoryBucket[]) {
   const dailyMap = new Map(daily.filter((item) => item.date).map((item) => [item.date as string, item]));
   const months: { key: string; label: string; days: { date: string; day: number; pnl: number; trades: number }[] }[] = [];
-  const cursor = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
+  const cursor = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
   if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) {
     return months;
   }
@@ -111,11 +124,11 @@ function buildCalendarMonths(startDate: string, endDate: string, daily: UpstoxTr
     const bucket = dailyMap.get(date);
     month.days.push({
       date,
-      day: cursor.getDay(),
+      day: cursor.getUTCDay(),
       pnl: Number(bucket?.pnl || 0),
       trades: Number(bucket?.trade_count || 0),
     });
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return months;
 }
@@ -212,7 +225,7 @@ function downloadCsv(rows: UpstoxTradeHistoryTrade[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `trade-history-${formatDateInput(new Date())}.csv`;
+  link.download = `trade-history-${marketDateKey(new Date())}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
