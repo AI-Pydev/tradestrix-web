@@ -906,6 +906,86 @@ export type UpstoxIndexAutoLaunchStatus = {
   notes: string[];
 };
 
+export type UpstoxStockAutoLaunchConfig = {
+  enabled: boolean;
+  instrument_keys: string[];
+  verified_only: boolean;
+  include_call: boolean;
+  include_put: boolean;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  candle_unit: string;
+  candle_interval: string;
+  strike_offset: number;
+  use_greek_selection: boolean;
+  max_entry_ltp: number;
+  risk_model: "dynamic" | "fixed" | "risk_amount";
+  risk_amount?: number | null;
+  use_time_windows: boolean;
+  sl_premium_pct: number;
+  target_premium_pct: number;
+  min_hold_sec_before_underlying_exit: number;
+  entry_interval_sec: number;
+  exit_interval_sec: number;
+  lots: number;
+  launch_delay_sec: number;
+  max_active_jobs: number;
+  market_open: string;
+  entry_cutoff: string;
+  time_exit: string;
+};
+
+export type UpstoxStockAutoLaunchSummary = {
+  eligible_stock_count: number;
+  desired_job_count: number;
+  active_job_count: number;
+  started_count: number;
+  skipped_count: number;
+  failed_count: number;
+};
+
+export type UpstoxStockAutoLaunchTarget = {
+  instrument_key: string;
+  label: string;
+  side: "call" | "put";
+  strategy_id: string;
+  strategy_label: string;
+  lot_size?: number | null;
+  win_rate: number;
+  total_pnl: number;
+  trades: number;
+  active: boolean;
+};
+
+export type UpstoxStockAutoLaunchJob = {
+  job_id: string;
+  job_name: string;
+  instrument_key: string;
+  label: string;
+  side: "call" | "put";
+  status: "starting" | "running" | "stopping";
+  strategy_id: string;
+  strategy_label: string;
+};
+
+export type UpstoxStockAutoLaunchStatus = {
+  enabled: boolean;
+  monitor_running: boolean;
+  monitor_interval_sec: number;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  market_now: string;
+  market_day: boolean;
+  market_window_open: boolean;
+  launch_window_open: boolean;
+  config: UpstoxStockAutoLaunchConfig;
+  summary: UpstoxStockAutoLaunchSummary;
+  targets: UpstoxStockAutoLaunchTarget[];
+  active_jobs: UpstoxStockAutoLaunchJob[];
+  last_run_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  notes: string[];
+};
+
 export type StrategyAssignmentSummary = {
   total_instruments: number;
   evaluated_results: number;
@@ -2360,6 +2440,29 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
       enabled_strategy_basket_ids?: string[] | null;
     }
   >("/api/v1/upstox/option-chain-bot/index-auto-launch/default-strategies", payload);
+}
+
+export async function fetchUpstoxStockAutoLaunchStatus() {
+  return getBackendJson<UpstoxStockAutoLaunchStatus>("/api/v1/upstox/option-chain-bot/stock-auto-launch");
+}
+
+export async function enableUpstoxStockAutoLaunch() {
+  return postBackendJson<UpstoxStockAutoLaunchStatus>("/api/v1/upstox/option-chain-bot/stock-auto-launch/enable");
+}
+
+export async function disableUpstoxStockAutoLaunch() {
+  return postBackendJson<UpstoxStockAutoLaunchStatus>("/api/v1/upstox/option-chain-bot/stock-auto-launch/disable");
+}
+
+export async function syncUpstoxStockAutoLaunch() {
+  return postBackendJson<UpstoxStockAutoLaunchStatus>("/api/v1/upstox/option-chain-bot/stock-auto-launch/sync");
+}
+
+export async function setUpstoxStockAutoLaunchInstruments(instrument_keys: string[]) {
+  return postBackendJsonWithBody<UpstoxStockAutoLaunchStatus, { instrument_keys: string[] }>(
+    "/api/v1/upstox/option-chain-bot/stock-auto-launch/instruments",
+    { instrument_keys },
+  );
 }
 
 export async function fetchCurrentStrategyAssignments() {

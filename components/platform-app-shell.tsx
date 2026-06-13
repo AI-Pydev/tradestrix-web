@@ -170,6 +170,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "IA",
       },
       {
+        href: "/stock-auto-launch",
+        label: "Stock Auto",
+        caption: "Qualified stock universe",
+        monogram: "SA",
+      },
+      {
         href: "/mcx-market",
         label: "MCX Market",
         caption: "Commodity desk",
@@ -262,6 +268,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/index-auto-launch": {
     title: "Index Auto Launch",
     subtitle: "Dedicated automation surface for verified index CALL and PUT jobs",
+  },
+  "/stock-auto-launch": {
+    title: "Stock Auto Launch",
+    subtitle: "Assignment-driven automation for the qualified stock universe",
   },
   "/mcx-market": {
     title: "MCX Market",
