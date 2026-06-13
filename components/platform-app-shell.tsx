@@ -188,6 +188,18 @@ const baseNavGroups: NavGroup[] = [
         monogram: "CR",
       },
       {
+        href: "/crypto-jobs",
+        label: "Crypto Jobs",
+        caption: "Isolated continuous paper runtime",
+        monogram: "CJ",
+      },
+      {
+        href: "/crypto-research",
+        label: "Crypto Research",
+        caption: "Historical strategy optimizer",
+        monogram: "CB",
+      },
+      {
         href: "/crypto-tradingview-templates",
         label: "Crypto TV Templates",
         caption: "Delta alert templates",
@@ -280,6 +292,14 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/crypto-market": {
     title: "Crypto Market",
     subtitle: "Delta market analysis, strategy preview, and demo-order surface",
+  },
+  "/crypto-jobs": {
+    title: "Crypto Jobs",
+    subtitle: "Isolated continuous BTC and ETH paper strategy runtime",
+  },
+  "/crypto-research": {
+    title: "Crypto Strategy Research",
+    subtitle: "Delta historical candle backtests and out-of-sample optimization",
   },
   "/crypto-tradingview-templates": {
     title: "Crypto TradingView Templates",

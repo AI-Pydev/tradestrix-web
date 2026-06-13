@@ -1398,6 +1398,122 @@ export type DeltaCryptoDashboardResponse = {
   message: string;
 };
 
+export type CryptoManagedJob = {
+  job_id: string;
+  job_name: string;
+  status: string;
+  symbol: string;
+  timeframe: string;
+  execution_mode: "paper" | "demo";
+  strategy_name: string;
+  quantity: number;
+  poll_interval_sec: number;
+  started_at: string;
+  stopped_at?: string | null;
+  last_cycle_at?: string | null;
+  last_candle_at?: string | null;
+  last_signal: string;
+  last_signal_reason: string;
+  last_error?: string | null;
+  has_open_position: boolean;
+  position?: Record<string, string | number | null> | null;
+  trade_count: number;
+  closed_trade_count: number;
+  realized_pnl: number;
+  log_line_count: number;
+};
+
+export type CryptoJobLog = {
+  id: number;
+  job_id: string;
+  created_at: string;
+  level: string;
+  event: string;
+  message: string;
+};
+
+export type CryptoJobsSummary = {
+  managed_jobs: number;
+  active_jobs: number;
+  open_positions: number;
+  closed_trades: number;
+  realized_pnl: number;
+  updated_at: string;
+};
+
+export type CryptoManagedTrade = {
+  trade_id: string;
+  job_id: string;
+  symbol: string;
+  timeframe: string;
+  side: string;
+  quantity: number;
+  entry_time: string;
+  entry_price: number;
+  stoploss: number;
+  target: number;
+  exit_time?: string | null;
+  exit_price?: number | null;
+  gross_pnl?: number | null;
+  charges?: number | null;
+  net_pnl?: number | null;
+  status: string;
+  exit_reason?: string | null;
+  entry_order_id?: string | null;
+  exit_order_id?: string | null;
+  pnl_source?: string | null;
+};
+
+export type CryptoJobStartRequest = {
+  job_name?: string | null;
+  symbol: string;
+  timeframe: "1m" | "3m" | "5m" | "15m" | "1h";
+  execution_mode: "paper" | "demo";
+  strategy_name: string;
+  quantity: number;
+  poll_interval_sec: number;
+  atr_multiplier_sl: number;
+  min_stop_percent: number;
+  target_rr: number;
+  max_hold_minutes: number;
+  max_trades_per_hour: number;
+  max_trades_per_day: number;
+  max_daily_loss: number;
+  leverage: number;
+};
+
+export type CryptoOptimizationMetrics = {
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  net_pnl: number;
+  max_drawdown: number;
+  win_rate: number;
+  profit_factor?: number | null;
+};
+
+export type CryptoOptimizationCandidate = {
+  candidate_id: string;
+  strategy_name: string;
+  symbol: string;
+  timeframe: string;
+  parameters: Record<string, number>;
+  score: number;
+  full: CryptoOptimizationMetrics;
+  train: CryptoOptimizationMetrics;
+  test: CryptoOptimizationMetrics;
+};
+
+export type CryptoOptimizationResponse = {
+  strategy_names: string[];
+  train_percent: number;
+  test_percent: number;
+  combination_count: number;
+  dataset_count: number;
+  datasets: { symbol: string; timeframe: string; candle_count: number }[];
+  leaderboard: CryptoOptimizationCandidate[];
+};
+
 export type DeltaOptionChainRequest = {
   underlying_asset_symbol: string;
   expiry_date?: string | null;
@@ -2682,6 +2798,57 @@ export async function previewMcxMarket(payload: McxPreviewRequest) {
 
 export async function fetchDeltaCryptoDashboard() {
   return getBackendJson<DeltaCryptoDashboardResponse>("/api/v1/crypto/delta/dashboard");
+}
+
+export async function fetchCryptoJobsSummary() {
+  return getBackendJson<CryptoJobsSummary>("/api/v1/crypto-jobs/summary");
+}
+
+export async function listCryptoJobs() {
+  return getBackendJson<CryptoManagedJob[]>("/api/v1/crypto-jobs");
+}
+
+export async function startCryptoJob(payload: CryptoJobStartRequest) {
+  return postBackendJsonWithBody<CryptoManagedJob, CryptoJobStartRequest>("/api/v1/crypto-jobs", payload);
+}
+
+export async function stopCryptoJob(jobId: string) {
+  return postBackendJson<CryptoManagedJob>(`/api/v1/crypto-jobs/${encodeURIComponent(jobId)}/stop`);
+}
+
+export async function listCryptoJobTrades(jobId?: string) {
+  const suffix = jobId ? `?job_id=${encodeURIComponent(jobId)}` : "";
+  return getBackendJson<CryptoManagedTrade[]>(`/api/v1/crypto-jobs/trades${suffix}`);
+}
+
+export async function listCryptoJobLogs(jobId: string, limit = 200) {
+  return getBackendJson<CryptoJobLog[]>(
+    `/api/v1/crypto-jobs/${encodeURIComponent(jobId)}/logs?limit=${encodeURIComponent(String(limit))}`,
+  );
+}
+
+export async function stopAllCryptoJobs() {
+  return postBackendJson<{ status: string }>("/api/v1/crypto-jobs/emergency/stop-all");
+}
+
+export async function optimizeCryptoStrategy(payload: {
+  symbols: string[];
+  timeframes: string[];
+  strategy_names: string[];
+  start_date: string;
+  end_date: string;
+  initial_capital: number;
+  risk_per_trade: number;
+  slippage_percent: number;
+  fee_percent: number;
+  train_percent: number;
+  max_combinations: number;
+  grid?: Record<string, number[]>;
+}) {
+  return postBackendJsonWithBody<CryptoOptimizationResponse, typeof payload>(
+    "/api/v1/crypto/backtest/optimize",
+    payload,
+  );
 }
 
 export async function previewDeltaOptionChain(payload: DeltaOptionChainRequest) {

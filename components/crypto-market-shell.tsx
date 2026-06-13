@@ -572,6 +572,12 @@ export function CryptoMarketShell() {
             <Link className="hero-tab" href="/crypto-tradingview-templates">
               Crypto TV Templates
             </Link>
+            <Link className="hero-tab" href="/crypto-jobs">
+              Crypto Jobs
+            </Link>
+            <Link className="hero-tab" href="/crypto-research">
+              Crypto Research
+            </Link>
             <a className="hero-tab" href="#crypto-orders">
               Demo Orders
             </a>
