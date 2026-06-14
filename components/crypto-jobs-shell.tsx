@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 
 const CRYPTO_STRATEGIES = [
+  ["CRYPTO_BTC_PULLBACK_V1", "BTC Trend Pullback (Research, BTC 1h only)"],
   ["CRYPTO_BTC_REGIME_V1", "BTC Regime Breakout (Recommended, 1h)"],
   ["CRYPTO_MOMENTUM_V1", "Crypto Momentum"],
   ["CRYPTO_TV_HA_V1", "Crypto TV-HA"],
@@ -127,6 +128,21 @@ export function CryptoJobsShell() {
   }
 
   function handleStrategyChange(strategyName: string) {
+    if (strategyName === "CRYPTO_BTC_PULLBACK_V1") {
+      setForm({
+        ...form,
+        strategy_name: strategyName,
+        symbol: "BTCUSD",
+        timeframe: "1h",
+        atr_multiplier_sl: 1.5,
+        min_stop_percent: 0.75,
+        target_rr: 2,
+        max_hold_minutes: 1440,
+        max_trades_per_hour: 1,
+        max_trades_per_day: 2,
+      });
+      return;
+    }
     if (strategyName === "CRYPTO_BTC_REGIME_V1") {
       setForm({
         ...form,

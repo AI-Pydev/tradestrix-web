@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { CryptoOptimizationResponse, optimizeCryptoStrategy } from "@/lib/api";
 
 const CRYPTO_STRATEGIES = [
+  ["CRYPTO_BTC_PULLBACK_V1", "BTC Trend Pullback (BTC 1h + confirmed 4h)"],
   ["CRYPTO_BTC_REGIME_V1", "BTC Regime (low-frequency, BTC 1h only)"],
   ["CRYPTO_MOMENTUM_V1", "Momentum"],
   ["CRYPTO_TV_HA_V1", "TV-HA"],
@@ -25,7 +26,7 @@ function fmt(value?: number | null, digits = 2) {
 export function CryptoResearchShell() {
   const [symbols, setSymbols] = useState(["BTCUSD"]);
   const [timeframes, setTimeframes] = useState(["1h"]);
-  const [strategies, setStrategies] = useState<string[]>(["CRYPTO_BTC_REGIME_V1"]);
+  const [strategies, setStrategies] = useState<string[]>(["CRYPTO_BTC_PULLBACK_V1"]);
   const [startDate, setStartDate] = useState(dateOffset(-30));
   const [endDate, setEndDate] = useState(dateOffset(-1));
   const [trainPercent, setTrainPercent] = useState(70);
@@ -38,6 +39,7 @@ export function CryptoResearchShell() {
   const skippedContexts = result?.skipped_contexts ?? [];
   const leaderboard = result?.leaderboard ?? [];
   const qualifiedCount = result?.qualified_count ?? leaderboard.filter((candidate) => candidate.qualified).length;
+  const incompleteDatasets = result?.datasets?.filter((dataset) => dataset.history_complete === false) ?? [];
 
   function toggle(value: string, values: string[], setter: (next: string[]) => void) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
@@ -55,11 +57,11 @@ export function CryptoResearchShell() {
         start_date: startDate,
         end_date: endDate,
         initial_capital: 100000,
-        risk_per_trade: 0.5,
+        risk_per_trade: 0.25,
         slippage_percent: 0.05,
         fee_percent: 0.05,
         train_percent: trainPercent,
-        max_combinations: 20,
+        max_combinations: 4,
       }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Crypto optimization failed");
@@ -155,6 +157,12 @@ export function CryptoResearchShell() {
             {!qualifiedCount && leaderboard.length > 0 && (
               <div className="alert alert-danger py-2">
                 No configuration passed validation. The rows below are ranked failures, not recommended strategies.
+              </div>
+            )}
+            {incompleteDatasets.length > 0 && (
+              <div className="alert alert-warning py-2">
+                Historical warmup is incomplete for {incompleteDatasets.length} dataset(s). Early-window signals are unavailable,
+                so these results cannot qualify a strategy.
               </div>
             )}
             {result.assumptions && (

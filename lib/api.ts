@@ -1515,7 +1515,26 @@ export type CryptoOptimizationResponse = {
   test_days?: number;
   combination_count: number;
   dataset_count: number;
-  datasets?: { symbol: string; timeframe: string; candle_count: number }[];
+  datasets?: {
+    symbol: string;
+    timeframe: string;
+    candle_count: number;
+    warmup_candle_count?: number;
+    requested_warmup_candle_count?: number;
+    history_complete?: boolean;
+    strategy_history_complete?: Record<string, boolean>;
+    context_history?: Record<
+      string,
+      {
+        candle_count: number;
+        warmup_candle_count: number;
+        requested_warmup_candle_count: number;
+        history_complete: boolean;
+      }
+    >;
+    first_candle_at?: string | null;
+    last_candle_at?: string | null;
+  }[];
   skipped_contexts?: { strategy_name: string; symbol: string; timeframe: string; reason: string }[];
   assumptions?: {
     initial_capital: number;
