@@ -1484,6 +1484,7 @@ export type CryptoJobStartRequest = {
 
 export type CryptoOptimizationMetrics = {
   total_trades: number;
+  trades_per_day?: number;
   winning_trades: number;
   losing_trades: number;
   net_pnl: number;
@@ -1499,6 +1500,7 @@ export type CryptoOptimizationCandidate = {
   timeframe: string;
   parameters: Record<string, number>;
   score: number;
+  qualified?: boolean;
   full: CryptoOptimizationMetrics;
   train: CryptoOptimizationMetrics;
   test: CryptoOptimizationMetrics;
@@ -1508,10 +1510,23 @@ export type CryptoOptimizationResponse = {
   strategy_names: string[];
   train_percent: number;
   test_percent: number;
+  duration_days?: number;
+  train_days?: number;
+  test_days?: number;
   combination_count: number;
   dataset_count: number;
-  datasets: { symbol: string; timeframe: string; candle_count: number }[];
-  leaderboard: CryptoOptimizationCandidate[];
+  datasets?: { symbol: string; timeframe: string; candle_count: number }[];
+  skipped_contexts?: { strategy_name: string; symbol: string; timeframe: string; reason: string }[];
+  assumptions?: {
+    initial_capital: number;
+    risk_per_trade_percent: number;
+    max_leverage: number;
+    slippage_percent_per_fill: number;
+    fee_percent_per_fill: number;
+    position_sizing: string;
+  };
+  qualified_count?: number;
+  leaderboard?: CryptoOptimizationCandidate[];
 };
 
 export type DeltaOptionChainRequest = {
