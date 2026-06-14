@@ -5,6 +5,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import { AuthProvider } from "@/components/auth-provider";
+import { DevServiceWorkerReset } from "@/components/dev-service-worker-reset";
 import { PlatformAppShell } from "@/components/platform-app-shell";
 
 const inter = Inter({
@@ -54,6 +55,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
+        <DevServiceWorkerReset />
         <AuthProvider>
           <PlatformAppShell>{children}</PlatformAppShell>
         </AuthProvider>
