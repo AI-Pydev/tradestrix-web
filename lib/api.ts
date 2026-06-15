@@ -1862,6 +1862,36 @@ export type UpstoxOptionChainBacktestRunResponse = {
   to_date: string;
 };
 
+export type UpstoxBacktestChartCandle = {
+  open_time: string;
+  close_time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  complete: boolean;
+};
+
+export type UpstoxBacktestChartCandlesRequest = {
+  instrument_key: string;
+  commodity_symbol?: string | null;
+  market_data_broker: MarketDataBrokerId;
+  fallback_broker?: MarketDataBrokerId | null;
+  from_date: string;
+  to_date: string;
+  underlying_unit: string;
+  underlying_interval: string;
+  price_mode?: "standard" | "heikin_ashi";
+};
+
+export type UpstoxBacktestChartCandlesResponse = {
+  instrument_key: string;
+  price_mode: string;
+  from_date: string;
+  to_date: string;
+  candles: UpstoxBacktestChartCandle[];
+};
+
 export type TradingViewAlertTemplateGenerated = {
   webhook_path: string;
   message: Record<string, unknown>;
@@ -2944,6 +2974,13 @@ export async function deleteDeltaTradingViewTemplate(templateId: string) {
 export async function runUpstoxOptionChainBacktest(payload: UpstoxOptionChainBacktestRunRequest) {
   return postBackendJsonWithBody<UpstoxOptionChainBacktestRunResponse, UpstoxOptionChainBacktestRunRequest>(
     "/api/v1/upstox/option-chain-backtest/run",
+    payload,
+  );
+}
+
+export async function fetchUpstoxBacktestChartCandles(payload: UpstoxBacktestChartCandlesRequest) {
+  return postBackendJsonWithBody<UpstoxBacktestChartCandlesResponse, UpstoxBacktestChartCandlesRequest>(
+    "/api/v1/upstox/option-chain-backtest/chart-candles",
     payload,
   );
 }
