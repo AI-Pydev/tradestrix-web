@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 
 import {
   fetchInstrumentCatalog,
+  fetchUpstoxBacktestChartCandles,
   InstrumentCatalogResponse,
   MarketDataBrokerId,
   runUpstoxOptionChainBacktest,
+  UpstoxBacktestChartCandle,
   UpstoxOptionChainBacktestRunRequest,
   UpstoxOptionChainBacktestRunResponse,
+  UpstoxOptionChainBacktestTrade,
 } from "@/lib/api";
+
+import { BacktestTradeChart } from "@/components/backtest-trade-chart";
 
 function fmtDate(value: string) {
   const parsed = new Date(value);
@@ -232,6 +237,11 @@ export function UpstoxBacktestShell() {
   const [backtestMessageTone, setBacktestMessageTone] = useState<"success" | "error">("success");
   const [backtestResult, setBacktestResult] = useState<UpstoxOptionChainBacktestRunResponse | null>(null);
   const [backtestLogs, setBacktestLogs] = useState<string[]>([]);
+  const [chartOpen, setChartOpen] = useState(false);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState("");
+  const [chartCandles, setChartCandles] = useState<UpstoxBacktestChartCandle[]>([]);
+  const [chartFocusTime, setChartFocusTime] = useState<string | null>(null);
   const [comparisonRunning, setComparisonRunning] = useState(false);
   const [comparisonRows, setComparisonRows] = useState<BacktestComparisonRow[]>([]);
   const [backtestForm, setBacktestForm] = useState<UpstoxOptionChainBacktestRunRequest>({
@@ -332,6 +342,42 @@ export function UpstoxBacktestShell() {
       setBacktestLogs([]);
     } finally {
       setBacktestRunning(false);
+    }
+  }
+
+  async function handleOpenTradeChart(trade: UpstoxOptionChainBacktestTrade) {
+    if (!backtestResult) return;
+    setChartOpen(true);
+    setChartFocusTime(trade.entry_time);
+    setChartError("");
+    setChartLoading(true);
+    try {
+      const marketDataBroker = isMarketDataBrokerId(backtestForm.market_data_broker)
+        ? backtestForm.market_data_broker
+        : DEFAULT_BACKTEST_MARKET_DATA_BROKER;
+      const response = await fetchUpstoxBacktestChartCandles({
+        instrument_key: backtestResult.instrument_key,
+        commodity_symbol: selectedCommodity?.symbol ?? null,
+        market_data_broker: marketDataBroker,
+        fallback_broker:
+          backtestForm.fallback_broker && backtestForm.fallback_broker !== marketDataBroker
+            ? backtestForm.fallback_broker
+            : null,
+        from_date: backtestResult.from_date,
+        to_date: backtestResult.to_date,
+        underlying_unit: backtestForm.underlying_unit,
+        underlying_interval: backtestForm.underlying_interval,
+        price_mode: "heikin_ashi",
+      });
+      setChartCandles(response.candles);
+      if (!response.candles.length) {
+        setChartError("No candles returned for this window.");
+      }
+    } catch (err) {
+      setChartCandles([]);
+      setChartError(err instanceof Error ? err.message : "Failed to load chart candles");
+    } finally {
+      setChartLoading(false);
     }
   }
 
@@ -845,6 +891,7 @@ export function UpstoxBacktestShell() {
                       <th>Entry Reason</th>
                       <th>Reason</th>
                       <th>Loss Reason</th>
+                      <th>Chart</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -867,11 +914,21 @@ export function UpstoxBacktestShell() {
                           <td className="small muted" style={{ minWidth: 260 }}>
                             {trade.loss_reason || "-"}
                           </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-info"
+                              onClick={() => void handleOpenTradeChart(trade)}
+                              title="Show entry/exit on the underlying Heikin-Ashi candles"
+                            >
+                              📈 Chart
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={12} className="empty-state">
+                        <td colSpan={13} className="empty-state">
                           No backtest trades generated.
                         </td>
                       </tr>
@@ -893,6 +950,59 @@ export function UpstoxBacktestShell() {
           </div>
         </section>
       </div>
+
+      {chartOpen && backtestResult && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setChartOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2, 6, 23, 0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1050,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              background: "#0f172a",
+              border: "1px solid #1e293b",
+              borderRadius: 12,
+              padding: 16,
+              width: "min(1200px, 96vw)",
+              maxHeight: "92vh",
+              overflow: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, color: "#e2e8f0", fontSize: 16 }}>
+                Trade chart · {backtestResult.instrument_key}
+              </h3>
+              <button type="button" className="btn btn-sm btn-outline-light" onClick={() => setChartOpen(false)}>
+                Close
+              </button>
+            </div>
+            {chartLoading && <div style={{ padding: 24, color: "#94a3b8" }}>Loading candles…</div>}
+            {!chartLoading && chartError && (
+              <div style={{ padding: 16, color: "#f87171" }}>{chartError}</div>
+            )}
+            {!chartLoading && !chartError && (
+              <BacktestTradeChart
+                candles={chartCandles}
+                trades={backtestResult.trades}
+                focusTime={chartFocusTime}
+                instrumentName={backtestResult.instrument_key}
+                modeLabel="Heikin Ashi"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
