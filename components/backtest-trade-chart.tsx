@@ -93,10 +93,9 @@ export function BacktestTradeChart({
   useEffect(() => {
     if (focusIdx < 0 || !scrollRef.current) return;
     const el = scrollRef.current;
-    el.scrollLeft = Math.max(0, xCenter(focusIdx) - el.clientWidth / 2);
-    // xCenter is stable for a given step; intentionally only re-run on focus/data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusIdx, candles.length]);
+    const focusedCandleCenter = focusIdx * step + step / 2;
+    el.scrollLeft = Math.max(0, focusedCandleCenter - el.clientWidth / 2);
+  }, [focusIdx, step]);
 
   if (!candles.length) {
     return (
