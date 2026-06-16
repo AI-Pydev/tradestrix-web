@@ -6,9 +6,9 @@
     "clean": "node scripts/clean-next.mjs",
     "predev": "node scripts/clean-next.mjs --allow-failure",
     "prebuild": "npm run clean",
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build --webpack",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
