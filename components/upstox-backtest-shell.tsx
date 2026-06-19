@@ -32,6 +32,16 @@ function fmtMoney(value: number) {
   }).format(value);
 }
 
+function pnlClass(value: number) {
+  if (value > 0) {
+    return "positive";
+  }
+  if (value < 0) {
+    return "negative";
+  }
+  return "";
+}
+
 function fmtNumber(value: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
 }
@@ -954,7 +964,9 @@ export function UpstoxBacktestShell() {
                           <td>{fmtMoney(trade.entry_option)}</td>
                           <td>{fmtMoney(trade.exit_option)}</td>
                           <td>{trade.quantity}</td>
-                          <td>{fmtMoney(trade.pnl_amount)}</td>
+                          <td className={pnlClass(trade.pnl_amount)}>
+                            <strong>{fmtMoney(trade.pnl_amount)}</strong>
+                          </td>
                           <td className="small muted" style={{ minWidth: 220 }}>
                             {trade.entry_reason || "-"}
                           </td>
