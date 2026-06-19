@@ -225,6 +225,14 @@ type BacktestComparisonRow = {
   result?: UpstoxOptionChainBacktestRunResponse;
 };
 
+type VetoComparisonRow = {
+  mode: "off" | "current_candle";
+  status: "ok" | "error";
+  duration_ms: number;
+  message: string;
+  result?: UpstoxOptionChainBacktestRunResponse;
+};
+
 function defaultStrategyIdForSide(side: BotSide) {
   return side === "put" ? "tv_ha_put_v2" : "tv_ha_call_v2";
 }
@@ -254,6 +262,8 @@ export function UpstoxBacktestShell() {
   const [chartFocusTime, setChartFocusTime] = useState<string | null>(null);
   const [comparisonRunning, setComparisonRunning] = useState(false);
   const [comparisonRows, setComparisonRows] = useState<BacktestComparisonRow[]>([]);
+  const [vetoComparisonRunning, setVetoComparisonRunning] = useState(false);
+  const [vetoComparisonRows, setVetoComparisonRows] = useState<VetoComparisonRow[]>([]);
   const [backtestForm, setBacktestForm] = useState<UpstoxOptionChainBacktestRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     side: "call",
@@ -445,6 +455,47 @@ export function UpstoxBacktestShell() {
       }
     } finally {
       setComparisonRunning(false);
+    }
+  }
+
+  async function handleCompareVetoModes() {
+    setVetoComparisonRunning(true);
+    setVetoComparisonRows([]);
+    const rows: VetoComparisonRow[] = [];
+    try {
+      for (const mode of ["off", "current_candle"] as const) {
+        const startedAt = performance.now();
+        try {
+          const payload: UpstoxOptionChainBacktestRunRequest = {
+            ...backtestForm,
+            commodity_symbol: selectedCommodity?.symbol ?? null,
+            live_parity: true,
+            entry_exit_veto_mode: mode,
+            option_interval: optionTfRequest(backtestForm.current_option_interval).expiredInterval,
+            current_option_unit: optionTfRequest(backtestForm.current_option_interval).requestUnit,
+            current_option_interval: optionTfRequest(backtestForm.current_option_interval).requestInterval,
+            export_csv: null,
+          };
+          const result = await runUpstoxOptionChainBacktest(payload);
+          rows.push({
+            mode,
+            status: "ok",
+            duration_ms: Math.round(performance.now() - startedAt),
+            message: result.message,
+            result,
+          });
+        } catch (err) {
+          rows.push({
+            mode,
+            status: "error",
+            duration_ms: Math.round(performance.now() - startedAt),
+            message: err instanceof Error ? err.message : "Backtest failed",
+          });
+        }
+        setVetoComparisonRows([...rows]);
+      }
+    } finally {
+      setVetoComparisonRunning(false);
     }
   }
 
@@ -807,22 +858,34 @@ export function UpstoxBacktestShell() {
                             }))
                           }
                         >
-                          <option value="current_candle">Current candle</option>
-                          <option value="prev_candle">Previous candle</option>
+                          <option value="current_candle">On (current candle)</option>
+                          <option value="prev_candle">On (previous candle, legacy)</option>
                           <option value="off">Off</option>
                         </select>
                       </div>
                       <div className="col-12 col-xl-12 d-flex flex-wrap gap-3 align-items-center">
-                        <button className="btn btn-warning" disabled={backtestRunning} onClick={handleRunBacktest}>
+                        <button
+                          className="btn btn-warning"
+                          disabled={backtestRunning || comparisonRunning || vetoComparisonRunning}
+                          onClick={handleRunBacktest}
+                        >
                           {backtestRunning ? "Running..." : "Run Backtest"}
                         </button>
                         <button
                           className="btn btn-outline-light"
-                          disabled={backtestRunning || comparisonRunning}
+                          disabled={backtestRunning || comparisonRunning || vetoComparisonRunning}
                           onClick={() => void handleCompareBrokers()}
                           type="button"
                         >
                           {comparisonRunning ? "Comparing..." : "Compare Brokers"}
+                        </button>
+                        <button
+                          className="btn btn-outline-info"
+                          disabled={backtestRunning || comparisonRunning || vetoComparisonRunning}
+                          onClick={() => void handleCompareVetoModes()}
+                          type="button"
+                        >
+                          {vetoComparisonRunning ? "Comparing Veto..." : "Compare Veto On/Off"}
                         </button>
                         <div className="muted">
                           {catalogLoading
@@ -907,6 +970,54 @@ export function UpstoxBacktestShell() {
                           <td>{summary ? `${summary.win_rate}%` : "-"}</td>
                           <td>{summary ? fmtMoney(summary.total_pnl) : "-"}</td>
                           <td>{summary ? fmtMoney(summary.average_pnl) : "-"}</td>
+                          <td>{fmtNumber(row.duration_ms)} ms</td>
+                          <td className="small muted">{row.message}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {vetoComparisonRows.length > 0 && (
+          <section className="dashboard-panel mb-4" id="veto-comparison-results">
+            <h2 className="panel-title">Veto On/Off Comparison</h2>
+            <div className="p-3">
+              <div className="small muted mb-3">
+                Both runs use Live parity and identical settings; only the current-candle entry veto changes.
+              </div>
+              <div className="table-responsive">
+                <table className="table table-dark-shell align-middle">
+                  <thead>
+                    <tr>
+                      <th>Veto</th>
+                      <th>Status</th>
+                      <th>Trades</th>
+                      <th>Win Rate</th>
+                      <th>Total PnL</th>
+                      <th>Avg PnL</th>
+                      <th>Runtime</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vetoComparisonRows.map((row) => {
+                      const summary = row.result?.summary;
+                      return (
+                        <tr key={row.mode}>
+                          <td>{row.mode === "off" ? "Off" : "On (current candle)"}</td>
+                          <td>{row.status === "ok" ? "OK" : "Error"}</td>
+                          <td>{summary ? summary.trades : "-"}</td>
+                          <td>{summary ? `${summary.win_rate}%` : "-"}</td>
+                          <td className={summary ? pnlClass(summary.total_pnl) : ""}>
+                            {summary ? <strong>{fmtMoney(summary.total_pnl)}</strong> : "-"}
+                          </td>
+                          <td className={summary ? pnlClass(summary.average_pnl) : ""}>
+                            {summary ? <strong>{fmtMoney(summary.average_pnl)}</strong> : "-"}
+                          </td>
                           <td>{fmtNumber(row.duration_ms)} ms</td>
                           <td className="small muted">{row.message}</td>
                         </tr>
