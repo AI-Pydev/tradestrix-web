@@ -1812,6 +1812,11 @@ export type UpstoxOptionChainBacktestRunRequest = {
   max_entry_ltp: number;
   sl_premium_pct: number;
   target_premium_pct: number;
+  live_parity?: boolean;
+  use_time_windows?: boolean;
+  use_ema20_entry_filter?: boolean;
+  entry_exit_veto_mode?: "current_candle" | "prev_candle" | "off";
+  risk_model?: "dynamic" | "fixed";
   export_csv?: string | null;
 };
 

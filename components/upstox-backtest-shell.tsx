@@ -117,7 +117,7 @@ const OPTION_INTERVAL_OPTIONS: BacktestIntervalOption[] = [
   },
   ...UNDERLYING_INTERVAL_OPTIONS,
 ];
-const DEFAULT_BACKTEST_MARKET_DATA_BROKER: MarketDataBrokerId = "dhan";
+const DEFAULT_BACKTEST_MARKET_DATA_BROKER: MarketDataBrokerId = "upstox";
 const DEFAULT_BACKTEST_FALLBACK_BROKER: MarketDataBrokerId = "kite";
 
 // Minute intervals each broker can serve natively. Brokers omitted here accept
@@ -253,7 +253,7 @@ export function UpstoxBacktestShell() {
     from_date: defaultDates.from_date,
     to_date: defaultDates.to_date,
     underlying_unit: "minutes",
-    underlying_interval: "5",
+    underlying_interval: "3",
     option_interval: "1minute",
     current_option_unit: "minutes",
     current_option_interval: "1",
@@ -262,6 +262,11 @@ export function UpstoxBacktestShell() {
     max_entry_ltp: 1000,
     sl_premium_pct: 0.2,
     target_premium_pct: 0.36,
+    live_parity: true,
+    use_time_windows: true,
+    use_ema20_entry_filter: true,
+    entry_exit_veto_mode: "off",
+    risk_model: "dynamic",
     export_csv: "logs/upstox/tv_ha_call_option_backtest_api.csv",
   });
   const instruments = instrumentOptions(catalog);
@@ -754,6 +759,49 @@ export function UpstoxBacktestShell() {
                           }
                         />
                       </div>
+                      <div className="col-12 col-md-6 col-xl-3">
+                        <label className="form-label d-block">Execution Profile</label>
+                        <label className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            checked={Boolean(backtestForm.live_parity)}
+                            onChange={(e) =>
+                              setBacktestForm((prev) => ({
+                                ...prev,
+                                live_parity: e.target.checked,
+                                market_data_broker: e.target.checked ? "upstox" : prev.market_data_broker,
+                                fallback_broker: e.target.checked ? "kite" : prev.fallback_broker,
+                                underlying_unit: "minutes",
+                                underlying_interval: e.target.checked ? "3" : prev.underlying_interval,
+                                risk_model: e.target.checked ? "dynamic" : "fixed",
+                              }))
+                            }
+                          />
+                          <span className="form-check-label">Live parity</span>
+                        </label>
+                        <div className="small muted mt-1">
+                          Uses completed candles, next-candle fills, live EMA/time gates, and dynamic risk.
+                        </div>
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-3">
+                        <label className="form-label">Entry/Exit Veto</label>
+                        <select
+                          className="form-select"
+                          value={backtestForm.entry_exit_veto_mode ?? "off"}
+                          disabled={!backtestForm.live_parity}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              entry_exit_veto_mode: e.target.value as "current_candle" | "prev_candle" | "off",
+                            }))
+                          }
+                        >
+                          <option value="current_candle">Current candle</option>
+                          <option value="prev_candle">Previous candle</option>
+                          <option value="off">Off</option>
+                        </select>
+                      </div>
                       <div className="col-12 col-xl-12 d-flex flex-wrap gap-3 align-items-center">
                         <button className="btn btn-warning" disabled={backtestRunning} onClick={handleRunBacktest}>
                           {backtestRunning ? "Running..." : "Run Backtest"}
@@ -780,11 +828,11 @@ export function UpstoxBacktestShell() {
                 <div className="dashboard-panel h-100" id="backtest-notes">
                   <h2 className="panel-title">Backtest Notes</h2>
                   <div className="p-3 muted">
-                    Use this page to test Dhan-aware backtests. Select Dhan as Market Data, keep Kite as fallback, then
-                    run the backtest and check the Logs section for `BACKTEST_START` and `BACKTEST_COMPLETE`.
+                    Keep Live parity enabled when comparing with managed-bot trades. It uses Upstox underlying candles,
+                    Kite fallback option history, completed-candle timing, and the live entry gates.
                     <div className="mt-3">
-                      Dhan intraday candles support 1m, 5m, 15m, 25m, and 60m intervals. Wider intervals can reduce
-                      signal count, so zero P/L often means no entries matched the strategy at that timeframe.
+                      Portfolio allocation across other running strategies and exact broker latency cannot be replayed
+                      by a single-strategy backtest, so blocked live trades remain visible only in managed-bot logs.
                     </div>
                   </div>
                 </div>
