@@ -546,6 +546,9 @@ export type UpstoxOptionChainBotRunRequest = {
   risk_amount?: number | null;
   use_time_windows: boolean;
   use_ema20_entry_filter: boolean;
+  use_market_regime_filter?: boolean;
+  min_market_regime_score?: number;
+  min_market_direction_score?: number;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -597,6 +600,9 @@ export type UpstoxManagedBotStartRequest = {
   risk_amount?: number | null;
   use_time_windows: boolean;
   use_ema20_entry_filter: boolean;
+  use_market_regime_filter?: boolean;
+  min_market_regime_score?: number;
+  min_market_direction_score?: number;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -839,6 +845,9 @@ export type UpstoxIndexAutoLaunchConfig = {
   risk_model: "dynamic" | "fixed" | "risk_amount";
   risk_amount?: number | null;
   use_time_windows: boolean;
+  use_market_regime_filter: boolean;
+  min_market_regime_score: number;
+  min_market_direction_score: number;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -921,6 +930,9 @@ export type UpstoxStockAutoLaunchConfig = {
   risk_model: "dynamic" | "fixed" | "risk_amount";
   risk_amount?: number | null;
   use_time_windows: boolean;
+  use_market_regime_filter: boolean;
+  min_market_regime_score: number;
+  min_market_direction_score: number;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -1812,9 +1824,11 @@ export type UpstoxOptionChainBacktestRunRequest = {
   max_entry_ltp: number;
   sl_premium_pct: number;
   target_premium_pct: number;
-  live_parity?: boolean;
   use_time_windows?: boolean;
   use_ema20_entry_filter?: boolean;
+  use_market_regime_filter?: boolean;
+  min_market_regime_score?: number;
+  min_market_direction_score?: number;
   entry_exit_veto_mode?: "current_candle" | "prev_candle" | "off";
   risk_model?: "dynamic" | "fixed";
   export_csv?: string | null;
@@ -2612,6 +2626,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   apply_to_targets?: boolean;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   enabled_strategy_basket_ids?: string[] | null;
+  candle_interval?: "1" | "3" | "5" | "15" | null;
 }) {
   return postBackendJsonWithBody<
     UpstoxIndexAutoLaunchStatus,
@@ -2623,6 +2638,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
       apply_to_targets?: boolean;
       execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
       enabled_strategy_basket_ids?: string[] | null;
+      candle_interval?: "1" | "3" | "5" | "15" | null;
     }
   >("/api/v1/upstox/option-chain-bot/index-auto-launch/default-strategies", payload);
 }
@@ -2647,6 +2663,13 @@ export async function setUpstoxStockAutoLaunchInstruments(instrument_keys: strin
   return postBackendJsonWithBody<UpstoxStockAutoLaunchStatus, { instrument_keys: string[] }>(
     "/api/v1/upstox/option-chain-bot/stock-auto-launch/instruments",
     { instrument_keys },
+  );
+}
+
+export async function setUpstoxStockAutoLaunchTimeframe(candle_interval: "1" | "3" | "5" | "15") {
+  return postBackendJsonWithBody<UpstoxStockAutoLaunchStatus, { candle_interval: "1" | "3" | "5" | "15" }>(
+    "/api/v1/upstox/option-chain-bot/stock-auto-launch/timeframe",
+    { candle_interval },
   );
 }
 

@@ -58,6 +58,9 @@ type LauncherSettings = {
   risk_model: "dynamic" | "fixed" | "risk_amount";
   risk_amount: number | null;
   use_time_windows: boolean;
+  use_market_regime_filter: boolean;
+  min_market_regime_score: number;
+  min_market_direction_score: number;
   sl_premium_pct: number;
   target_premium_pct: number;
   min_hold_sec_before_underlying_exit: number;
@@ -114,6 +117,12 @@ const PUT_STRATEGY_OPTIONS = [
   { value: "fibo_nk_put", label: "FIBO-NK PUT" },
   { value: "jk_al_put", label: "JK AL PUT" },
   { value: "ol_oh_put", label: "OL-OH PUT" },
+];
+const TIMEFRAME_OPTIONS = [
+  { value: "1", label: "1 minute" },
+  { value: "3", label: "3 minutes" },
+  { value: "5", label: "5 minutes" },
+  { value: "15", label: "15 minutes" },
 ];
 
 function defaultStrategyIdForSide(side: BotSide) {
@@ -342,6 +351,9 @@ export function MultiBotLauncherShell() {
     risk_model: "dynamic",
     risk_amount: null,
     use_time_windows: true,
+    use_market_regime_filter: false,
+    min_market_regime_score: 50,
+    min_market_direction_score: 60,
     sl_premium_pct: 0.2,
     target_premium_pct: 0.36,
     min_hold_sec_before_underlying_exit: 60,
@@ -649,6 +661,9 @@ export function MultiBotLauncherShell() {
       risk_amount: settings.risk_amount ?? null,
       use_time_windows: settings.use_time_windows,
       use_ema20_entry_filter: true,
+      use_market_regime_filter: settings.use_market_regime_filter,
+      min_market_regime_score: settings.min_market_regime_score,
+      min_market_direction_score: settings.min_market_direction_score,
       sl_premium_pct: settings.sl_premium_pct,
       target_premium_pct: settings.target_premium_pct,
       min_hold_sec_before_underlying_exit: settings.min_hold_sec_before_underlying_exit,
@@ -971,12 +986,18 @@ export function MultiBotLauncherShell() {
                         />
                       </div>
                       <div className="col-6 col-md-2">
-                        <label className="form-label">Candle</label>
-                        <input
-                          className="form-control"
+                        <label className="form-label">Timeframe</label>
+                        <select
+                          className="form-select"
                           value={settings.candle_interval}
-                          onChange={(e) => setSettings((prev) => ({ ...prev, candle_interval: e.target.value || "3" }))}
-                        />
+                          onChange={(e) => setSettings((prev) => ({ ...prev, candle_interval: e.target.value }))}
+                        >
+                          {TIMEFRAME_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="col-6 col-md-2">
                         <label className="form-label">Strike Offset</label>
@@ -1122,6 +1143,62 @@ export function MultiBotLauncherShell() {
                           </label>
                         </div>
                       </div>
+                      <div className="col-6 col-md-2 d-flex align-items-end">
+                        <div className="form-check mb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="useMarketRegimeLauncher"
+                            checked={settings.use_market_regime_filter}
+                            onChange={(e) =>
+                              setSettings((prev) => ({
+                                ...prev,
+                                use_market_regime_filter: e.target.checked,
+                              }))
+                            }
+                          />
+                          <label className="form-check-label" htmlFor="useMarketRegimeLauncher">
+                            VNext Regime Gate
+                            <div className="small text-muted">ADX / EMA / VWAP / RSI / 15m</div>
+                          </label>
+                        </div>
+                      </div>
+                      {settings.use_market_regime_filter && (
+                        <>
+                          <div className="col-6 col-md-2">
+                            <label className="form-label">Regime Score</label>
+                            <input
+                              className="form-control"
+                              min={0}
+                              max={100}
+                              type="number"
+                              value={settings.min_market_regime_score}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  min_market_regime_score: Number(e.target.value) || 0,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="col-6 col-md-2">
+                            <label className="form-label">Direction Score</label>
+                            <input
+                              className="form-control"
+                              min={0}
+                              max={100}
+                              type="number"
+                              value={settings.min_market_direction_score}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  min_market_direction_score: Number(e.target.value) || 0,
+                                }))
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
                       <div className="col-6 col-md-2">
                         <label className="form-label">SL %</label>
                         <input
