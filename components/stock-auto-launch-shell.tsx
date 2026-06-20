@@ -6,9 +6,17 @@ import {
     disableUpstoxStockAutoLaunch,
     enableUpstoxStockAutoLaunch,
     fetchUpstoxStockAutoLaunchStatus,
+    setUpstoxStockAutoLaunchTimeframe,
     syncUpstoxStockAutoLaunch,
     UpstoxStockAutoLaunchStatus,
 } from "@/lib/api";
+
+const TIMEFRAME_OPTIONS = [
+  { value: "1", label: "1 minute" },
+  { value: "3", label: "3 minutes" },
+  { value: "5", label: "5 minutes" },
+  { value: "15", label: "15 minutes" },
+] as const;
 
 function fmtDateTime(value?: string | null) {
   if (!value) {
@@ -39,6 +47,7 @@ export function StockAutoLaunchShell() {
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [error, setError] = useState("");
+  const [savingTimeframe, setSavingTimeframe] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -100,6 +109,24 @@ export function StockAutoLaunchShell() {
       setMessageTone("error");
     } finally {
       setAction("");
+    }
+  }
+
+  async function handleSetTimeframe(candleInterval: "1" | "3" | "5" | "15") {
+    try {
+      setSavingTimeframe(true);
+      setMessage("");
+      const result = await setUpstoxStockAutoLaunchTimeframe(candleInterval);
+      setStatus(result);
+      setMessage(
+        `Stock auto-launch timeframe set to ${candleInterval} minutes. New jobs will use this timeframe.`,
+      );
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to update timeframe");
+      setMessageTone("error");
+    } finally {
+      setSavingTimeframe(false);
     }
   }
 
@@ -184,6 +211,32 @@ export function StockAutoLaunchShell() {
               >
                 {action === "sync" ? "Syncing..." : "Sync Now"}
               </button>
+            </div>
+            <div
+              className="mt-3 p-3"
+              style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(8, 19, 33, 0.28)" }}
+            >
+              <label className="form-label">Strategy Timeframe</label>
+              <select
+                className="form-select form-select-sm"
+                style={{ maxWidth: "180px" }}
+                disabled={action !== "" || savingTimeframe}
+                value={status?.config.candle_interval ?? "3"}
+                onChange={(e) =>
+                  void handleSetTimeframe(e.target.value as "1" | "3" | "5" | "15")
+                }
+              >
+                {TIMEFRAME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div className="small muted mt-2">
+                {savingTimeframe
+                  ? "Updating..."
+                  : "New jobs use this timeframe. Running jobs keep their original timeframe until restarted."}
+              </div>
             </div>
             {isLive ? (
               <div className="small text-warning mt-3">

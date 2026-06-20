@@ -33,6 +33,13 @@ const STRATEGY_BASKET_PRESETS = [
   },
 ];
 
+const TIMEFRAME_OPTIONS = [
+  { value: "1", label: "1 minute" },
+  { value: "3", label: "3 minutes" },
+  { value: "5", label: "5 minutes" },
+  { value: "15", label: "15 minutes" },
+] as const;
+
 const STRATEGY_BASKET_LABELS: Record<string, string> = Object.fromEntries(
   [
     ["default", "Default Basket"],
@@ -88,6 +95,7 @@ export function IndexAutoLaunchShell() {
   const [savingStrategy, setSavingStrategy] = useState<string | null>(null); // "instrumentKey:side"
   const [savingPreset, setSavingPreset] = useState<string | null>(null);
   const [savingBroker, setSavingBroker] = useState(false);
+  const [savingTimeframe, setSavingTimeframe] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -202,6 +210,26 @@ export function IndexAutoLaunchShell() {
       setMessageTone("error");
     } finally {
       setSavingBroker(false);
+    }
+  }
+
+  async function handleSetTimeframe(candleInterval: "1" | "3" | "5" | "15") {
+    try {
+      setSavingTimeframe(true);
+      setMessage("");
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
+        candle_interval: candleInterval,
+      });
+      setStatus(result);
+      setMessage(
+        `Index auto-launch timeframe set to ${candleInterval} minutes. New jobs will use this timeframe.`,
+      );
+      setMessageTone("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to update timeframe");
+      setMessageTone("error");
+    } finally {
+      setSavingTimeframe(false);
     }
   }
 
@@ -373,7 +401,7 @@ export function IndexAutoLaunchShell() {
                   </div>
                 </div>
               </div>
-              <div className="d-flex gap-2 align-items-end flex-wrap mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+              <div className="d-flex gap-3 align-items-end flex-wrap mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
                 <div>
                   <label className="form-label">Execution Mode</label>
                   <select
@@ -393,6 +421,29 @@ export function IndexAutoLaunchShell() {
                     </div>
                   ) : (
                     <div className="small muted mt-1">Paper mode records simulated auto-launch trades.</div>
+                  )}
+                </div>
+                <div>
+                  <label className="form-label">Strategy Timeframe</label>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: "160px" }}
+                    disabled={action !== "" || savingPreset !== null || savingStrategy !== null || savingTimeframe}
+                    value={status?.config.candle_interval ?? "3"}
+                    onChange={(e) =>
+                      void handleSetTimeframe(e.target.value as "1" | "3" | "5" | "15")
+                    }
+                  >
+                    {TIMEFRAME_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {savingTimeframe ? (
+                    <div className="small muted mt-1">Updating...</div>
+                  ) : (
+                    <div className="small muted mt-1">Running jobs keep their original timeframe until restarted.</div>
                   )}
                 </div>
               </div>
