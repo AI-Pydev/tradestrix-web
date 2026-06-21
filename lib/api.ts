@@ -3100,3 +3100,70 @@ export async function closeScannerPaperTrade(tradeId: string, payload: ScannerPa
     payload,
   );
 }
+
+// ── Research Agent: strategy improvement analysis ────────────────────────────
+
+export type StrategyAnalysisRequest = {
+  strategy_id: string;
+  side: "call" | "put";
+  instrument_key: string;
+  from_date: string;
+  to_date: string;
+  underlying_unit?: string;
+  underlying_interval?: string;
+  market_data_broker: "dhan" | "kite" | "upstox";
+  fallback_broker: "dhan" | "kite" | "upstox" | null;
+};
+
+export type StrategyAnalysisMetrics = {
+  total_trades?: number;
+  win_rate?: number;
+  net_pnl?: number;
+  profit_factor?: number | null;
+  drawdown?: number;
+  consecutive_loss?: number;
+  average_rr?: number | null;
+};
+
+export type StrategyAnalysis = {
+  id?: number;
+  strategy_id: string;
+  side: string;
+  instrument_key: string;
+  from_date: string;
+  to_date: string;
+  timeframe?: string;
+  market_data_broker: string;
+  fallback_broker?: string | null;
+  trade_count: number;
+  backtest_status?: string | null;
+  metrics: StrategyAnalysisMetrics;
+  analysis: string;
+  provider?: string | null;
+  model?: string | null;
+  prompt_version?: string | null;
+  usage?: Record<string, number | string | boolean | null>;
+  created_at?: string | null;
+};
+
+export async function runStrategyAnalysis(payload: StrategyAnalysisRequest) {
+  return postBackendJsonWithBody<StrategyAnalysis, StrategyAnalysisRequest>(
+    `/api/research/strategy-analysis`,
+    payload,
+  );
+}
+
+export async function listStrategyAnalyses(strategyId?: string) {
+  const query = strategyId
+    ? `?strategy_id=${encodeURIComponent(strategyId)}`
+    : "";
+  return getBackendJson<StrategyAnalysis[]>(
+    `/api/research/strategy-analysis${query}`,
+  );
+}
+
+export async function getStrategyAnalysis(analysisId: number) {
+  return getBackendJson<StrategyAnalysis>(
+    `/api/research/strategy-analysis/${analysisId}`,
+  );
+}

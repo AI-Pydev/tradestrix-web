@@ -152,6 +152,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "SQ",
       },
       {
+        href: "/research-agent",
+        label: "AI Research Agent",
+        caption: "AI strategy diagnosis + fixes",
+        monogram: "AI",
+      },
+      {
         href: "/custom-candle-lab",
         label: "Candle Lab",
         caption: "Custom timeframe preview",
