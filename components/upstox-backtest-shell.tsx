@@ -274,7 +274,10 @@ export function UpstoxBacktestShell() {
     target_premium_pct: 0.36,
     use_time_windows: true,
     use_ema20_entry_filter: true,
-    entry_exit_veto_mode: "off",
+    use_market_regime_filter: false,
+    min_market_regime_score: 50,
+    min_market_direction_score: 60,
+    entry_exit_veto_mode: "current_candle",
     risk_model: "dynamic",
     export_csv: "logs/upstox/tv_ha_call_option_backtest_api.csv",
   });
@@ -773,7 +776,7 @@ export function UpstoxBacktestShell() {
                         <label className="form-label">Entry/Exit Veto</label>
                         <select
                           className="form-select"
-                          value={backtestForm.entry_exit_veto_mode ?? "off"}
+                          value={backtestForm.entry_exit_veto_mode ?? "current_candle"}
                           onChange={(e) =>
                             setBacktestForm((prev) => ({
                               ...prev,
@@ -789,6 +792,64 @@ export function UpstoxBacktestShell() {
                           Live parity is always on: completed candles, next-candle fills, live EMA/time gates, and
                           dynamic risk — so backtest mirrors the managed bot.
                         </div>
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-3 d-flex align-items-end">
+                        <div className="form-check mb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="backtest-vnext-regime"
+                            checked={backtestForm.use_market_regime_filter ?? false}
+                            onChange={(e) =>
+                              setBacktestForm((prev) => ({
+                                ...prev,
+                                use_market_regime_filter: e.target.checked,
+                              }))
+                            }
+                          />
+                          <label className="form-check-label" htmlFor="backtest-vnext-regime">
+                            VNext Regime Gate
+                          </label>
+                          <div className="small muted mt-1">
+                            Off by default. Enable it when the compared live job uses VNext.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-2">
+                        <label className="form-label">Regime Score</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          disabled={!backtestForm.use_market_regime_filter}
+                          value={backtestForm.min_market_regime_score ?? 50}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              min_market_regime_score: Number(e.target.value) || 0,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="col-12 col-md-6 col-xl-2">
+                        <label className="form-label">Direction Score</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          disabled={!backtestForm.use_market_regime_filter}
+                          value={backtestForm.min_market_direction_score ?? 60}
+                          onChange={(e) =>
+                            setBacktestForm((prev) => ({
+                              ...prev,
+                              min_market_direction_score: Number(e.target.value) || 0,
+                            }))
+                          }
+                        />
                       </div>
                       <div className="col-12 col-xl-12 d-flex flex-wrap gap-3 align-items-center">
                         <button
@@ -820,11 +881,11 @@ export function UpstoxBacktestShell() {
                 <div className="dashboard-panel h-100" id="backtest-notes">
                   <h2 className="panel-title">Backtest Notes</h2>
                   <div className="p-3 muted">
-                    Keep Live parity enabled when comparing with managed-bot trades. It uses Upstox underlying candles,
-                    Kite fallback option history, completed-candle timing, and the live entry gates.
+                    Use the same timeframe, strategy, VNext toggle, and score thresholds as the managed live job.
+                    The regime engine and underlying entry gates are then replayed with the same settings.
                     <div className="mt-3">
-                      Portfolio allocation across other running strategies and exact broker latency cannot be replayed
-                      by a single-strategy backtest, so blocked live trades remain visible only in managed-bot logs.
+                      Historical expired-option candles do not contain delta, OI, bid, or ask. Strict option-chain
+                      liquidity checks, portfolio allocation, and broker latency require forward paper testing.
                     </div>
                   </div>
                 </div>
@@ -911,6 +972,22 @@ export function UpstoxBacktestShell() {
                 Data: {backtestResult.market_data_broker || backtestForm.market_data_broker}
                 {backtestResult.fallback_broker ? ` -> ${backtestResult.fallback_broker}` : ""}
               </div>
+              {backtestResult.live_parity && (
+                <div className="alert alert-warning py-2 mb-3">
+                  Live parity: {backtestResult.live_parity.overall}. Regime and underlying gates are replayed;
+                  historical option Greeks, OI, spread, portfolio allocation, and broker latency are not.
+                </div>
+              )}
+              {backtestResult.skip_stats && Object.keys(backtestResult.skip_stats).length > 0 && (
+                <div className="small muted mb-3">
+                  Rejections:{" "}
+                  {Object.entries(backtestResult.skip_stats)
+                    .sort((left, right) => right[1] - left[1])
+                    .slice(0, 8)
+                    .map(([reason, count]) => `${reason}: ${count}`)
+                    .join(" | ")}
+                </div>
+              )}
               <div className="small muted mb-3">
                 Showing the latest {fmtNumber(Math.min(backtestResult.trades.length, 20))} trades for{" "}
                 {backtestResult.instrument_key} between {backtestResult.from_date} and {backtestResult.to_date}.
