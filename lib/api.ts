@@ -1871,6 +1871,22 @@ export type UpstoxOptionChainBacktestRunResponse = {
   strategy_label: string;
   summary: UpstoxOptionChainBacktestSummary;
   trades: UpstoxOptionChainBacktestTrade[];
+  skip_stats?: Record<string, number>;
+  data_quality?: Record<string, number>;
+  live_parity?: {
+    overall: string;
+    market_regime?: {
+      status: string;
+      enabled: boolean;
+      min_regime_score: number;
+      min_direction_score: number;
+      detail: string;
+    };
+    underlying_entry_gates?: { status: string; detail: string };
+    option_premium_and_fills?: { status: string; detail: string };
+    option_contract_validation?: { status: string; detail: string };
+    portfolio_and_broker?: { status: string; detail: string };
+  };
   logs: string[];
   export_csv?: string | null;
   instrument_key: string;
