@@ -835,6 +835,7 @@ export type UpstoxIndexAutoLaunchConfig = {
   default_put_strategy_id: string;
   enabled_call_strategy_ids: string[];
   enabled_put_strategy_ids: string[];
+  per_index_strategy_overrides: Record<string, { call?: string[]; put?: string[] }>;
   enabled_strategy_basket_ids: string[];
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   candle_unit: string;
@@ -878,10 +879,14 @@ export type UpstoxIndexAutoLaunchTarget = {
   call_strategy_label: string;
   call_strategy_ids: string[];
   call_strategy_labels: string[];
+  call_available_strategy_ids: string[];
+  call_available_strategy_labels: string[];
   put_strategy_id: string;
   put_strategy_label: string;
   put_strategy_ids: string[];
   put_strategy_labels: string[];
+  put_available_strategy_ids: string[];
+  put_available_strategy_labels: string[];
   call_active: boolean;
   put_active: boolean;
 };
@@ -1957,6 +1962,15 @@ export type TradingViewAlertTemplateStats = {
   last_trade_id?: number | null;
 };
 
+export type TradingViewPnlMode = "paper" | "forward_test" | "live";
+
+export type TradingViewAlertDashboardStats = {
+  today: TradingViewAlertTemplateStats;
+  all_time: TradingViewAlertTemplateStats;
+  today_by_mode: Record<TradingViewPnlMode, TradingViewAlertTemplateStats>;
+  all_time_by_mode: Record<TradingViewPnlMode, TradingViewAlertTemplateStats>;
+};
+
 export type TradingViewAlertTemplate = {
   template_id: string;
   alert_name: string;
@@ -2022,6 +2036,8 @@ export type TradingViewWebhookEvent = {
   total_pnl?: number | null;
   commission?: number | null;
   india_vix?: number | null;
+  execution_mode?: "paper" | "live" | string | null;
+  execution_broker?: string | null;
   payload?: Record<string, unknown> | null;
 };
 
@@ -2030,6 +2046,44 @@ export type TradingViewAlertTemplateDiagnostics = {
   database_url: string;
   template_count: number | null;
   error?: string;
+};
+
+export type TradingViewTradeHistoryTrade = {
+  template_id: string;
+  template_name: string;
+  trade_id?: number | null;
+  date: string;
+  execution_mode: TradingViewPnlMode | string;
+  raw_execution_mode?: string | null;
+  broker: string;
+  instrument_key: string;
+  instrument_label: string;
+  side: string;
+  strategy_id: string;
+  strategy_label: string;
+  option_symbol: string;
+  quantity: number;
+  entry_ltp?: number | null;
+  exit_ltp?: number | null;
+  opened_at: string;
+  closed_at?: string | null;
+  exit_reason?: string | null;
+  status: string;
+  raw_pnl_amount?: number | null;
+  brokerage_amount: number;
+  pnl_amount?: number | null;
+};
+
+export type TradingViewTradeHistoryAnalytics = {
+  summary: UpstoxTradeHistorySummary;
+  daily: UpstoxTradeHistoryBucket[];
+  monthly: UpstoxTradeHistoryBucket[];
+  equity_curve: UpstoxTradeHistoryPoint[];
+  trades: TradingViewTradeHistoryTrade[];
+  options: {
+    instruments: UpstoxTradeHistoryOption[];
+    templates: UpstoxTradeHistoryOption[];
+  };
 };
 
 const API_BASE_URL =
@@ -2413,6 +2467,10 @@ export async function fetchTradingViewAlertTemplateDiagnostics() {
   return getBackendJson<TradingViewAlertTemplateDiagnostics>("/api/v1/tradingview-alert-templates/diagnostics");
 }
 
+export async function fetchTradingViewAlertDashboardStats() {
+  return getBackendJson<TradingViewAlertDashboardStats>("/api/v1/tradingview-alert-templates/dashboard");
+}
+
 export async function createTradingViewAlertTemplate(payload: TradingViewAlertTemplateCreateRequest) {
   return postBackendJsonWithBody<TradingViewAlertTemplate, TradingViewAlertTemplateCreateRequest>(
     "/api/v1/tradingview-alert-templates",
@@ -2471,6 +2529,41 @@ export async function fetchTradingViewAlertTemplateEvents(
   return getBackendJson<TradingViewWebhookEvent[]>(
     `/api/v1/tradingview-alert-templates/${encoded}/events?limit=${encodeURIComponent(String(limit))}&window=${encodeURIComponent(window)}`,
   );
+}
+
+export async function fetchTradingViewTradeHistoryAnalytics(params?: {
+  start_date?: string;
+  end_date?: string;
+  execution_mode?: "all" | TradingViewPnlMode;
+  instrument_key?: string;
+  template_id?: string;
+  include_brokerage?: boolean;
+  brokerage_per_trade?: number;
+}) {
+  const search = new URLSearchParams();
+  if (params?.start_date) {
+    search.set("start_date", params.start_date);
+  }
+  if (params?.end_date) {
+    search.set("end_date", params.end_date);
+  }
+  if (params?.execution_mode && params.execution_mode !== "all") {
+    search.set("execution_mode", params.execution_mode);
+  }
+  if (params?.instrument_key && params.instrument_key !== "all") {
+    search.set("instrument_key", params.instrument_key);
+  }
+  if (params?.template_id && params.template_id !== "all") {
+    search.set("template_id", params.template_id);
+  }
+  if (params?.include_brokerage) {
+    search.set("include_brokerage", "true");
+  }
+  if (params?.brokerage_per_trade != null) {
+    search.set("brokerage_per_trade", String(params.brokerage_per_trade));
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<TradingViewTradeHistoryAnalytics>(`/api/v1/tradingview-alert-templates/trade-history${suffix}`);
 }
 
 export async function startBrokerAuth(brokerId: string) {
@@ -2639,6 +2732,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   put_strategy_id?: string | null;
   enabled_call_strategy_ids?: string[] | null;
   enabled_put_strategy_ids?: string[] | null;
+  per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
   apply_to_targets?: boolean;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   enabled_strategy_basket_ids?: string[] | null;
@@ -2651,6 +2745,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
       put_strategy_id?: string | null;
       enabled_call_strategy_ids?: string[] | null;
       enabled_put_strategy_ids?: string[] | null;
+      per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
       apply_to_targets?: boolean;
       execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
       enabled_strategy_basket_ids?: string[] | null;
