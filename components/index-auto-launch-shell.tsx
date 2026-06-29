@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
     disableUpstoxIndexAutoLaunch,
     enableUpstoxIndexAutoLaunch,
     fetchUpstoxIndexAutoLaunchStatus,
     setUpstoxIndexAutoLaunchDefaultStrategies,
-    setUpstoxIndexAutoLaunchStrategy,
     syncUpstoxIndexAutoLaunch,
     UpstoxIndexAutoLaunchStatus,
 } from "@/lib/api";
@@ -69,7 +68,7 @@ function strategyListLabel(labels?: string[] | null, ids?: string[] | null) {
   return values?.length ? values.join(", ") : "No qualified strategy";
 }
 
-function qualifiedOptions(side: "call" | "put", strategyIds?: string[] | null) {
+function strategyOptions(side: "call" | "put", strategyIds?: string[] | null) {
   const allowed = new Set(strategyIds ?? []);
   const options = side === "put" ? PUT_STRATEGY_OPTIONS : CALL_STRATEGY_OPTIONS;
   return options.filter((item) => allowed.has(item.value));
@@ -97,16 +96,31 @@ export function IndexAutoLaunchShell() {
   const [savingBroker, setSavingBroker] = useState(false);
   const [savingTimeframe, setSavingTimeframe] = useState(false);
 
+  // Tracks how many save requests are currently in flight. The background poll
+  // reads this through a ref so it can skip refreshes while the operator is
+  // editing strategy checkboxes. Without this, a quiet poll lands mid-edit and
+  // overwrites `status`, making rapid check/uncheck clicks appear to "not stick".
+  const savingCountRef = useRef(0);
+
   useEffect(() => {
     let active = true;
 
     async function loadStatus(options?: { quiet?: boolean }) {
+      // Never let the background poll clobber state while an edit is saving.
+      if (options?.quiet && savingCountRef.current > 0) {
+        return;
+      }
       try {
         if (!options?.quiet) {
           setLoading(true);
         }
         const result = await fetchUpstoxIndexAutoLaunchStatus();
         if (!active) {
+          return;
+        }
+        // A save may have started while the fetch was awaiting the network.
+        // Discard this snapshot so we don't revert the operator's in-flight edit.
+        if (options?.quiet && savingCountRef.current > 0) {
           return;
         }
         setStatus(result);
@@ -160,19 +174,70 @@ export function IndexAutoLaunchShell() {
     }
   }
 
-  async function handleSetStrategy(instrument_key: string, side: "call" | "put", strategy_id: string) {
+  async function handleSetIndexStrategies(instrument_key: string, side: "call" | "put", strategyIds: string[]) {
     const key = `${instrument_key}:${side}`;
+    // Build the override map from the most recent committed state (not the
+    // render-time `status` closure) so concurrent edits on different indices
+    // don't overwrite one another. We also apply the change optimistically so
+    // the checkbox flips immediately, then reconcile with the server response.
+    let overrides: Record<string, { call?: string[]; put?: string[] }> = {};
+    setStatus((prev) => {
+      if (!prev) {
+        overrides = { [instrument_key]: { [side]: strategyIds } };
+        return prev;
+      }
+      overrides = { ...(prev.config.per_index_strategy_overrides ?? {}) };
+      const current = { ...(overrides[instrument_key] ?? {}) };
+      current[side] = strategyIds;
+      overrides[instrument_key] = current;
+      // Optimistic UI: reflect the selection on the matching target row.
+      const targets = prev.targets.map((target) =>
+        target.instrument_key === instrument_key
+          ? side === "put"
+            ? { ...target, put_strategy_ids: strategyIds }
+            : { ...target, call_strategy_ids: strategyIds }
+          : target,
+      );
+      return {
+        ...prev,
+        targets,
+        config: { ...prev.config, per_index_strategy_overrides: overrides },
+      };
+    });
+
+    savingCountRef.current += 1;
     try {
       setSavingStrategy(key);
       setError("");
-      const result = await setUpstoxIndexAutoLaunchStrategy(instrument_key, side, strategy_id);
+      console.info("[index-auto-launch] saving per-index strategies", {
+        instrument_key,
+        side,
+        strategyIds,
+      });
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
+        per_index_strategy_overrides: overrides,
+      });
       setStatus(result);
-      setMessage(`Strategy updated to "${strategy_id}" for ${side.toUpperCase()} on ${instrument_key}.`);
+      setMessage(`${side.toUpperCase()} strategies updated for ${instrument_key}.`);
       setMessageTone("success");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Failed to update strategy");
+      console.error("[index-auto-launch] failed to save per-index strategies", {
+        instrument_key,
+        side,
+        error: err,
+      });
+      // Revert the optimistic edit by pulling a fresh server snapshot.
+      try {
+        const fresh = await fetchUpstoxIndexAutoLaunchStatus();
+        setStatus(fresh);
+      } catch {
+        // Keep the optimistic state if the reload also fails; the error toast
+        // below tells the operator the save did not persist.
+      }
+      setMessage(err instanceof Error ? err.message : "Failed to update index strategies");
       setMessageTone("error");
     } finally {
+      savingCountRef.current = Math.max(0, savingCountRef.current - 1);
       setSavingStrategy(null);
     }
   }
@@ -234,9 +299,27 @@ export function IndexAutoLaunchShell() {
   }
 
   async function handleSetEnabledStrategies(side: "call" | "put", strategyIds: string[]) {
+    // Optimistically reflect the new global selection so the checkbox flips
+    // immediately and a background poll can't revert it mid-edit.
+    setStatus((prev) =>
+      prev
+        ? {
+            ...prev,
+            config: {
+              ...prev.config,
+              ...(side === "put"
+                ? { enabled_put_strategy_ids: strategyIds }
+                : { enabled_call_strategy_ids: strategyIds }),
+            },
+          }
+        : prev,
+    );
+
+    savingCountRef.current += 1;
     try {
       setSavingPreset(`strategies-${side}`);
       setError("");
+      console.info("[index-auto-launch] saving global strategies", { side, strategyIds });
       const result = await setUpstoxIndexAutoLaunchDefaultStrategies(
         side === "put"
           ? { enabled_put_strategy_ids: strategyIds }
@@ -246,9 +329,17 @@ export function IndexAutoLaunchShell() {
       setMessage(`${side.toUpperCase()} auto-launch strategies updated.`);
       setMessageTone("success");
     } catch (err) {
+      console.error("[index-auto-launch] failed to save global strategies", { side, error: err });
+      try {
+        const fresh = await fetchUpstoxIndexAutoLaunchStatus();
+        setStatus(fresh);
+      } catch {
+        // Keep optimistic state; error toast informs the operator.
+      }
       setMessage(err instanceof Error ? err.message : "Failed to update enabled strategies");
       setMessageTone("error");
     } finally {
+      savingCountRef.current = Math.max(0, savingCountRef.current - 1);
       setSavingPreset(null);
     }
   }
@@ -475,9 +566,9 @@ export function IndexAutoLaunchShell() {
                         <tr>
                           <th>Index</th>
                           <th>Lot Size</th>
-                          <th>CALL Strategy</th>
+                          <th>CALL Strategies</th>
                           <th>CALL</th>
-                          <th>PUT Strategy</th>
+                          <th>PUT Strategies</th>
                           <th>PUT</th>
                         </tr>
                       </thead>
@@ -493,28 +584,29 @@ export function IndexAutoLaunchShell() {
                               <div className="small muted mb-2">
                                 {strategyListLabel(target.call_strategy_labels, target.call_strategy_ids)}
                               </div>
-                              <select
-                                className="form-select form-select-sm"
-                                disabled={
-                                  !target.call_strategy_ids.length ||
-                                  savingPreset !== null ||
-                                  savingStrategy === `${target.instrument_key}:call`
-                                }
-                                onChange={(e) =>
-                                  void handleSetStrategy(target.instrument_key, "call", e.target.value)
-                                }
-                                style={{ background: "var(--color-surface-2, #0d1b2a)", color: "inherit", border: "1px solid rgba(255,255,255,0.15)" }}
-                                value={target.call_strategy_id}
-                              >
-                                {!target.call_strategy_ids.length ? (
-                                  <option value="">No qualified strategy</option>
-                                ) : null}
-                                {qualifiedOptions("call", target.call_strategy_ids).map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="d-flex flex-column gap-1">
+                                {strategyOptions("call", target.call_available_strategy_ids).map((option) => {
+                                  const selected = target.call_strategy_ids ?? [];
+                                  return (
+                                    <label className="form-check small" key={option.value}>
+                                      <input
+                                        checked={selected.includes(option.value)}
+                                        className="form-check-input"
+                                        disabled={savingPreset !== null || savingStrategy === `${target.instrument_key}:call`}
+                                        onChange={() =>
+                                          void handleSetIndexStrategies(
+                                            target.instrument_key,
+                                            "call",
+                                            toggleStrategyId(selected, option.value),
+                                          )
+                                        }
+                                        type="checkbox"
+                                      />
+                                      <span className="form-check-label">{option.label}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </td>
                             <td>
                               <span className={`badge-soft ${target.call_active ? "green" : "gold"}`}>
@@ -525,28 +617,29 @@ export function IndexAutoLaunchShell() {
                               <div className="small muted mb-2">
                                 {strategyListLabel(target.put_strategy_labels, target.put_strategy_ids)}
                               </div>
-                              <select
-                                className="form-select form-select-sm"
-                                disabled={
-                                  !target.put_strategy_ids.length ||
-                                  savingPreset !== null ||
-                                  savingStrategy === `${target.instrument_key}:put`
-                                }
-                                onChange={(e) =>
-                                  void handleSetStrategy(target.instrument_key, "put", e.target.value)
-                                }
-                                style={{ background: "var(--color-surface-2, #0d1b2a)", color: "inherit", border: "1px solid rgba(255,255,255,0.15)" }}
-                                value={target.put_strategy_id}
-                              >
-                                {!target.put_strategy_ids.length ? (
-                                  <option value="">No qualified strategy</option>
-                                ) : null}
-                                {qualifiedOptions("put", target.put_strategy_ids).map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="d-flex flex-column gap-1">
+                                {strategyOptions("put", target.put_available_strategy_ids).map((option) => {
+                                  const selected = target.put_strategy_ids ?? [];
+                                  return (
+                                    <label className="form-check small" key={option.value}>
+                                      <input
+                                        checked={selected.includes(option.value)}
+                                        className="form-check-input"
+                                        disabled={savingPreset !== null || savingStrategy === `${target.instrument_key}:put`}
+                                        onChange={() =>
+                                          void handleSetIndexStrategies(
+                                            target.instrument_key,
+                                            "put",
+                                            toggleStrategyId(selected, option.value),
+                                          )
+                                        }
+                                        type="checkbox"
+                                      />
+                                      <span className="form-check-label">{option.label}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </td>
                             <td>
                               <span className={`badge-soft ${target.put_active ? "green" : "gold"}`}>

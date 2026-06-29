@@ -103,6 +103,12 @@ const baseNavGroups: NavGroup[] = [
         caption: "Webhook templates",
         monogram: "TV",
       },
+      {
+        href: "/tradingview-alerts/trade-history",
+        label: "TV History",
+        caption: "Webhook PnL",
+        monogram: "VH",
+      },
     ],
   },
   {
@@ -278,6 +284,10 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/tradingview-alerts": {
     title: "TradingView Alerts",
     subtitle: "Generate TradingView webhook templates, rotate tokens, and validate signals",
+  },
+  "/tradingview-alerts/trade-history": {
+    title: "TradingView Trade History",
+    subtitle: "Webhook-specific daily, mode-wise, and all-time PnL review",
   },
   "/multi-bot-launcher": {
     title: "Multi-Bot Launcher",

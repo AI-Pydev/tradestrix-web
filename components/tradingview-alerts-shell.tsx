@@ -6,6 +6,7 @@ import {
     createTradingViewAlertTemplate,
     deleteTradingViewAlertTemplate,
     fetchInstrumentCatalog,
+    fetchTradingViewAlertDashboardStats,
     fetchTradingViewAlertTemplateDiagnostics,
     fetchTradingViewAlertTemplateEvents,
     InstrumentItem,
@@ -17,6 +18,7 @@ import {
     testTradingViewAlertTemplateWebhook,
     TradingViewAlertTemplate,
     TradingViewAlertTemplateCreateRequest,
+    TradingViewAlertDashboardStats,
     TradingViewAlertTemplateDiagnostics,
     TradingViewAlertTemplateStats,
     TradingViewAlertTemplateTestResponse,
@@ -64,6 +66,8 @@ type ModeSummary = {
   grossPnl: number;
   grossProfit: number;
   grossLoss: number;
+  todayPnl: number;
+  todayTrades: number;
 };
 type DeleteDialogState = {
   templateId: string;
@@ -192,6 +196,7 @@ export function TradingViewAlertsShell() {
   const [templates, setTemplates] = useState<TradingViewAlertTemplate[]>([]);
   const [catalog, setCatalog] = useState<InstrumentItem[]>([]);
   const [diagnostics, setDiagnostics] = useState<TradingViewAlertTemplateDiagnostics | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<TradingViewAlertDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -319,35 +324,37 @@ export function TradingViewAlertsShell() {
     return activityMode === "today" ? activityTemplate.stats_today : activityTemplate.stats_all;
   }, [activityMode, activityTemplate]);
   const modeSummaries = useMemo(() => {
-    const makeSummary = (label: string): ModeSummary => ({
+    const liveTemplateCount = templates.filter((template) => template.trade_mode === 3).length;
+    const paperTemplateCount = templates.length - liveTemplateCount;
+    const toSummary = (
+      label: string,
+      stats: TradingViewAlertTemplateStats | undefined,
+      todayStats: TradingViewAlertTemplateStats | undefined,
+      templateCount: number,
+    ): ModeSummary => ({
       label,
-      templateCount: 0,
-      totalTrades: 0,
-      winTrades: 0,
-      lossTrades: 0,
-      grossPnl: 0,
-      grossProfit: 0,
-      grossLoss: 0,
+      templateCount,
+      totalTrades: stats?.total_trades ?? 0,
+      winTrades: stats?.win_trades ?? 0,
+      lossTrades: stats?.loss_trades ?? 0,
+      grossPnl: stats?.gross_pnl ?? 0,
+      grossProfit: stats?.gross_profit ?? 0,
+      grossLoss: stats?.gross_loss ?? 0,
+      todayPnl: todayStats?.gross_pnl ?? 0,
+      todayTrades: todayStats?.total_trades ?? 0,
     });
-    const total = makeSummary("All");
-    const paper = makeSummary("Paper");
-    const live = makeSummary("Live");
-
-    for (const template of templates) {
-    const targets = [total, template.trade_mode === 3 ? live : paper];
-      for (const summary of targets) {
-        summary.templateCount += 1;
-        summary.totalTrades += template.stats_all.total_trades;
-        summary.winTrades += template.stats_all.win_trades;
-        summary.lossTrades += template.stats_all.loss_trades;
-        summary.grossPnl += template.stats_all.gross_pnl;
-        summary.grossProfit += template.stats_all.gross_profit;
-        summary.grossLoss += template.stats_all.gross_loss;
-      }
-    }
-
-    return [total, paper, live];
-  }, [templates]);
+    return [
+      toSummary("All", dashboardStats?.all_time, dashboardStats?.today, templates.length),
+      toSummary("Paper", dashboardStats?.all_time_by_mode.paper, dashboardStats?.today_by_mode.paper, paperTemplateCount),
+      toSummary(
+        "Forward test",
+        dashboardStats?.all_time_by_mode.forward_test,
+        dashboardStats?.today_by_mode.forward_test,
+        liveTemplateCount,
+      ),
+      toSummary("Live", dashboardStats?.all_time_by_mode.live, dashboardStats?.today_by_mode.live, liveTemplateCount),
+    ];
+  }, [dashboardStats, templates]);
   const visibleTemplates = useMemo(
     () => templates.filter((template) => (templateModeFilter === "paper" ? template.trade_mode !== 3 : template.trade_mode === 3)),
     [templateModeFilter, templates],
@@ -372,7 +379,11 @@ export function TradingViewAlertsShell() {
     async function load() {
       try {
         setLoading(true);
-        const [catalogResp, templatesResp] = await Promise.all([fetchInstrumentCatalog(), listTradingViewAlertTemplates()]);
+        const [catalogResp, templatesResp, dashboardResp] = await Promise.all([
+          fetchInstrumentCatalog(),
+          listTradingViewAlertTemplates(),
+          fetchTradingViewAlertDashboardStats(),
+        ]);
         let diagnosticsResp: TradingViewAlertTemplateDiagnostics | null = null;
         try {
           diagnosticsResp = await fetchTradingViewAlertTemplateDiagnostics();
@@ -390,6 +401,7 @@ export function TradingViewAlertsShell() {
         const instruments = [...catalogResp.indices, ...catalogResp.stocks, ...catalogResp.commodities];
         setCatalog(instruments);
         setTemplates(templatesResp);
+        setDashboardStats(dashboardResp);
         setDiagnostics(diagnosticsResp);
         setError("");
         setForm((prev) => ({
@@ -425,8 +437,9 @@ export function TradingViewAlertsShell() {
   }, [templates]);
 
   async function refreshTemplates() {
-    const items = await listTradingViewAlertTemplates();
+    const [items, dashboardResp] = await Promise.all([listTradingViewAlertTemplates(), fetchTradingViewAlertDashboardStats()]);
     setTemplates(items);
+    setDashboardStats(dashboardResp);
   }
 
   async function handleCreate() {
@@ -880,6 +893,9 @@ export function TradingViewAlertsShell() {
               Templates
             </h2>
             <div className="d-flex flex-wrap align-items-center gap-2">
+              <a className="btn btn-sm btn-outline-light" href="/tradingview-alerts/trade-history">
+                Trade History
+              </a>
               <div className="btn-group" role="group" aria-label="Template mode">
                 <button
                   className={`btn btn-sm ${templateModeFilter === "paper" ? "btn-warning" : "btn-outline-light"}`}
@@ -907,12 +923,34 @@ export function TradingViewAlertsShell() {
           ) : (
             <>
               <div className="row g-2 mb-3">
+                {[
+                  { label: "Today's PnL", value: fmtPnl(dashboardStats?.today.gross_pnl), tone: dashboardStats?.today.gross_pnl ?? 0 },
+                  { label: "Today's Profit", value: fmtPnl(dashboardStats?.today.gross_profit), tone: 1 },
+                  { label: "Today's Loss", value: fmtPnl(dashboardStats?.today.gross_loss), tone: -1 },
+                  { label: "Today Trades", value: String(dashboardStats?.today.total_trades ?? 0), tone: 0 },
+                  { label: "Today Wins", value: String(dashboardStats?.today.win_trades ?? 0), tone: 1 },
+                  { label: "Today Losses", value: String(dashboardStats?.today.loss_trades ?? 0), tone: -1 },
+                ].map((item) => (
+                  <div className="col-6 col-lg-2" key={item.label}>
+                    <div className="metric-card p-3 h-100">
+                      <div className="metric-label">{item.label}</div>
+                      <div
+                        className={`metric-value ${item.tone > 0 ? "text-success" : item.tone < 0 ? "text-danger" : ""}`}
+                        style={{ fontSize: "1.02rem", marginTop: "0.4rem" }}
+                      >
+                        {item.value}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="row g-2 mb-3">
                 {modeSummaries.map((summary) => (
-                  <div className="col-12 col-lg-4" key={summary.label}>
+                  <div className="col-12 col-lg-3" key={summary.label}>
                     <div className="metric-card p-3 h-100">
                       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
                         <div className="metric-label">{summary.label} all-time</div>
-                        <span className={`badge-soft ${summary.label === "Paper" ? "gold" : summary.label === "Live" ? "blue" : "green"}`}>
+                        <span className={`badge-soft ${summary.label === "Paper" || summary.label === "Forward test" ? "gold" : summary.label === "Live" ? "blue" : "green"}`}>
                           {summary.templateCount} template{summary.templateCount === 1 ? "" : "s"}
                         </span>
                       </div>
@@ -924,6 +962,10 @@ export function TradingViewAlertsShell() {
                       </div>
                       <div className="muted small mt-1">
                         Trades {summary.totalTrades} | Win {summary.winTrades} | Loss {summary.lossTrades}
+                      </div>
+                      <div className="muted small">
+                        Today <span className={summary.todayPnl >= 0 ? "text-success" : "text-danger"}>{fmtPnl(summary.todayPnl)}</span> | Trades{" "}
+                        {summary.todayTrades}
                       </div>
                       <div className="muted small">
                         Gross profit <span className="text-success">{fmtPnl(summary.grossProfit)}</span> | Gross loss{" "}
