@@ -270,7 +270,7 @@ export function HarmonicPatternScannerShell() {
       {/* Main Layout */}
       <div className="row g-4">
         {/* Qualified Stocks Table */}
-        <div className={selectedStock ? "col-lg-6" : "col-12"}>
+        <div className={selectedStock ? "col-lg-5" : "col-12"}>
           <div className="card shadow-sm border-0 bg-surface">
             <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
               <h5 className="mb-0 fw-bold">
@@ -379,13 +379,24 @@ export function HarmonicPatternScannerShell() {
 
         {/* Visual Chart View Panel */}
         {selectedStock && (
-          <div className="col-lg-6">
+          <div className="col-lg-7">
             <div className="card shadow-sm border-0 bg-surface sticky-top" style={{ top: "80px" }}>
               <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-0">
                 <div>
-                  <h5 className="mb-0 fw-bold">{selectedStock.label} — Wave Overlay</h5>
+                  <div className="d-flex align-items-center gap-2">
+                    <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave Overlay</h5>
+                    <span
+                      className={`badge ${
+                        selectedStock.direction === "BULLISH" ? "bg-success" : "bg-danger"
+                      }`}
+                    >
+                      {selectedStock.pattern_name.toUpperCase()} ({selectedStock.direction})
+                    </span>
+                  </div>
                   <span className="text-secondary small">
-                    {selectedStock.pattern_name} ({selectedStock.direction}) | TF: {activeChartTf.toUpperCase()} | PRZ: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
+                    TF: <strong>{activeChartTf.toUpperCase()}</strong> | PRZ Reversal Zone: ₹
+                    {selectedStock.prz_low} - ₹{selectedStock.prz_high} | Quality:{" "}
+                    <strong>{(selectedStock.quality_score * 100).toFixed(0)}%</strong>
                   </span>
                 </div>
                 <button
@@ -398,60 +409,171 @@ export function HarmonicPatternScannerShell() {
               </div>
               <div className="card-body">
                 {/* Timeframe selector bar for the chart */}
-                <div className="d-flex flex-wrap gap-1 mb-3">
-                  {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => (
-                    <button
-                      key={tf.id}
-                      className={`btn btn-xs ${
-                        activeChartTf === tf.id ? "btn-primary fw-bold" : "btn-outline-secondary"
-                      }`}
-                      style={{ fontSize: "11px", padding: "2px 8px" }}
-                      onClick={() => loadVisualChart(selectedStock, tf.id)}
-                    >
-                      {tf.id.toUpperCase()}
-                    </button>
-                  ))}
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                  <div className="d-flex flex-wrap gap-1">
+                    {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => (
+                      <button
+                        key={tf.id}
+                        className={`btn btn-xs ${
+                          activeChartTf === tf.id ? "btn-primary fw-bold shadow-sm" : "btn-outline-secondary"
+                        }`}
+                        style={{ fontSize: "11px", padding: "3px 9px" }}
+                        onClick={() => loadVisualChart(selectedStock, tf.id)}
+                      >
+                        {tf.id.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="badge bg-secondary-subtle text-secondary small font-monospace">
+                    {chartData?.candles?.length || 0} Candles
+                  </span>
                 </div>
 
                 {chartLoading ? (
                   <div className="text-center py-5">
                     <span className="spinner-border text-primary" role="status" />
-                    <div className="text-secondary small mt-2">Rendering visual harmonic geometry for {activeChartTf.toUpperCase()}...</div>
+                    <div className="text-secondary small mt-2">
+                      Rendering geometric harmonic wave for {activeChartTf.toUpperCase()}...
+                    </div>
                   </div>
                 ) : chartData && chartData.candles.length > 0 ? (
                   <div>
-                    {/* SVG Interactive Chart Visualizer */}
-                    <div className="border rounded bg-dark p-2 mb-3" style={{ height: "300px", position: "relative" }}>
-                      <svg width="100%" height="100%" viewBox="0 0 500 280" preserveAspectRatio="none">
-                        <line x1="0" y1="70" x2="500" y2="70" stroke="#333" strokeDasharray="3 3" />
-                        <line x1="0" y1="140" x2="500" y2="140" stroke="#333" strokeDasharray="3 3" />
-                        <line x1="0" y1="210" x2="500" y2="210" stroke="#333" strokeDasharray="3 3" />
+                    {/* SVG Interactive Chart Visualizer with XABCD Harmonic Wave Geometry */}
+                    <div
+                      className="border rounded bg-dark p-2 mb-3 shadow-inner"
+                      style={{ height: "360px", position: "relative" }}
+                    >
+                      <svg width="100%" height="100%" viewBox="0 0 600 320" preserveAspectRatio="none">
+                        {/* Grid lines */}
+                        <line x1="0" y1="80" x2="600" y2="80" stroke="#262626" strokeDasharray="3 3" />
+                        <line x1="0" y1="160" x2="600" y2="160" stroke="#262626" strokeDasharray="3 3" />
+                        <line x1="0" y1="240" x2="600" y2="240" stroke="#262626" strokeDasharray="3 3" />
 
                         {(() => {
-                          const candles = chartData.candles.slice(-40);
+                          const candles = chartData.candles.slice(-50);
                           const highs = candles.map((c) => c.high);
                           const lows = candles.map((c) => c.low);
-                          const minP = Math.min(...lows);
-                          const maxP = Math.max(...highs);
+                          
+                          // Include XABCD, PRZ, and Targets in scale calculation
+                          const allPrices = [
+                            ...highs,
+                            ...lows,
+                            selectedStock.x.price,
+                            selectedStock.a.price,
+                            selectedStock.b.price,
+                            selectedStock.c.price,
+                            selectedStock.d?.price || selectedStock.prz_mid,
+                            selectedStock.prz_low,
+                            selectedStock.prz_high,
+                            selectedStock.target_1,
+                            selectedStock.target_2,
+                            selectedStock.stop_loss,
+                          ];
+                          const minP = Math.min(...allPrices);
+                          const maxP = Math.max(...allPrices);
                           const range = maxP - minP || 1.0;
-                          const toY = (p: number) => 260 - ((p - minP) / range) * 230;
+                          const toY = (p: number) => 300 - ((p - minP) / range) * 260;
+
+                          // Map timestamps to closest candle index for accurate vertex positioning
+                          const findCandleX = (targetTime: string, fallbackIdx: number) => {
+                            const targetMs = new Date(targetTime).getTime();
+                            let bestIdx = fallbackIdx;
+                            let bestDiff = Infinity;
+                            candles.forEach((c, idx) => {
+                              const diff = Math.abs(new Date(c.time).getTime() - targetMs);
+                              if (diff < bestDiff) {
+                                bestDiff = diff;
+                                bestIdx = idx;
+                              }
+                            });
+                            return (bestIdx / (candles.length - 1 || 1)) * 520 + 40;
+                          };
+
+                          const xX = findCandleX(selectedStock.x.time, Math.max(0, candles.length - 40));
+                          const yX = toY(selectedStock.x.price);
+
+                          const xA = findCandleX(selectedStock.a.time, Math.max(1, candles.length - 30));
+                          const yA = toY(selectedStock.a.price);
+
+                          const xB = findCandleX(selectedStock.b.time, Math.max(2, candles.length - 20));
+                          const yB = toY(selectedStock.b.price);
+
+                          const xC = findCandleX(selectedStock.c.time, Math.max(3, candles.length - 10));
+                          const yC = toY(selectedStock.c.price);
+
+                          const dPrice = selectedStock.d?.price || selectedStock.prz_mid;
+                          const xD = selectedStock.d?.time
+                            ? findCandleX(selectedStock.d.time, candles.length - 1)
+                            : 560;
+                          const yD = toY(dPrice);
+
+                          const isBullish = selectedStock.direction === "BULLISH";
+                          const tri1Color = isBullish ? "rgba(59, 130, 246, 0.25)" : "rgba(239, 68, 68, 0.25)";
+                          const tri2Color = isBullish ? "rgba(34, 197, 94, 0.28)" : "rgba(249, 115, 22, 0.28)";
+                          const waveStroke = isBullish ? "#60a5fa" : "#f87171";
 
                           return (
                             <>
-                              {/* PRZ shaded zone */}
+                              {/* 1. Potential Reversal Zone (PRZ) Shaded Box */}
                               <rect
                                 x="0"
                                 y={Math.min(toY(selectedStock.prz_low), toY(selectedStock.prz_high))}
-                                width="500"
-                                height={Math.abs(toY(selectedStock.prz_low) - toY(selectedStock.prz_high)) || 8}
-                                fill="rgba(34, 197, 94, 0.15)"
-                                stroke="rgba(34, 197, 94, 0.5)"
+                                width="600"
+                                height={Math.abs(toY(selectedStock.prz_low) - toY(selectedStock.prz_high)) || 10}
+                                fill="rgba(34, 197, 94, 0.18)"
+                                stroke="rgba(34, 197, 94, 0.6)"
                                 strokeDasharray="4 2"
                               />
+                              <text
+                                x="10"
+                                y={Math.min(toY(selectedStock.prz_low), toY(selectedStock.prz_high)) + 12}
+                                fill="#22c55e"
+                                fontSize="9"
+                                fontWeight="bold"
+                              >
+                                PRZ: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
+                              </text>
 
-                              {/* Candles */}
+                              {/* 2. Shaded Harmonic Dual Triangles (Delta XAB & Delta BCD) */}
+                              <polygon
+                                points={`${xX},${yX} ${xA},${yA} ${xB},${yB}`}
+                                fill={tri1Color}
+                                stroke={waveStroke}
+                                strokeWidth="1.5"
+                                strokeDasharray="2 2"
+                              />
+                              <polygon
+                                points={`${xB},${yB} ${xC},${yC} ${xD},${yD}`}
+                                fill={tri2Color}
+                                stroke={waveStroke}
+                                strokeWidth="1.5"
+                                strokeDasharray="2 2"
+                              />
+
+                              {/* 3. Connecting Harmonic Legs (X -> A -> B -> C -> D) */}
+                              <polyline
+                                points={`${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`}
+                                fill="none"
+                                stroke={isBullish ? "#38bdf8" : "#fb7185"}
+                                strokeWidth="2.5"
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                              />
+
+                              {/* Dashed baseline from X -> D */}
+                              <line
+                                x1={xX}
+                                y1={yX}
+                                x2={xD}
+                                y2={yD}
+                                stroke="#a855f7"
+                                strokeWidth="1.2"
+                                strokeDasharray="4 4"
+                              />
+
+                              {/* 4. Candlesticks */}
                               {candles.map((c, i) => {
-                                const x = (i / candles.length) * 480 + 10;
+                                const x = (i / (candles.length - 1 || 1)) * 520 + 40;
                                 const isGreen = c.close >= c.open;
                                 const yOpen = toY(c.open);
                                 const yClose = toY(c.close);
@@ -461,44 +583,92 @@ export function HarmonicPatternScannerShell() {
 
                                 return (
                                   <g key={i}>
-                                    <line x1={x + 4} y1={yHigh} x2={x + 4} y2={yLow} stroke={color} strokeWidth="1" />
+                                    <line x1={x} y1={yHigh} x2={x} y2={yLow} stroke={color} strokeWidth="1" />
                                     <rect
-                                      x={x}
+                                      x={x - 3.5}
                                       y={Math.min(yOpen, yClose)}
-                                      width="8"
+                                      width="7"
                                       height={Math.max(Math.abs(yOpen - yClose), 2)}
                                       fill={color}
+                                      rx="1"
                                     />
                                   </g>
                                 );
                               })}
 
-                              {/* Target and Stop Loss lines */}
+                              {/* 5. Fibonacci Target Ladder Lines */}
                               <line
                                 x1="0"
                                 y1={toY(selectedStock.target_1)}
-                                x2="500"
+                                x2="600"
                                 y2={toY(selectedStock.target_1)}
                                 stroke="#10b981"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
                               />
-                              <text x="440" y={toY(selectedStock.target_1) - 4} fill="#10b981" fontSize="10">
-                                T1
+                              <text x="530" y={toY(selectedStock.target_1) - 4} fill="#10b981" fontSize="10" fontWeight="bold">
+                                T1: ₹{selectedStock.target_1}
                               </text>
 
                               <line
                                 x1="0"
+                                y1={toY(selectedStock.target_2)}
+                                x2="600"
+                                y2={toY(selectedStock.target_2)}
+                                stroke="#059669"
+                                strokeWidth="1.5"
+                                strokeDasharray="4 4"
+                              />
+                              <text x="530" y={toY(selectedStock.target_2) - 4} fill="#059669" fontSize="10" fontWeight="bold">
+                                T2: ₹{selectedStock.target_2}
+                              </text>
+
+                              {/* Stop Loss Line */}
+                              <line
+                                x1="0"
                                 y1={toY(selectedStock.stop_loss)}
-                                x2="500"
+                                x2="600"
                                 y2={toY(selectedStock.stop_loss)}
                                 stroke="#f43f5e"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
                               />
-                              <text x="440" y={toY(selectedStock.stop_loss) - 4} fill="#f43f5e" fontSize="10">
-                                SL
+                              <text x="530" y={toY(selectedStock.stop_loss) - 4} fill="#f43f5e" fontSize="10" fontWeight="bold">
+                                SL: ₹{selectedStock.stop_loss}
                               </text>
+
+                              {/* 6. Vertex Markers & Labels for X, A, B, C, D */}
+                              {[
+                                { label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" },
+                                { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
+                                { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
+                                { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
+                                { label: "D", x: xD, y: yD, price: dPrice, bg: "#10b981" },
+                              ].map((pt, idx) => (
+                                <g key={idx}>
+                                  <circle cx={pt.x} cy={pt.y} r="7" fill={pt.bg} stroke="#ffffff" strokeWidth="2" />
+                                  <text
+                                    x={pt.x}
+                                    y={pt.y + 3.5}
+                                    fill="#ffffff"
+                                    fontSize="8"
+                                    fontWeight="bold"
+                                    textAnchor="middle"
+                                  >
+                                    {pt.label}
+                                  </text>
+                                  <text
+                                    x={pt.x}
+                                    y={pt.y > 50 ? pt.y - 11 : pt.y + 18}
+                                    fill="#e2e8f0"
+                                    fontSize="9"
+                                    fontWeight="bold"
+                                    textAnchor="middle"
+                                  >
+                                    ₹{pt.price}
+                                  </text>
+                                </g>
+                              ))}
                             </>
                           );
                         })()}
@@ -510,13 +680,17 @@ export function HarmonicPatternScannerShell() {
                       <div className="col-4">
                         <div className="border rounded p-2 bg-body-tertiary">
                           <div className="text-secondary">Point X / A</div>
-                          <div className="fw-bold">₹{selectedStock.x.price} → ₹{selectedStock.a.price}</div>
+                          <div className="fw-bold">
+                            ₹{selectedStock.x.price} → ₹{selectedStock.a.price}
+                          </div>
                         </div>
                       </div>
                       <div className="col-4">
                         <div className="border rounded p-2 bg-body-tertiary">
                           <div className="text-secondary">Point B / C</div>
-                          <div className="fw-bold">₹{selectedStock.b.price} → ₹{selectedStock.c.price}</div>
+                          <div className="fw-bold">
+                            ₹{selectedStock.b.price} → ₹{selectedStock.c.price}
+                          </div>
                         </div>
                       </div>
                       <div className="col-4">
@@ -546,7 +720,9 @@ export function HarmonicPatternScannerShell() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-5 text-secondary">No chart data available for {activeChartTf.toUpperCase()}.</div>
+                  <div className="text-center py-5 text-secondary">
+                    No chart data available for {activeChartTf.toUpperCase()}.
+                  </div>
                 )}
               </div>
             </div>
