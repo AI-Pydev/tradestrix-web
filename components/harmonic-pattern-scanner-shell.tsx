@@ -1,57 +1,91 @@
 "use client";
 
-import {
-    HarmonicPatternScanItem,
-    HarmonicVisualChartResponse,
-    fetchHarmonicPatternScan,
-    fetchHarmonicVisualChart,
-} from "@/lib/harmonic-pattern-api";
 import { useEffect, useMemo, useState } from "react";
+import {
+  HARMONIC_SUPPORTED_TIMEFRAMES,
+  HarmonicPatternScanItem,
+  HarmonicVisualChartResponse,
+  fetchHarmonicPatternScan,
+  fetchHarmonicVisualChart,
+  fetchPersistentDBHarmonicPatterns,
+  triggerHarmonicAutoScanCycle,
+} from "@/lib/harmonic-pattern-api";
 
 export function HarmonicPatternScannerShell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<HarmonicPatternScanItem[]>([]);
-  const [timeframe, setTimeframe] = useState("3m");
+  const [viewMode, setViewMode] = useState<"database" | "live">("database");
+  const [timeframe, setTimeframe] = useState("all");
   const [minQuality, setMinQuality] = useState(0.65);
   const [includeIndices, setIncludeIndices] = useState(true);
   const [includeStocks, setIncludeStocks] = useState(true);
   const [maxStocks, setMaxStocks] = useState(24);
+  const [dbSummary, setDbSummary] = useState<Record<string, unknown> | null>(
+    null
+  );
 
   const [selectedStock, setSelectedStock] = useState<HarmonicPatternScanItem | null>(null);
   const [chartData, setChartData] = useState<HarmonicVisualChartResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
+  const [activeChartTf, setActiveChartTf] = useState("3m");
 
-  const runScan = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetchHarmonicPatternScan({
-        include_indices: includeIndices,
-        include_stocks: includeStocks,
-        max_indices: 4,
-        max_stocks: maxStocks,
-        timeframe,
-        min_quality_score: minQuality,
-      });
-      setResults(resp.results || []);
+      if (viewMode === "database") {
+        const resp = await fetchPersistentDBHarmonicPatterns({
+          timeframe: timeframe === "all" ? undefined : timeframe,
+          min_quality: minQuality,
+          is_active: true,
+          limit: 100,
+        });
+        setResults(resp.results || []);
+        setDbSummary(resp.database_summary);
+      } else {
+        const resp = await fetchHarmonicPatternScan({
+          include_indices: includeIndices,
+          include_stocks: includeStocks,
+          max_indices: 4,
+          max_stocks: maxStocks,
+          timeframe,
+          min_quality_score: minQuality,
+          workers: 8,
+        });
+        setResults(resp.results || []);
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to scan harmonic universe.");
+      setError(err instanceof Error ? err.message : "Failed to retrieve harmonic patterns.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    runScan();
-  }, []);
+    loadData();
+  }, [viewMode, timeframe, minQuality, maxStocks]);
 
-  const loadVisualChart = async (item: HarmonicPatternScanItem) => {
+  const handleTriggerAutoScan = async () => {
+    setLoading(true);
+    try {
+      await triggerHarmonicAutoScanCycle();
+      await loadData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to run auto scan cycle.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadVisualChart = async (item: HarmonicPatternScanItem, customTf?: string) => {
+    const tf = customTf || item.timeframe || "3m";
     setSelectedStock(item);
+    setActiveChartTf(tf);
     setChartLoading(true);
     try {
       const data = await fetchHarmonicVisualChart(item.instrument_key, {
-        timeframe: item.timeframe || timeframe,
+        timeframe: tf,
       });
       setChartData(data);
     } catch (err: unknown) {
@@ -71,31 +105,49 @@ export function HarmonicPatternScannerShell() {
 
   return (
     <div className="container-fluid p-4">
-      {/* Header & Controls */}
+      {/* Header & Mode Switcher */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
-          <h2 className="mb-1 fw-bold text-gradient">Harmonic Pattern Intelligence</h2>
-          <p className="text-secondary mb-0">
-            Real-time institutional pattern scanner with Potential Reversal Zone (PRZ) clustering & dynamic target ladders.
+          <div className="d-flex align-items-center gap-2">
+            <h2 className="mb-0 fw-bold text-gradient">Harmonic Pattern Intelligence</h2>
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+              11 Timeframes (1m → 1M)
+            </span>
+          </div>
+          <p className="text-secondary mb-0 small mt-1">
+            Auto-scanning & real-time DB persistence across Month, Week, Day, 4h, 2h, 1h, 30m, 15m, 5m, 3m, 1m.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
+          <div className="btn-group p-1 bg-body-tertiary rounded border" role="group">
+            <button
+              type="button"
+              className={`btn btn-sm ${viewMode === "database" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
+              onClick={() => setViewMode("database")}
+            >
+              <i className="bi bi-database me-1" /> Persistent DB View
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${viewMode === "live" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
+              onClick={() => setViewMode("live")}
+            >
+              <i className="bi bi-broadcast me-1" /> Live Universe Scan
+            </button>
+          </div>
+
           <button
-            className="btn btn-primary d-flex align-items-center gap-2 px-3 shadow-sm"
-            onClick={runScan}
+            className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1 px-3"
+            onClick={handleTriggerAutoScan}
             disabled={loading}
+            title="Scan universe across all 11 timeframes and update database"
           >
             {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm" role="status" />
-                <span>Scanning Universe...</span>
-              </>
+              <span className="spinner-border spinner-border-sm" role="status" />
             ) : (
-              <>
-                <i className="bi bi-radar" />
-                <span>Run Live Scan</span>
-              </>
+              <i className="bi bi-arrow-repeat" />
             )}
+            <span>Sync All TFs to DB</span>
           </button>
         </div>
       </div>
@@ -105,16 +157,17 @@ export function HarmonicPatternScannerShell() {
         <div className="card-body py-3">
           <div className="row g-3 align-items-center">
             <div className="col-auto">
-              <label className="form-label text-secondary small mb-1">Timeframe</label>
+              <label className="form-label text-secondary small mb-1">Timeframe Selection</label>
               <select
-                className="form-select form-select-sm"
+                className="form-select form-select-sm fw-semibold"
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
               >
-                <option value="1m">1 Minute</option>
-                <option value="3m">3 Minutes</option>
-                <option value="5m">5 Minutes</option>
-                <option value="15m">15 Minutes</option>
+                {HARMONIC_SUPPORTED_TIMEFRAMES.map((tf) => (
+                  <option key={tf.id} value={tf.id}>
+                    {tf.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="col-auto">
@@ -124,71 +177,83 @@ export function HarmonicPatternScannerShell() {
                 value={minQuality}
                 onChange={(e) => setMinQuality(parseFloat(e.target.value))}
               >
-                <option value="0.5">50% (All Formations)</option>
-                <option value="0.65">65% (Standard)</option>
+                <option value="0.0">All Scores (0%+)</option>
+                <option value="0.5">50% (Emerging)</option>
+                <option value="0.65">65% (Standard Default)</option>
                 <option value="0.75">75% (High Conviction)</option>
                 <option value="0.85">85% (Institutional Strict)</option>
               </select>
             </div>
-            <div className="col-auto">
-              <label className="form-label text-secondary small mb-1">Max Stocks</label>
-              <select
-                className="form-select form-select-sm"
-                value={maxStocks}
-                onChange={(e) => setMaxStocks(parseInt(e.target.value))}
-              >
-                <option value="12">Top 12 Stocks</option>
-                <option value="24">Top 24 Stocks</option>
-                <option value="50">Top 50 F&O Universe</option>
-              </select>
-            </div>
-            <div className="col-auto pt-3">
-              <div className="form-check form-check-inline">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="includeIndices"
-                  checked={includeIndices}
-                  onChange={(e) => setIncludeIndices(e.target.checked)}
-                />
-                <label className="form-check-label small" htmlFor="includeIndices">
-                  Indices (Nifty/BankNifty)
-                </label>
+            {viewMode === "live" && (
+              <div className="col-auto">
+                <label className="form-label text-secondary small mb-1">Max Stocks</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={maxStocks}
+                  onChange={(e) => setMaxStocks(parseInt(e.target.value))}
+                >
+                  <option value="12">Top 12 Stocks</option>
+                  <option value="24">Top 24 Stocks</option>
+                  <option value="50">Top 50 F&O Universe</option>
+                </select>
               </div>
-              <div className="form-check form-check-inline">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="includeStocks"
-                  checked={includeStocks}
-                  onChange={(e) => setIncludeStocks(e.target.checked)}
-                />
-                <label className="form-check-label small" htmlFor="includeStocks">
-                  Equities
-                </label>
+            )}
+            {viewMode === "live" && (
+              <div className="col-auto pt-3">
+                <div className="form-check form-check-inline">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="includeIndices"
+                    checked={includeIndices}
+                    onChange={(e) => setIncludeIndices(e.target.checked)}
+                  />
+                  <label className="form-check-label small" htmlFor="includeIndices">
+                    Indices
+                  </label>
+                </div>
+                <div className="form-check form-check-inline">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="includeStocks"
+                    checked={includeStocks}
+                    onChange={(e) => setIncludeStocks(e.target.checked)}
+                  />
+                  <label className="form-check-label small" htmlFor="includeStocks">
+                    Equities
+                  </label>
+                </div>
               </div>
+            )}
+            <div className="col text-end pt-3">
+              <span className="text-secondary small">
+                {viewMode === "database" && typeof dbSummary?.latest_update === "string"
+                  ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
+                  : `Showing ${results.length} active pattern(s)`}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary KPI Cards */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">Qualified Patterns</div>
+            <div className="text-secondary small">Active Formations</div>
             <div className="h3 fw-bold mb-0 text-primary">{summary.total}</div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">Bullish Reversals</div>
+            <div className="text-secondary small">Bullish Setups</div>
             <div className="h3 fw-bold mb-0 text-success">{summary.bullish}</div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">Bearish Reversals</div>
+            <div className="text-secondary small">Bearish Setups</div>
             <div className="h3 fw-bold mb-0 text-danger">{summary.bearish}</div>
           </div>
         </div>
@@ -200,26 +265,31 @@ export function HarmonicPatternScannerShell() {
         </div>
       </div>
 
-      {error && <div className="alert alert-danger py-2">{error}</div>}
+      {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
-      {/* Main Content Layout */}
+      {/* Main Layout */}
       <div className="row g-4">
         {/* Qualified Stocks Table */}
         <div className={selectedStock ? "col-lg-6" : "col-12"}>
           <div className="card shadow-sm border-0 bg-surface">
-            <div className="card-header bg-transparent py-3 border-0">
-              <h5 className="mb-0 fw-bold">Active Harmonic Setups</h5>
+            <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
+              <h5 className="mb-0 fw-bold">
+                {viewMode === "database" ? "Database Pattern Registry" : "Live Scanner Findings"}
+              </h5>
+              <span className="badge bg-secondary-subtle text-secondary small">
+                Timeframe: {timeframe.toUpperCase()}
+              </span>
             </div>
             <div className="table-responsive">
               <table className="table table-hover align-middle mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th>Symbol</th>
+                    <th>Symbol & TF</th>
                     <th>Pattern</th>
                     <th>Direction</th>
-                    <th>Score</th>
-                    <th>Current / PRZ</th>
-                    <th>Target 1 / SL</th>
+                    <th>Quality</th>
+                    <th>LTP / PRZ</th>
+                    <th>Targets / SL</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -227,19 +297,26 @@ export function HarmonicPatternScannerShell() {
                   {results.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="text-center py-5 text-secondary">
-                        {loading ? "Scanning market..." : "No harmonic patterns currently formed for selected filters."}
+                        {loading
+                          ? "Scanning multi-timeframe universe..."
+                          : "No active harmonic patterns matching the selected filters. Click 'Sync All TFs to DB' to trigger a full refresh."}
                       </td>
                     </tr>
                   ) : (
                     results.map((r, idx) => (
                       <tr
-                        key={`${r.instrument_key}-${idx}`}
-                        className={selectedStock?.instrument_key === r.instrument_key ? "table-active" : ""}
+                        key={`${r.instrument_key}-${r.timeframe}-${idx}`}
+                        className={
+                          selectedStock?.instrument_key === r.instrument_key &&
+                          selectedStock?.timeframe === r.timeframe
+                            ? "table-active"
+                            : ""
+                        }
                       >
                         <td>
                           <div className="fw-bold">{r.label}</div>
-                          <span className="badge bg-secondary-subtle text-secondary font-monospace small">
-                            {r.timeframe}
+                          <span className="badge bg-primary text-white font-monospace small px-2">
+                            {r.timeframe.toUpperCase()}
                           </span>
                         </td>
                         <td>
@@ -259,7 +336,7 @@ export function HarmonicPatternScannerShell() {
                           <div className="fw-bold">{(r.quality_score * 100).toFixed(0)}%</div>
                           <div
                             className="progress"
-                            style={{ height: "4px", width: "50px" }}
+                            style={{ height: "4px", width: "45px" }}
                           >
                             <div
                               className={`progress-bar ${
@@ -286,7 +363,7 @@ export function HarmonicPatternScannerShell() {
                         <td>
                           <button
                             className="btn btn-sm btn-outline-primary"
-                            onClick={() => loadVisualChart(r)}
+                            onClick={() => loadVisualChart(r, r.timeframe)}
                           >
                             Chart
                           </button>
@@ -306,9 +383,9 @@ export function HarmonicPatternScannerShell() {
             <div className="card shadow-sm border-0 bg-surface sticky-top" style={{ top: "80px" }}>
               <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-0">
                 <div>
-                  <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave Overlay</h5>
+                  <h5 className="mb-0 fw-bold">{selectedStock.label} — Wave Overlay</h5>
                   <span className="text-secondary small">
-                    {selectedStock.pattern_name} ({selectedStock.direction}) | PRZ: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
+                    {selectedStock.pattern_name} ({selectedStock.direction}) | TF: {activeChartTf.toUpperCase()} | PRZ: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
                   </span>
                 </div>
                 <button
@@ -320,22 +397,36 @@ export function HarmonicPatternScannerShell() {
                 />
               </div>
               <div className="card-body">
+                {/* Timeframe selector bar for the chart */}
+                <div className="d-flex flex-wrap gap-1 mb-3">
+                  {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => (
+                    <button
+                      key={tf.id}
+                      className={`btn btn-xs ${
+                        activeChartTf === tf.id ? "btn-primary fw-bold" : "btn-outline-secondary"
+                      }`}
+                      style={{ fontSize: "11px", padding: "2px 8px" }}
+                      onClick={() => loadVisualChart(selectedStock, tf.id)}
+                    >
+                      {tf.id.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
                 {chartLoading ? (
                   <div className="text-center py-5">
                     <span className="spinner-border text-primary" role="status" />
-                    <div className="text-secondary small mt-2">Rendering visual harmonic geometry...</div>
+                    <div className="text-secondary small mt-2">Rendering visual harmonic geometry for {activeChartTf.toUpperCase()}...</div>
                   </div>
                 ) : chartData && chartData.candles.length > 0 ? (
                   <div>
                     {/* SVG Interactive Chart Visualizer */}
-                    <div className="border rounded bg-dark p-2 mb-3" style={{ height: "320px", position: "relative" }}>
+                    <div className="border rounded bg-dark p-2 mb-3" style={{ height: "300px", position: "relative" }}>
                       <svg width="100%" height="100%" viewBox="0 0 500 280" preserveAspectRatio="none">
-                        {/* Grid lines */}
                         <line x1="0" y1="70" x2="500" y2="70" stroke="#333" strokeDasharray="3 3" />
                         <line x1="0" y1="140" x2="500" y2="140" stroke="#333" strokeDasharray="3 3" />
                         <line x1="0" y1="210" x2="500" y2="210" stroke="#333" strokeDasharray="3 3" />
 
-                        {/* Candlestick bars rendering */}
                         {(() => {
                           const candles = chartData.candles.slice(-40);
                           const highs = candles.map((c) => c.high);
@@ -455,7 +546,7 @@ export function HarmonicPatternScannerShell() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-5 text-secondary">No chart data available.</div>
+                  <div className="text-center py-5 text-secondary">No chart data available for {activeChartTf.toUpperCase()}.</div>
                 )}
               </div>
             </div>
