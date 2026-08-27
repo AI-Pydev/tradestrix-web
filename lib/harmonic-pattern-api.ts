@@ -105,6 +105,47 @@ export type HarmonicVisualChartResponse = {
   }>;
 };
 
+export type MTFConfluenceReport = {
+  instrument_key: string;
+  symbol_label: string;
+  macro_timeframe: string;
+  macro_pattern_name: string;
+  direction: "BULLISH" | "BEARISH";
+  quality_score: number;
+  current_price: number;
+  prz_low: number;
+  prz_high: number;
+  prz_mid: number;
+  macro_target_1: number;
+  macro_target_2: number;
+  macro_stop_loss: number;
+  in_prz: boolean;
+  intermediate_trend: string;
+  micro_timeframe: string;
+  rsi_3m: number;
+  rsi_divergence: string;
+  break_of_structure: string;
+  candlestick_trigger: string;
+  micro_stop_loss: number;
+  confluence_score: number;
+  readiness_stage:
+    | "MACRO_DETECTED"
+    | "IN_PRZ_MONITORING"
+    | "MICRO_TRIGGER_CONFIRMED"
+    | "INVALIDATED";
+  risk_reward_ratio: number;
+  recommendation: string;
+  evaluated_at: string;
+};
+
+export type MTFUniverseConfluenceResponse = {
+  total_evaluated: number;
+  patterns_found: number;
+  triggered_count: number;
+  monitoring_prz_count: number;
+  results: MTFConfluenceReport[];
+};
+
 export async function fetchHarmonicPatternScan(params?: {
   broker_id?: string;
   include_indices?: boolean;
@@ -151,8 +192,7 @@ export async function fetchPersistentDBHarmonicPatterns(params?: {
   limit?: number;
 }): Promise<HarmonicDBQueryResponse> {
   const query = new URLSearchParams();
-  if (params?.timeframe && params.timeframe !== "all")
-    query.set("timeframe", params.timeframe);
+  if (params?.timeframe) query.set("timeframe", params.timeframe);
   if (params?.instrument_key)
     query.set("instrument_key", params.instrument_key);
   if (params?.direction) query.set("direction", params.direction);
@@ -213,6 +253,52 @@ export async function fetchHarmonicVisualChart(
   const encodedKey = encodeURIComponent(instrumentKey);
   const response = await fetch(
     `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/visualize/${encodedKey}?${query.toString()}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchMTFConfluence(
+  instrumentKey: string,
+  params?: { broker_id?: string; label?: string }
+): Promise<MTFConfluenceReport> {
+  const query = new URLSearchParams();
+  if (params?.broker_id) query.set("broker_id", params.broker_id);
+  if (params?.label) query.set("label", params.label);
+
+  const encodedKey = encodeURIComponent(instrumentKey);
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/mtf-confluence/${encodedKey}?${query.toString()}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchMTFUniverseConfluence(params?: {
+  broker_id?: string;
+  max_indices?: number;
+  max_stocks?: number;
+  workers?: number;
+}): Promise<MTFUniverseConfluenceResponse> {
+  const query = new URLSearchParams();
+  if (params?.broker_id) query.set("broker_id", params.broker_id);
+  if (params?.max_indices !== undefined)
+    query.set("max_indices", String(params.max_indices));
+  if (params?.max_stocks !== undefined)
+    query.set("max_stocks", String(params.max_stocks));
+  if (params?.workers !== undefined)
+    query.set("workers", String(params.workers));
+
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/mtf-universe-confluence?${query.toString()}`,
     {
       headers: buildAuthorizedHeaders(),
       cache: "no-store",
