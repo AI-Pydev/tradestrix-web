@@ -187,6 +187,11 @@ export default function ExecutionDashboard() {
     <div className={styles.container}>
       <div className={styles.card}>
         <h1>Trading Execution Mode</h1>
+        {successMsg && (
+          <div style={{ padding: '8px 12px', marginBottom: '16px', borderRadius: '6px', background: '#d3f9d8', color: '#2b8a3e', fontSize: '13px', fontWeight: 600 }}>
+            ✅ {successMsg}
+          </div>
+        )}
 
         {/* Current Mode Display */}
         <div className={styles.modeDisplay} style={{ borderColor: modeColor }}>
