@@ -147,11 +147,11 @@ export function HarmonicPatternScannerShell() {
               11 Timeframes (1m → 1M)
             </span>
             <span className="badge bg-success-subtle text-success border border-success-subtle">
-              MTF Fractal Engine
+              MTF Fractal + OI Confluence
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Top-down institutional harmonic validation: Macro (1D/4H/1H) PRZ detection confirmed by Micro (15M/5M/3M) triggers.
+            Top-down institutional harmonic validation: Macro (1D/4H/1H) PRZ detection confirmed by Micro (15M/5M/3M) triggers and Option Chain PCR / Open Interest Buildups.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -276,7 +276,7 @@ export function HarmonicPatternScannerShell() {
                 {viewMode === "database" && typeof dbSummary?.latest_update === "string"
                   ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
                   : viewMode === "mtf_confluence"
-                  ? `Evaluated ${mtfReports.length} MTF setups`
+                  ? `Evaluated ${mtfReports.length} MTF setups with Option Chain PCR & OI`
                   : `Showing ${results.length} active pattern(s)`}
               </span>
             </div>
@@ -340,9 +340,9 @@ export function HarmonicPatternScannerShell() {
       {viewMode === "mtf_confluence" && (
         <div className="card shadow-sm border-0 bg-surface mb-4">
           <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
-            <h5 className="mb-0 fw-bold">Multi-Timeframe Fractal Confluence Matrix</h5>
+            <h5 className="mb-0 fw-bold">Multi-Timeframe Fractal + Option Chain Confluence Matrix</h5>
             <span className="badge bg-primary-subtle text-primary">
-              Top-Down Execution Readiness
+              Top-Down Institutional Execution
             </span>
           </div>
           <div className="table-responsive">
@@ -353,6 +353,7 @@ export function HarmonicPatternScannerShell() {
                   <th>Macro Harmonic Setup</th>
                   <th>PRZ Status</th>
                   <th>3M Micro Signals (RSI & BOS)</th>
+                  <th>Option Chain (PCR & OI Buildup)</th>
                   <th>Execution Stage</th>
                   <th>Risk : Reward</th>
                   <th>Recommendation</th>
@@ -361,9 +362,9 @@ export function HarmonicPatternScannerShell() {
               <tbody>
                 {mtfReports.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-5 text-secondary">
+                    <td colSpan={8} className="text-center py-5 text-secondary">
                       {loading
-                        ? "Evaluating multi-timeframe fractal confluence across universe..."
+                        ? "Evaluating multi-timeframe fractal confluence & options data across universe..."
                         : "No active macro harmonic patterns found across top universe."}
                     </td>
                   </tr>
@@ -428,6 +429,48 @@ export function HarmonicPatternScannerShell() {
                               {r.break_of_structure}
                             </span>
                           </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-column gap-1 small">
+                          {r.pcr_value !== undefined && r.pcr_value !== null ? (
+                            <div>
+                              <span className="text-secondary">PCR: </span>
+                              <strong className={r.pcr_value > 1.3 ? "text-success" : r.pcr_value < 0.7 ? "text-danger" : ""}>
+                                {r.pcr_value}
+                              </strong>
+                              {r.pcr_value > 1.3 && (
+                                <span className="badge bg-success-subtle text-success ms-1 small">Oversold Squeeze</span>
+                              )}
+                              {r.pcr_value < 0.7 && (
+                                <span className="badge bg-danger-subtle text-danger ms-1 small">Overbought</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted small">No active options</span>
+                          )}
+                          {r.oi_buildup && r.oi_buildup !== "NEUTRAL" && (
+                            <div>
+                              <span
+                                className={`badge ${
+                                  r.oi_buildup === "SHORT_COVERING"
+                                    ? "bg-success text-white"
+                                    : r.oi_buildup === "LONG_BUILDUP"
+                                    ? "bg-primary text-white"
+                                    : r.oi_buildup === "SHORT_BUILDUP"
+                                    ? "bg-danger text-white"
+                                    : "bg-secondary text-white"
+                                }`}
+                              >
+                                {r.oi_buildup.replace(/_/g, " ")}
+                              </span>
+                            </div>
+                          )}
+                          {r.option_support_strike && (
+                            <div className="text-muted font-monospace small">
+                              Max Put OI: ₹{r.option_support_strike}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -1020,12 +1063,12 @@ export function HarmonicPatternScannerShell() {
                         </svg>
                       </div>
 
-                      {/* Top-Down MTF Confluence Confirmation Card */}
+                      {/* Top-Down MTF + Option Chain Confluence Confirmation Card */}
                       {activeMtfReport && (
                         <div className="card border-primary border-opacity-25 bg-primary-subtle bg-opacity-10 p-3 mb-3">
                           <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <div className="d-flex align-items-center gap-2">
-                              <span className="badge bg-primary">MTF Confluence Engine</span>
+                              <span className="badge bg-primary">MTF + OI Confluence Engine</span>
                               <span className="fw-bold small">
                                 Macro {activeMtfReport.macro_timeframe.toUpperCase()} {activeMtfReport.macro_pattern_name} → Micro 3M Confirmation
                               </span>
@@ -1049,19 +1092,19 @@ export function HarmonicPatternScannerShell() {
                           </div>
 
                           <div className="row g-2 small">
-                            <div className="col-12 col-md-4">
+                            <div className="col-12 col-md-3">
                               <div className="border rounded p-2 bg-body">
                                 <div className="text-secondary">PRZ Status</div>
                                 <div className="fw-bold">
                                   {activeMtfReport.in_prz ? (
-                                    <span className="text-success">● Inside PRZ Zone (Reversal Ready)</span>
+                                    <span className="text-success">● Inside PRZ (Reversal Ready)</span>
                                   ) : (
-                                    <span className="text-muted">○ Outside PRZ Zone (Approaching)</span>
+                                    <span className="text-muted">○ Approaching PRZ</span>
                                   )}
                                 </div>
                               </div>
                             </div>
-                            <div className="col-12 col-md-4">
+                            <div className="col-12 col-md-3">
                               <div className="border rounded p-2 bg-body">
                                 <div className="text-secondary">3M Micro Signals</div>
                                 <div className="fw-bold">
@@ -1069,11 +1112,30 @@ export function HarmonicPatternScannerShell() {
                                 </div>
                               </div>
                             </div>
-                            <div className="col-12 col-md-4">
+                            <div className="col-12 col-md-3">
+                              <div className="border rounded p-2 bg-body">
+                                <div className="text-secondary">Option Chain & PCR</div>
+                                <div className="fw-bold">
+                                  {activeMtfReport.pcr_value !== undefined && activeMtfReport.pcr_value !== null ? (
+                                    <>
+                                      <span>PCR {activeMtfReport.pcr_value}</span>{" "}
+                                      {activeMtfReport.oi_buildup && (
+                                        <span className="badge bg-primary-subtle text-primary small">
+                                          {activeMtfReport.oi_buildup.replace(/_/g, " ")}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-muted">Equity Cash Context</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="col-12 col-md-3">
                               <div className="border rounded p-2 bg-body">
                                 <div className="text-secondary">Micro Execution Risk</div>
                                 <div className="fw-bold text-danger">
-                                  Micro SL: ₹{activeMtfReport.micro_stop_loss} (Macro T1: ₹{activeMtfReport.macro_target_1})
+                                  Micro SL: ₹{activeMtfReport.micro_stop_loss} (T1: ₹{activeMtfReport.macro_target_1})
                                 </div>
                               </div>
                             </div>

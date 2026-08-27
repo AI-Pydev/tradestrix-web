@@ -134,6 +134,12 @@ export type MTFConfluenceReport = {
     | "MICRO_TRIGGER_CONFIRMED"
     | "INVALIDATED";
   risk_reward_ratio: number;
+  pcr_value?: number | null;
+  pcr_sentiment?: string;
+  oi_buildup?: string;
+  option_support_strike?: number | null;
+  option_resistance_strike?: number | null;
+  option_confluence_aligned?: boolean;
   recommendation: string;
   evaluated_at: string;
 };
