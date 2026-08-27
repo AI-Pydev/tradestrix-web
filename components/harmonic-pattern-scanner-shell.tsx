@@ -3,14 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   HARMONIC_SUPPORTED_TIMEFRAMES,
+  HarmonicPaperTrade,
+  HarmonicPaperTradeSummary,
   HarmonicPatternScanItem,
   HarmonicVisualChartResponse,
   MTFConfluenceReport,
+  closeHarmonicPaperTrade,
+  createHarmonicPaperTrade,
+  fetchHarmonicPaperTrades,
   fetchHarmonicPatternScan,
   fetchHarmonicVisualChart,
   fetchMTFConfluence,
   fetchMTFUniverseConfluence,
   fetchPersistentDBHarmonicPatterns,
+  syncHarmonicPaperTrades,
   triggerHarmonicAutoScanCycle,
 } from "@/lib/harmonic-pattern-api";
 
@@ -90,8 +96,9 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
 export function HarmonicPatternScannerShell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [results, setResults] = useState<HarmonicPatternScanItem[]>([]);
-  const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence">("database");
+  const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence" | "paper_portfolio">("database");
   const [mtfReports, setMtfReports] = useState<MTFConfluenceReport[]>([]);
   const [timeframe, setTimeframe] = useState("all");
   const [lifecycleFilter, setLifecycleFilter] = useState<PatternLifecycleStatus>("ALL");
@@ -99,9 +106,15 @@ export function HarmonicPatternScannerShell() {
   const [includeIndices, setIncludeIndices] = useState(true);
   const [includeStocks, setIncludeStocks] = useState(true);
   const [maxStocks, setMaxStocks] = useState(24);
-  const [dbSummary, setDbSummary] = useState<Record<string, unknown> | null>(
-    null
-  );
+  const [dbSummary, setDbSummary] = useState<Record<string, unknown> | null>(null);
+
+  // Paper Trading State
+  const [paperTrades, setPaperTrades] = useState<HarmonicPaperTrade[]>([]);
+  const [paperSummary, setPaperSummary] = useState<HarmonicPaperTradeSummary | null>(null);
+  const [paperStatusFilter, setPaperStatusFilter] = useState<"ALL" | "OPEN" | "CLOSED">("ALL");
+  const [paperModalItem, setPaperModalItem] = useState<HarmonicPatternScanItem | null>(null);
+  const [paperOrderQty, setPaperOrderQty] = useState(10);
+  const [paperOrderPrice, setPaperOrderPrice] = useState(0);
 
   const [selectedStock, setSelectedStock] = useState<HarmonicPatternScanItem | null>(null);
   const [chartData, setChartData] = useState<HarmonicVisualChartResponse | null>(null);
@@ -141,6 +154,10 @@ export function HarmonicPatternScannerShell() {
           workers: 8,
         });
         setMtfReports(resp.results || []);
+      } else if (viewMode === "paper_portfolio") {
+        const resp = await fetchHarmonicPaperTrades({ status: paperStatusFilter });
+        setPaperTrades(resp.results || []);
+        setPaperSummary(resp.summary);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to retrieve harmonic patterns.");
@@ -151,7 +168,7 @@ export function HarmonicPatternScannerShell() {
 
   useEffect(() => {
     loadData();
-  }, [viewMode, timeframe, minQuality, maxStocks, includeIndices, includeStocks]);
+  }, [viewMode, timeframe, minQuality, maxStocks, includeIndices, includeStocks, paperStatusFilter]);
 
   // Handle Esc key to exit fullscreen
   useEffect(() => {
@@ -171,6 +188,79 @@ export function HarmonicPatternScannerShell() {
       await loadData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to run auto scan cycle.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenPaperTradeModal = (item: HarmonicPatternScanItem) => {
+    setPaperModalItem(item);
+    setPaperOrderPrice(item.current_price || item.base_price || item.prz_mid);
+    setPaperOrderQty(item.kind === "index" ? 25 : 10);
+  };
+
+  const handleConfirmPaperTrade = async () => {
+    if (!paperModalItem) return;
+    setLoading(true);
+    try {
+      const patternId =
+        paperModalItem.id ||
+        `${paperModalItem.instrument_key}:${paperModalItem.timeframe}:${paperModalItem.pattern_name}:${paperModalItem.x.time}`;
+
+      await createHarmonicPaperTrade({
+        pattern_id: patternId,
+        instrument_key: paperModalItem.instrument_key,
+        symbol_label: paperModalItem.label,
+        kind: paperModalItem.kind,
+        direction: paperModalItem.direction,
+        pattern_name: paperModalItem.pattern_name,
+        timeframe: paperModalItem.timeframe,
+        entry_price: paperOrderPrice,
+        quantity: paperOrderQty,
+        target_1: paperModalItem.target_1,
+        target_2: paperModalItem.target_2,
+        stop_loss: paperModalItem.stop_loss,
+        execution_mode: "paper",
+        notes: `Simulated entry at ₹${paperOrderPrice}`,
+      });
+
+      setSuccessMsg(`🚀 Paper Trade opened for ${paperModalItem.label} (${paperModalItem.direction})!`);
+      setPaperModalItem(null);
+      setTimeout(() => setSuccessMsg(null), 5000);
+      if (viewMode === "paper_portfolio") {
+        await loadData();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to place paper trade.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClosePaperTrade = async (tradeId: string) => {
+    setLoading(true);
+    try {
+      await closeHarmonicPaperTrade(tradeId, { exit_reason: "MANUAL_EXIT" });
+      setSuccessMsg(`Position ${tradeId} closed successfully.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+      await loadData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to close paper trade.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncPaperTrades = async () => {
+    setLoading(true);
+    try {
+      const resp = await syncHarmonicPaperTrades();
+      setSuccessMsg(`Synced ${resp.updated_trades_count} active position(s) with live market quotes.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+      setPaperTrades(resp.results || []);
+      setPaperSummary(resp.summary);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sync paper trades.");
     } finally {
       setLoading(false);
     }
@@ -291,11 +381,14 @@ export function HarmonicPatternScannerShell() {
               11 Timeframes (1m → 1M)
             </span>
             <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
-              🔥 Support & Resistance Confluence
+              🔥 S/R Confluence
+            </span>
+            <span className="badge bg-success-subtle text-success border border-success-subtle">
+              📄 Paper Trading Engine
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Harmonic Reversal Zones validated against <strong>Strong Historical S/R Levels</strong>, Base Reversal ($D$) vs Live LTP, and Option Chain Max OI.
+            Institutional Harmonic Reversal Zones with <strong>Lifecycle Timestamps</strong>, Strong S/R Confluence, and <strong>1-Click Paper Trading</strong>.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -305,21 +398,28 @@ export function HarmonicPatternScannerShell() {
               className={`btn btn-sm ${viewMode === "database" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
               onClick={() => setViewMode("database")}
             >
-              <i className="bi bi-database me-1" /> Persistent DB View
+              <i className="bi bi-database me-1" /> Persistent DB
             </button>
             <button
               type="button"
               className={`btn btn-sm ${viewMode === "live" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
               onClick={() => setViewMode("live")}
             >
-              <i className="bi bi-broadcast me-1" /> Live Universe Scan
+              <i className="bi bi-broadcast me-1" /> Live Scan
             </button>
             <button
               type="button"
               className={`btn btn-sm ${viewMode === "mtf_confluence" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
               onClick={() => setViewMode("mtf_confluence")}
             >
-              <i className="bi bi-layers-half me-1" /> MTF Confluence Matrix
+              <i className="bi bi-layers-half me-1" /> MTF Matrix
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${viewMode === "paper_portfolio" ? "btn-success shadow-sm fw-semibold text-white" : "btn-light text-secondary"}`}
+              onClick={() => setViewMode("paper_portfolio")}
+            >
+              <i className="bi bi-journal-check me-1" /> 📄 Paper Portfolio
             </button>
           </div>
 
@@ -334,16 +434,19 @@ export function HarmonicPatternScannerShell() {
             ) : (
               <i className="bi bi-arrow-repeat" />
             )}
-            <span>Sync All TFs to DB</span>
+            <span>Sync All TFs</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="card shadow-sm border-0 mb-4 bg-surface">
-        <div className="card-body py-3">
-          <div className="row g-3 align-items-center">
-            {viewMode !== "mtf_confluence" && (
+      {successMsg && <div className="alert alert-success py-2 small fw-semibold shadow-sm">{successMsg}</div>}
+      {error && <div className="alert alert-danger py-2 small shadow-sm">{error}</div>}
+
+      {/* Mode 1 & 2: Filter Bar */}
+      {viewMode !== "mtf_confluence" && viewMode !== "paper_portfolio" && (
+        <div className="card shadow-sm border-0 mb-4 bg-surface">
+          <div className="card-body py-3">
+            <div className="row g-3 align-items-center">
               <div className="col-auto">
                 <label className="form-label text-secondary small mb-1">Timeframe Selection</label>
                 <select
@@ -358,134 +461,330 @@ export function HarmonicPatternScannerShell() {
                   ))}
                 </select>
               </div>
-            )}
-            <div className="col-auto">
-              <label className="form-label text-secondary small mb-1">Min Quality Score</label>
-              <select
-                className="form-select form-select-sm"
-                value={minQuality}
-                onChange={(e) => setMinQuality(parseFloat(e.target.value))}
-              >
-                <option value="0.0">All Scores (0%+)</option>
-                <option value="0.5">50% (Emerging)</option>
-                <option value="0.65">65% (Standard Default)</option>
-                <option value="0.75">75% (High Conviction)</option>
-                <option value="0.85">85% (Institutional Strict)</option>
-              </select>
-            </div>
-            {viewMode !== "database" && (
               <div className="col-auto">
-                <label className="form-label text-secondary small mb-1">Max Stocks</label>
+                <label className="form-label text-secondary small mb-1">Min Quality Score</label>
                 <select
                   className="form-select form-select-sm"
-                  value={maxStocks}
-                  onChange={(e) => setMaxStocks(parseInt(e.target.value))}
+                  value={minQuality}
+                  onChange={(e) => setMinQuality(parseFloat(e.target.value))}
                 >
-                  <option value="12">Top 12 Stocks</option>
-                  <option value="24">Top 24 Stocks</option>
-                  <option value="50">Top 50 F&O Universe</option>
+                  <option value="0.0">All Scores (0%+)</option>
+                  <option value="0.5">50% (Emerging)</option>
+                  <option value="0.65">65% (Standard Default)</option>
+                  <option value="0.75">75% (High Conviction)</option>
+                  <option value="0.85">85% (Institutional Strict)</option>
                 </select>
               </div>
-            )}
-            {viewMode !== "database" && (
-              <div className="col-auto pt-3">
-                <div className="form-check form-check-inline">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="includeIndices"
-                    checked={includeIndices}
-                    onChange={(e) => setIncludeIndices(e.target.checked)}
-                  />
-                  <label className="form-check-label small" htmlFor="includeIndices">
-                    Indices
-                  </label>
+              {viewMode !== "database" && (
+                <div className="col-auto">
+                  <label className="form-label text-secondary small mb-1">Max Stocks</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={maxStocks}
+                    onChange={(e) => setMaxStocks(parseInt(e.target.value))}
+                  >
+                    <option value="12">Top 12 Stocks</option>
+                    <option value="24">Top 24 Stocks</option>
+                    <option value="50">Top 50 F&O Universe</option>
+                  </select>
                 </div>
-                <div className="form-check form-check-inline">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="includeStocks"
-                    checked={includeStocks}
-                    onChange={(e) => setIncludeStocks(e.target.checked)}
-                  />
-                  <label className="form-check-label small" htmlFor="includeStocks">
-                    Equities
-                  </label>
+              )}
+              {viewMode !== "database" && (
+                <div className="col-auto pt-3">
+                  <div className="form-check form-check-inline">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="includeIndices"
+                      checked={includeIndices}
+                      onChange={(e) => setIncludeIndices(e.target.checked)}
+                    />
+                    <label className="form-check-label small" htmlFor="includeIndices">
+                      Indices
+                    </label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="includeStocks"
+                      checked={includeStocks}
+                      onChange={(e) => setIncludeStocks(e.target.checked)}
+                    />
+                    <label className="form-check-label small" htmlFor="includeStocks">
+                      Equities
+                    </label>
+                  </div>
                 </div>
+              )}
+              <div className="col text-end pt-3">
+                <span className="text-secondary small">
+                  {viewMode === "database" && typeof dbSummary?.latest_update === "string"
+                    ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
+                    : `Showing ${filteredGroupedResults.length} unique symbol(s) (${summary.srConfluentCount} S/R Confluent)`}
+                </span>
               </div>
-            )}
-            <div className="col text-end pt-3">
-              <span className="text-secondary small">
-                {viewMode === "database" && typeof dbSummary?.latest_update === "string"
-                  ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
-                  : viewMode === "mtf_confluence"
-                  ? `Evaluated ${mtfReports.length} MTF setups with Option Chain PCR & OI`
-                  : `Showing ${filteredGroupedResults.length} unique symbol(s) (${summary.srConfluentCount} S/R Confluent)`}
-              </span>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Summary KPI Cards with Lifecycle & S/R Confluence Breakdown */}
-      <div className="row g-3 mb-4">
-        <div className="col-6 col-md-3">
-          <div
-            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : ""}`}
-            onClick={() => setLifecycleFilter(lifecycleFilter === "OPEN_ACTIVE" ? "ALL" : "OPEN_ACTIVE")}
-            style={{ cursor: "pointer" }}
-            title="Click to filter only open active trade setups (White rows)"
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div className="text-secondary small">⚡ Open for Trade (White)</div>
-              <span className="badge bg-light text-dark border small">Filter</span>
+      {viewMode !== "paper_portfolio" && (
+        <div className="row g-3 mb-4">
+          <div className="col-6 col-md-3">
+            <div
+              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : ""}`}
+              onClick={() => setLifecycleFilter(lifecycleFilter === "OPEN_ACTIVE" ? "ALL" : "OPEN_ACTIVE")}
+              style={{ cursor: "pointer" }}
+              title="Click to filter only open active trade setups (White rows)"
+            >
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-secondary small">⚡ Open for Trade (White)</div>
+                <span className="badge bg-light text-dark border small">Filter</span>
+              </div>
+              <div className="h3 fw-bold mb-0 text-primary">{summary.openActive}</div>
             </div>
-            <div className="h3 fw-bold mb-0 text-primary">{summary.openActive}</div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div
+              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : ""}`}
+              onClick={() => setLifecycleFilter(lifecycleFilter === "TARGET_ACHIEVED" ? "ALL" : "TARGET_ACHIEVED")}
+              style={{ cursor: "pointer" }}
+              title="Click to filter targets achieved setups (Light Green rows)"
+            >
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-secondary small">🎯 Target Achieved (Green)</div>
+                <span className="badge bg-success-subtle text-success border border-success-subtle small">Filter</span>
+              </div>
+              <div className="h3 fw-bold mb-0 text-success">{summary.targetAchieved}</div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div
+              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : ""}`}
+              onClick={() => setLifecycleFilter(lifecycleFilter === "SL_BREACHED" ? "ALL" : "SL_BREACHED")}
+              style={{ cursor: "pointer" }}
+              title="Click to filter invalidated / SL breached setups (Light Yellow rows)"
+            >
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-secondary small">⚠️ SL Breached (Yellow)</div>
+                <span className="badge bg-warning-subtle text-warning border border-warning-subtle small">Filter</span>
+              </div>
+              <div className="h3 fw-bold mb-0 text-warning">{summary.slBreached}</div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="card shadow-sm border-0 p-3 bg-surface">
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-secondary small">🔥 S/R Confluent Setups</div>
+                <span className="badge bg-danger-subtle text-danger small">High Edge</span>
+              </div>
+              <div className="h3 fw-bold mb-0 text-danger">{summary.srConfluentCount}</div>
+            </div>
           </div>
         </div>
-        <div className="col-6 col-md-3">
-          <div
-            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : ""}`}
-            onClick={() => setLifecycleFilter(lifecycleFilter === "TARGET_ACHIEVED" ? "ALL" : "TARGET_ACHIEVED")}
-            style={{ cursor: "pointer" }}
-            title="Click to filter targets achieved setups (Light Green rows)"
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div className="text-secondary small">🎯 Target Achieved (Green)</div>
-              <span className="badge bg-success-subtle text-success border border-success-subtle small">Filter</span>
-            </div>
-            <div className="h3 fw-bold mb-0 text-success">{summary.targetAchieved}</div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div
-            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : ""}`}
-            onClick={() => setLifecycleFilter(lifecycleFilter === "SL_BREACHED" ? "ALL" : "SL_BREACHED")}
-            style={{ cursor: "pointer" }}
-            title="Click to filter invalidated / SL breached setups (Light Yellow rows)"
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div className="text-secondary small">⚠️ SL Breached (Yellow)</div>
-              <span className="badge bg-warning-subtle text-warning border border-warning-subtle small">Filter</span>
-            </div>
-            <div className="h3 fw-bold mb-0 text-warning">{summary.slBreached}</div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="d-flex justify-content-between align-items-center">
-              <div className="text-secondary small">🔥 S/R Confluent Setups</div>
-              <span className="badge bg-danger-subtle text-danger small">High Edge</span>
-            </div>
-            <div className="h3 fw-bold mb-0 text-danger">{summary.srConfluentCount}</div>
-          </div>
-        </div>
-      </div>
+      )}
 
-      {error && <div className="alert alert-danger py-2 small">{error}</div>}
+      {/* Mode 4: Dedicated Paper Trading Portfolio View */}
+      {viewMode === "paper_portfolio" && (
+        <div className="d-flex flex-column gap-4">
+          {/* Top Paper Trading KPI Metrics */}
+          <div className="row g-3">
+            <div className="col-6 col-md-3">
+              <div className="card shadow-sm border-0 p-3 bg-surface">
+                <div className="text-secondary small">Total Paper Trades</div>
+                <div className="h3 fw-bold mb-0 text-primary">{paperSummary?.total_trades || 0}</div>
+                <div className="text-muted small mt-1">
+                  {paperSummary?.open_trades || 0} Open | {paperSummary?.closed_trades || 0} Closed
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-md-3">
+              <div className="card shadow-sm border-0 p-3 bg-surface">
+                <div className="text-secondary small">Win Rate %</div>
+                <div className="h3 fw-bold mb-0 text-success">{paperSummary?.win_rate_pct || 0}%</div>
+                <div className="text-muted small mt-1">
+                  {paperSummary?.win_trades || 0} Wins | {paperSummary?.loss_trades || 0} Losses
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-md-3">
+              <div className="card shadow-sm border-0 p-3 bg-surface">
+                <div className="text-secondary small">Total Realized P&L</div>
+                <div className={`h3 fw-bold mb-0 ${(paperSummary?.total_realized_pnl || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                  {(paperSummary?.total_realized_pnl || 0) >= 0 ? "+" : ""}₹{paperSummary?.total_realized_pnl?.toFixed(2) || "0.00"}
+                </div>
+                <div className="text-muted small mt-1">
+                  Unrealized: ₹{paperSummary?.total_unrealized_pnl?.toFixed(2) || "0.00"}
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-md-3">
+              <div className="card shadow-sm border-0 p-3 bg-surface">
+                <div className="text-secondary small">Profit Factor</div>
+                <div className="h3 fw-bold mb-0 text-primary">{paperSummary?.profit_factor || 1.0}</div>
+                <div className="text-muted small mt-1">
+                  Net P&L: ₹{paperSummary?.net_pnl?.toFixed(2) || "0.00"}
+                </div>
+              </div>
+            </div>
+          </div>
 
-      {/* MTF Universe Confluence Mode View */}
+          {/* Paper Trades Positions & History Table */}
+          <div className="card shadow-sm border-0 bg-surface">
+            <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h5 className="mb-0 fw-bold">Harmonic Paper Trading Ledger</h5>
+                <span className="text-muted small">Live simulated execution with automatic target & stop loss triggers</span>
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <div className="btn-group btn-group-sm" role="group">
+                  <button
+                    type="button"
+                    className={`btn ${paperStatusFilter === "ALL" ? "btn-dark fw-bold" : "btn-outline-secondary"}`}
+                    onClick={() => setPaperStatusFilter("ALL")}
+                  >
+                    All ({paperSummary?.total_trades || 0})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${paperStatusFilter === "OPEN" ? "btn-primary fw-bold" : "btn-outline-primary"}`}
+                    onClick={() => setPaperStatusFilter("OPEN")}
+                  >
+                    Open ({paperSummary?.open_trades || 0})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${paperStatusFilter === "CLOSED" ? "btn-success fw-bold" : "btn-outline-success"}`}
+                    onClick={() => setPaperStatusFilter("CLOSED")}
+                  >
+                    Closed ({paperSummary?.closed_trades || 0})
+                  </button>
+                </div>
+                <button
+                  className="btn btn-outline-success btn-sm d-flex align-items-center gap-1"
+                  onClick={handleSyncPaperTrades}
+                  disabled={loading}
+                >
+                  <i className="bi bi-arrow-repeat" />
+                  <span>Sync Quotes & Auto-Exit</span>
+                </button>
+              </div>
+            </div>
+            <div className="table-responsive">
+              <table className="table align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Trade ID & Symbol</th>
+                    <th>Pattern & TF</th>
+                    <th>Entry & Qty</th>
+                    <th>Current LTP</th>
+                    <th>Target 1 & 2</th>
+                    <th>Stop Loss</th>
+                    <th>P&L (Pts / ₹)</th>
+                    <th>Status & Timestamps</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paperTrades.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-5 text-secondary">
+                        No paper trades found for current filter. Take a 1-click paper trade from the Database or Live Scanner tab!
+                      </td>
+                    </tr>
+                  ) : (
+                    paperTrades.map((pt) => {
+                      const isBull = pt.direction === "BULLISH";
+                      const isOpen = pt.status === "OPEN";
+                      const pnlAmt = isOpen ? pt.unrealized_pnl_amount : (pt.realized_pnl_amount || 0);
+                      const pnlPts = isOpen ? pt.unrealized_pnl_points : (pt.realized_pnl_points || 0);
+
+                      return (
+                        <tr key={pt.trade_id} className={isOpen ? "bg-surface" : "bg-light bg-opacity-50"}>
+                          <td>
+                            <div className="fw-bold font-monospace">{pt.symbol_label}</div>
+                            <span className="badge bg-light text-muted border small font-monospace">
+                              {pt.trade_id}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="d-flex align-items-center gap-1">
+                              <span className="badge bg-primary-subtle text-primary fw-semibold small">
+                                {pt.pattern_name}
+                              </span>
+                              <span className={`badge ${isBull ? "bg-success" : "bg-danger"}`}>
+                                {pt.direction}
+                              </span>
+                            </div>
+                            <div className="text-muted small font-monospace mt-1">{pt.timeframe.toUpperCase()}</div>
+                          </td>
+                          <td>
+                            <div className="fw-bold font-monospace text-primary">₹{pt.entry_price}</div>
+                            <div className="text-muted small font-monospace">Qty: {pt.quantity}</div>
+                          </td>
+                          <td>
+                            <div className="fw-bold font-monospace">₹{pt.current_price}</div>
+                          </td>
+                          <td>
+                            <div className="small font-monospace text-success">T1: ₹{pt.target_1}</div>
+                            <div className="small font-monospace text-success">T2: ₹{pt.target_2}</div>
+                          </td>
+                          <td>
+                            <div className="small font-monospace text-danger">SL: ₹{pt.stop_loss}</div>
+                          </td>
+                          <td>
+                            <div className={`fw-bold font-monospace ${pnlAmt >= 0 ? "text-success" : "text-danger"}`}>
+                              {pnlAmt >= 0 ? "+" : ""}₹{pnlAmt.toFixed(2)}
+                            </div>
+                            <div className={`small font-monospace ${pnlPts >= 0 ? "text-success" : "text-danger"}`}>
+                              {pnlPts >= 0 ? `+${pnlPts.toFixed(1)}` : pnlPts.toFixed(1)} pts
+                            </div>
+                          </td>
+                          <td>
+                            <div className="d-flex flex-column gap-1 small">
+                              <div>
+                                <span className={`badge ${isOpen ? "bg-primary" : "bg-secondary"}`}>
+                                  {pt.status} {pt.exit_reason ? `(${pt.exit_reason})` : ""}
+                                </span>
+                              </div>
+                              <span className="text-muted font-monospace" style={{ fontSize: "11px" }}>
+                                In: {new Date(pt.opened_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {pt.closed_at && (
+                                  <> → Out: {new Date(pt.closed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</>
+                                )}
+                                {pt.hold_duration_mins !== undefined && pt.hold_duration_mins !== null && (
+                                  <span className="text-primary ms-1">({pt.hold_duration_mins}m)</span>
+                                )}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            {isOpen ? (
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleClosePaperTrade(pt.trade_id)}
+                                disabled={loading}
+                              >
+                                Exit
+                              </button>
+                            ) : (
+                              <span className="badge bg-light text-muted border">Completed</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode 3: MTF Universe Confluence View */}
       {viewMode === "mtf_confluence" && (
         <div className="card shadow-sm border-0 bg-surface mb-4">
           <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
@@ -660,8 +959,8 @@ export function HarmonicPatternScannerShell() {
         </div>
       )}
 
-      {/* Main Layout for Database & Live View (Deduplicated with Timeframe Tabs) */}
-      {viewMode !== "mtf_confluence" && (
+      {/* Main Layout for Database & Live View */}
+      {viewMode !== "mtf_confluence" && viewMode !== "paper_portfolio" && (
         <div className="row g-4">
           {/* Qualified Stocks Table (Grouped by Symbol) */}
           <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>
@@ -721,7 +1020,7 @@ export function HarmonicPatternScannerShell() {
                 <table className="table align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Symbol & Status</th>
+                      <th>Symbol & Prediction Audit</th>
                       <th>Timeframe Formations</th>
                       <th>Base $D$ vs Live LTP</th>
                       <th>Strong S/R Levels</th>
@@ -770,6 +1069,15 @@ export function HarmonicPatternScannerShell() {
                                 <span className="badge bg-light text-muted border small font-monospace">
                                   {group.kind.toUpperCase()}
                                 </span>
+                              </div>
+                              {/* Prediction Date & Outcome Audit Trail */}
+                              <div className="text-muted font-monospace mt-1" style={{ fontSize: "10.5px" }}>
+                                Pred: {prim.predicted_at ? new Date(prim.predicted_at).toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                {prim.target_1_hit_at && (
+                                  <span className="text-success ms-1">
+                                    | T1: {new Date(prim.target_1_hit_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td>
@@ -888,12 +1196,21 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </td>
                             <td>
-                              <button
-                                className="btn btn-sm btn-outline-primary"
-                                onClick={() => loadVisualChart(prim, prim.timeframe)}
-                              >
-                                Chart
-                              </button>
+                              <div className="d-flex flex-column gap-1">
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={() => loadVisualChart(prim, prim.timeframe)}
+                                >
+                                  Chart
+                                </button>
+                                <button
+                                  className="btn btn-xs btn-outline-success fw-bold d-flex align-items-center gap-1 justify-content-center"
+                                  onClick={() => handleOpenPaperTradeModal(prim)}
+                                  title="Open simulated paper trade position on this harmonic setup"
+                                >
+                                  📄 Paper
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -959,6 +1276,13 @@ export function HarmonicPatternScannerShell() {
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     <button
+                      className="btn btn-sm btn-success text-white fw-bold d-flex align-items-center gap-1"
+                      onClick={() => handleOpenPaperTradeModal(selectedStock)}
+                    >
+                      <i className="bi bi-journal-plus" />
+                      <span>Take Paper Trade</span>
+                    </button>
+                    <button
                       className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
                       onClick={() => setIsMaximized(!isMaximized)}
                       title={isMaximized ? "Restore default window (Esc)" : "Maximize chart to full screen"}
@@ -978,7 +1302,7 @@ export function HarmonicPatternScannerShell() {
                 </div>
 
                 <div className="card-body d-flex flex-column">
-                  {/* Highlighted Timeframe Selector Bar for the Selected Stock Chart */}
+                  {/* Highlighted Timeframe Selector Bar */}
                   <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div className="d-flex flex-wrap gap-1">
                       {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => {
@@ -1035,7 +1359,7 @@ export function HarmonicPatternScannerShell() {
                     </div>
                   ) : chartData && chartData.candles.length > 0 ? (
                     <div className="d-flex flex-column flex-grow-1">
-                      {/* SVG Interactive Chart Visualizer with XABCD Harmonic Wave Geometry & S/R Levels */}
+                      {/* SVG Interactive Chart Visualizer */}
                       <div
                         className="border rounded bg-dark p-2 mb-3 shadow-inner flex-grow-1 position-relative"
                         style={{ minHeight: isMaximized ? "520px" : "360px" }}
@@ -1112,7 +1436,7 @@ export function HarmonicPatternScannerShell() {
                               : (viewW - paddingX);
                             const yD = toY(dPrice);
 
-                            // Accurate Institutional Fibonacci Ratios
+                            // Fibonacci Ratios
                             const diffXA = Math.abs(selectedStock.a.price - selectedStock.x.price) || 1;
                             const diffAB = Math.abs(selectedStock.b.price - selectedStock.a.price) || 1;
                             const diffBC = Math.abs(selectedStock.c.price - selectedStock.b.price) || 1;
@@ -1199,7 +1523,7 @@ export function HarmonicPatternScannerShell() {
                                   </g>
                                 ))}
 
-                                {/* 4. Shaded Harmonic Dual Triangles (Delta XAB & Delta BCD) */}
+                                {/* 4. Shaded Harmonic Dual Triangles */}
                                 <polygon
                                   points={`${xX},${yX} ${xA},${yA} ${xB},${yB}`}
                                   fill={tri1Color}
@@ -1215,7 +1539,7 @@ export function HarmonicPatternScannerShell() {
                                   strokeDasharray="2 2"
                                 />
 
-                                {/* 5. Connecting Harmonic Legs (X -> A -> B -> C -> D) */}
+                                {/* 5. Connecting Harmonic Legs */}
                                 <polyline
                                   points={`${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`}
                                   fill="none"
@@ -1262,7 +1586,7 @@ export function HarmonicPatternScannerShell() {
                                   );
                                 })}
 
-                                {/* 7. Fibonacci Ratio Badges Right on the Geometric Lines */}
+                                {/* 7. Fibonacci Ratio Badges */}
                                 <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
                                   <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
                                   <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
@@ -1291,7 +1615,7 @@ export function HarmonicPatternScannerShell() {
                                   </text>
                                 </g>
 
-                                {/* 8. Fibonacci Target Ladder Lines */}
+                                {/* 8. Fibonacci Target Ladder */}
                                 <line
                                   x1="0"
                                   y1={toY(selectedStock.target_1)}
@@ -1350,7 +1674,7 @@ export function HarmonicPatternScannerShell() {
                                   SL: ₹{selectedStock.stop_loss}
                                 </text>
 
-                                {/* 9. Vertex Markers & Labels for X, A, B, C, D */}
+                                {/* 9. Vertex Markers & Labels */}
                                 {[
                                   { label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" },
                                   { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
@@ -1435,7 +1759,7 @@ export function HarmonicPatternScannerShell() {
                                 <div className="text-secondary">PRZ Status</div>
                                 <div className="fw-bold">
                                   {activeMtfReport.in_prz ? (
-                                    <span className="text-success">● Inside PRZ (Reversal Ready)</span>
+                                    <span className="text-success">● Inside PRZ</span>
                                   ) : (
                                     <span className="text-muted">○ Approaching PRZ</span>
                                   )}
@@ -1484,7 +1808,7 @@ export function HarmonicPatternScannerShell() {
                         </div>
                       )}
 
-                      {/* Explicit Base Price vs Live LTP Execution Tracker & S/R Confluence */}
+                      {/* Execution Tracker Card & S/R Confluence */}
                       {(() => {
                         const isBull = selectedStock.direction === "BULLISH";
                         const baseP = selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid;
@@ -1571,50 +1895,6 @@ export function HarmonicPatternScannerShell() {
                           </div>
                         );
                       })()}
-
-                      {/* Coordinates & Target Ladder Details */}
-                      <div className="row g-2 small">
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-body-tertiary">
-                            <div className="text-secondary">Point X → A Swing</div>
-                            <div className="fw-bold">
-                              ₹{selectedStock.x.price} → ₹{selectedStock.a.price}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-body-tertiary">
-                            <div className="text-secondary">Point B → C Retracement</div>
-                            <div className="fw-bold">
-                              ₹{selectedStock.b.price} → ₹{selectedStock.c.price}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-body-tertiary">
-                            <div className="text-secondary">Point D Predicted PRZ</div>
-                            <div className="fw-bold text-primary">₹{selectedStock.prz_mid} (₹{selectedStock.prz_low} - ₹{selectedStock.prz_high})</div>
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-success-subtle text-success">
-                            <div>Target 1 (38.2% CD)</div>
-                            <div className="fw-bold">₹{selectedStock.target_1}</div>
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-success-subtle text-success">
-                            <div>Target 2 (61.8% CD)</div>
-                            <div className="fw-bold">₹{selectedStock.target_2}</div>
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-4">
-                          <div className="border rounded p-2 bg-danger-subtle text-danger">
-                            <div>Terminal Stop Loss (X-Exceed)</div>
-                            <div className="fw-bold">₹{selectedStock.stop_loss}</div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-5 text-secondary">
@@ -1625,6 +1905,88 @@ export function HarmonicPatternScannerShell() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 1-Click Paper Trade Order Modal */}
+      {paperModalItem && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 p-3 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center"
+          style={{ zIndex: 1080, backdropFilter: "blur(4px)" }}
+        >
+          <div className="card shadow-lg border-0 bg-surface" style={{ maxWidth: "480px", width: "100%" }}>
+            <div className="card-header bg-transparent py-3 border-bottom d-flex justify-content-between align-items-center">
+              <h5 className="mb-0 fw-bold d-flex align-items-center gap-2">
+                <i className="bi bi-journal-plus text-success" />
+                <span>Take Paper Trade</span>
+              </h5>
+              <button className="btn-close" onClick={() => setPaperModalItem(null)} />
+            </div>
+            <div className="card-body">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                  <h4 className="fw-bold mb-0">{paperModalItem.label}</h4>
+                  <span className="badge bg-primary-subtle text-primary font-monospace">
+                    {paperModalItem.pattern_name} ({paperModalItem.timeframe.toUpperCase()})
+                  </span>
+                </div>
+                <span className={`badge px-3 py-2 fs-6 ${paperModalItem.direction === "BULLISH" ? "bg-success" : "bg-danger"}`}>
+                  {paperModalItem.direction}
+                </span>
+              </div>
+
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <label className="form-label text-secondary small mb-1">Entry Price (₹)</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    className="form-control font-monospace fw-bold"
+                    value={paperOrderPrice}
+                    onChange={(e) => setPaperOrderPrice(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label text-secondary small mb-1">Order Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control font-monospace fw-bold"
+                    value={paperOrderQty}
+                    onChange={(e) => setPaperOrderQty(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-body-tertiary p-3 rounded mb-3 small font-monospace">
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-secondary">Target 1:</span>
+                  <strong className="text-success">₹{paperModalItem.target_1}</strong>
+                </div>
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-secondary">Target 2:</span>
+                  <strong className="text-success">₹{paperModalItem.target_2}</strong>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span className="text-secondary">Stop Loss:</span>
+                  <strong className="text-danger">₹{paperModalItem.stop_loss}</strong>
+                </div>
+              </div>
+
+              <div className="d-flex gap-2">
+                <button className="btn btn-light flex-grow-1" onClick={() => setPaperModalItem(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-success flex-grow-1 fw-bold text-white shadow-sm"
+                  onClick={handleConfirmPaperTrade}
+                  disabled={loading}
+                >
+                  {loading ? "Placing..." : "Confirm Paper Trade"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

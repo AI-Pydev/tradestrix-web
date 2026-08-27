@@ -55,6 +55,78 @@ export type HarmonicPatternScanItem = {
   nearest_support?: number | null;
   nearest_resistance?: number | null;
   sr_confluence?: boolean;
+  predicted_at?: string;
+  target_1_hit_at?: string | null;
+  target_2_hit_at?: string | null;
+  stop_loss_hit_at?: string | null;
+  trade_outcome?: "OPEN" | "T1_HIT" | "T2_HIT" | "SL_BREACHED" | "EXPIRED" | string;
+  hold_duration_mins?: number | null;
+};
+
+export type HarmonicPaperTrade = {
+  trade_id: string;
+  pattern_id: string;
+  instrument_key: string;
+  symbol_label: string;
+  kind: "index" | "stock";
+  direction: "BULLISH" | "BEARISH";
+  pattern_name: string;
+  timeframe: string;
+  entry_price: number;
+  quantity: number;
+  target_1: number;
+  target_2: number;
+  stop_loss: number;
+  current_price: number;
+  unrealized_pnl_points: number;
+  unrealized_pnl_amount: number;
+  status: "OPEN" | "CLOSED";
+  exit_price?: number | null;
+  exit_reason?: string | null;
+  realized_pnl_points?: number | null;
+  realized_pnl_amount?: number | null;
+  opened_at: string;
+  closed_at?: string | null;
+  hold_duration_mins?: number | null;
+  execution_mode: "paper" | "live";
+  notes?: string | null;
+};
+
+export type HarmonicPaperTradeSummary = {
+  total_trades: number;
+  open_trades: number;
+  closed_trades: number;
+  win_trades: number;
+  loss_trades: number;
+  win_rate_pct: number;
+  total_realized_pnl: number;
+  total_unrealized_pnl: number;
+  net_pnl: number;
+  profit_factor: number;
+};
+
+export type HarmonicPaperTradesResponse = {
+  count: number;
+  status_filter: string;
+  results: HarmonicPaperTrade[];
+  summary: HarmonicPaperTradeSummary;
+};
+
+export type CreatePaperTradePayload = {
+  pattern_id: string;
+  instrument_key: string;
+  symbol_label: string;
+  kind?: "index" | "stock";
+  direction: "BULLISH" | "BEARISH";
+  pattern_name: string;
+  timeframe: string;
+  entry_price: number;
+  quantity?: number;
+  target_1: number;
+  target_2: number;
+  stop_loss: number;
+  execution_mode?: "paper" | "live";
+  notes?: string;
 };
 
 export type HarmonicPatternScanResponse = {
@@ -330,3 +402,96 @@ export async function fetchMTFUniverseConfluence(params?: {
   await throwIfApiError(response);
   return response.json();
 }
+
+export async function fetchHarmonicPaperTrades(params?: {
+  status?: "ALL" | "OPEN" | "CLOSED";
+  limit?: number;
+}): Promise<HarmonicPaperTradesResponse> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.limit) query.set("limit", String(params.limit));
+
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/paper-trades?${query.toString()}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function createHarmonicPaperTrade(
+  payload: CreatePaperTradePayload
+): Promise<{ status: string; trade: HarmonicPaperTrade }> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/paper-trades`,
+    {
+      method: "POST",
+      headers: {
+        ...buildAuthorizedHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function closeHarmonicPaperTrade(
+  tradeId: string,
+  payload?: { exit_price?: number; exit_reason?: string }
+): Promise<{ status: string; trade: HarmonicPaperTrade }> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/paper-trades/${encodeURIComponent(
+      tradeId
+    )}/close`,
+    {
+      method: "POST",
+      headers: {
+        ...buildAuthorizedHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload || { exit_reason: "MANUAL" }),
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function syncHarmonicPaperTrades(
+  brokerId: string = "upstox"
+): Promise<{
+  status: string;
+  updated_trades_count: number;
+  results: HarmonicPaperTrade[];
+  summary: HarmonicPaperTradeSummary;
+}> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/paper-trades/sync-monitor?broker_id=${encodeURIComponent(
+      brokerId
+    )}`,
+    {
+      method: "POST",
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchHarmonicPaperSummary(): Promise<HarmonicPaperTradeSummary> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/paper-trades/summary`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
