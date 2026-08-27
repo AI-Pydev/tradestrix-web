@@ -264,17 +264,20 @@ export function HarmonicPatternScannerShell() {
     let targetAchieved = 0;
     let openActive = 0;
     let slBreached = 0;
+    let srConfluentCount = 0;
 
     groupedResults.forEach((g) => {
       const life = getPatternLifecycle(g.primary_pattern, g.current_price);
       if (life.status === "TARGET_ACHIEVED") targetAchieved++;
       else if (life.status === "SL_BREACHED") slBreached++;
       else openActive++;
+
+      if (g.primary_pattern.sr_confluence) srConfluentCount++;
     });
 
     const bullish = results.filter((r) => r.direction === "BULLISH").length;
     const bearish = results.filter((r) => r.direction === "BEARISH").length;
-    return { total, uniqueSymbols, targetAchieved, openActive, slBreached, bullish, bearish };
+    return { total, uniqueSymbols, targetAchieved, openActive, slBreached, srConfluentCount, bullish, bearish };
   }, [results, groupedResults]);
 
   return (
@@ -287,12 +290,12 @@ export function HarmonicPatternScannerShell() {
             <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
               11 Timeframes (1m → 1M)
             </span>
-            <span className="badge bg-success-subtle text-success border border-success-subtle">
-              Lifecycle Color Tracking
+            <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+              🔥 Support & Resistance Confluence
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Real-time Harmonic Scanner with dynamic color coding: <strong>Light Green</strong> (Target Hit), <strong>White</strong> (Open for Trade), and <strong>Light Yellow</strong> (SL Invalidation).
+            Harmonic Reversal Zones validated against <strong>Strong Historical S/R Levels</strong>, Base Reversal ($D$) vs Live LTP, and Option Chain Max OI.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -418,14 +421,14 @@ export function HarmonicPatternScannerShell() {
                   ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
                   : viewMode === "mtf_confluence"
                   ? `Evaluated ${mtfReports.length} MTF setups with Option Chain PCR & OI`
-                  : `Showing ${filteredGroupedResults.length} unique symbol(s) across ${results.length} active pattern(s)`}
+                  : `Showing ${filteredGroupedResults.length} unique symbol(s) (${summary.srConfluentCount} S/R Confluent)`}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Summary KPI Cards with Lifecycle Breakdown */}
+      {/* Summary KPI Cards with Lifecycle & S/R Confluence Breakdown */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-3">
           <div
@@ -470,17 +473,12 @@ export function HarmonicPatternScannerShell() {
           </div>
         </div>
         <div className="col-6 col-md-3">
-          <div
-            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "ALL" ? "ring-2 ring-secondary border border-secondary" : ""}`}
-            onClick={() => setLifecycleFilter("ALL")}
-            style={{ cursor: "pointer" }}
-            title="Click to show all setups"
-          >
+          <div className="card shadow-sm border-0 p-3 bg-surface">
             <div className="d-flex justify-content-between align-items-center">
-              <div className="text-secondary small">All Unique Symbols</div>
-              <span className="badge bg-primary-subtle text-primary small">Reset</span>
+              <div className="text-secondary small">🔥 S/R Confluent Setups</div>
+              <span className="badge bg-danger-subtle text-danger small">High Edge</span>
             </div>
-            <div className="h3 fw-bold mb-0 text-info">{summary.uniqueSymbols}</div>
+            <div className="h3 fw-bold mb-0 text-danger">{summary.srConfluentCount}</div>
           </div>
         </div>
       </div>
@@ -726,7 +724,7 @@ export function HarmonicPatternScannerShell() {
                       <th>Symbol & Status</th>
                       <th>Timeframe Formations</th>
                       <th>Base $D$ vs Live LTP</th>
-                      <th>Quality</th>
+                      <th>Strong S/R Levels</th>
                       <th>Live Target & Risk</th>
                       <th>Action</th>
                     </tr>
@@ -855,21 +853,25 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </td>
                             <td>
-                              <div className="fw-bold">{(prim.quality_score * 100).toFixed(0)}%</div>
-                              <div
-                                className="progress"
-                                style={{ height: "4px", width: "45px" }}
-                              >
-                                <div
-                                  className={`progress-bar ${
-                                    prim.quality_score >= 0.8
-                                      ? "bg-success"
-                                      : prim.quality_score >= 0.7
-                                      ? "bg-primary"
-                                      : "bg-warning"
-                                  }`}
-                                  style={{ width: `${prim.quality_score * 100}%` }}
-                                />
+                              {/* Strong S/R Levels and Confluence Badge */}
+                              <div className="d-flex flex-column gap-1 small font-monospace">
+                                <div>
+                                  <span className="text-secondary">Supp: </span>
+                                  <strong className="text-success">
+                                    {prim.nearest_support ? `₹${prim.nearest_support}` : "—"}
+                                  </strong>
+                                </div>
+                                <div>
+                                  <span className="text-secondary">Res: </span>
+                                  <strong className="text-danger">
+                                    {prim.nearest_resistance ? `₹${prim.nearest_resistance}` : "—"}
+                                  </strong>
+                                </div>
+                                {prim.sr_confluence && (
+                                  <span className="badge bg-danger-subtle text-danger border border-danger-subtle small fw-bold">
+                                    🔥 S/R CONFLUENT
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td>
@@ -926,7 +928,7 @@ export function HarmonicPatternScannerShell() {
                 <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-bottom">
                   <div>
                     <div className="d-flex align-items-center gap-2 flex-wrap">
-                      <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave Geometry</h5>
+                      <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave & S/R Confluence</h5>
                       <span
                         className={`badge ${
                           selectedStock.direction === "BULLISH" ? "bg-success" : "bg-danger"
@@ -942,6 +944,11 @@ export function HarmonicPatternScannerShell() {
                           </span>
                         );
                       })()}
+                      {selectedStock.sr_confluence && (
+                        <span className="badge bg-danger-subtle text-danger border border-danger-subtle small fw-bold">
+                          🔥 S/R ALIGNED
+                        </span>
+                      )}
                     </div>
                     <span className="text-secondary small">
                       TF: <strong>{activeChartTf.toUpperCase()}</strong> | Base Reversal: ₹
@@ -1023,12 +1030,12 @@ export function HarmonicPatternScannerShell() {
                     <div className="text-center py-5 my-auto">
                       <span className="spinner-border text-primary" role="status" />
                       <div className="text-secondary small mt-2">
-                        Computing XABCD harmonic wave geometry for {activeChartTf.toUpperCase()}...
+                        Computing XABCD harmonic wave geometry & S/R clusters for {activeChartTf.toUpperCase()}...
                       </div>
                     </div>
                   ) : chartData && chartData.candles.length > 0 ? (
                     <div className="d-flex flex-column flex-grow-1">
-                      {/* SVG Interactive Chart Visualizer with XABCD Harmonic Wave Geometry */}
+                      {/* SVG Interactive Chart Visualizer with XABCD Harmonic Wave Geometry & S/R Levels */}
                       <div
                         className="border rounded bg-dark p-2 mb-3 shadow-inner flex-grow-1 position-relative"
                         style={{ minHeight: isMaximized ? "520px" : "360px" }}
@@ -1050,7 +1057,7 @@ export function HarmonicPatternScannerShell() {
                             const paddingX = isMaximized ? 60 : 40;
                             const chartW = viewW - paddingX * 2;
 
-                            // Include XABCD, PRZ, and Targets in scale calculation
+                            // Include XABCD, PRZ, Targets, and S/R in scale calculation
                             const allPrices = [
                               ...highs,
                               ...lows,
@@ -1064,6 +1071,8 @@ export function HarmonicPatternScannerShell() {
                               selectedStock.target_1,
                               selectedStock.target_2,
                               selectedStock.stop_loss,
+                              ...(chartData.support_levels || []),
+                              ...(chartData.resistance_levels || []),
                             ];
                             const minP = Math.min(...allPrices);
                             const maxP = Math.max(...allPrices);
@@ -1140,7 +1149,57 @@ export function HarmonicPatternScannerShell() {
                                   PRZ Zone: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
                                 </text>
 
-                                {/* 2. Shaded Harmonic Dual Triangles (Delta XAB & Delta BCD) */}
+                                {/* 2. Horizontal Strong Support Lines */}
+                                {chartData.support_levels?.map((sup, idx) => (
+                                  <g key={`sup-${idx}`}>
+                                    <line
+                                      x1="0"
+                                      y1={toY(sup)}
+                                      x2={viewW}
+                                      y2={toY(sup)}
+                                      stroke="#22c55e"
+                                      strokeWidth="1.2"
+                                      strokeDasharray="6 4"
+                                      opacity="0.65"
+                                    />
+                                    <text
+                                      x="10"
+                                      y={toY(sup) - 4}
+                                      fill="#4ade80"
+                                      fontSize={isMaximized ? "10" : "8"}
+                                      fontWeight="semibold"
+                                    >
+                                      Major Support: ₹{sup}
+                                    </text>
+                                  </g>
+                                ))}
+
+                                {/* 3. Horizontal Strong Resistance Lines */}
+                                {chartData.resistance_levels?.map((res, idx) => (
+                                  <g key={`res-${idx}`}>
+                                    <line
+                                      x1="0"
+                                      y1={toY(res)}
+                                      x2={viewW}
+                                      y2={toY(res)}
+                                      stroke="#ef4444"
+                                      strokeWidth="1.2"
+                                      strokeDasharray="6 4"
+                                      opacity="0.65"
+                                    />
+                                    <text
+                                      x="10"
+                                      y={toY(res) - 4}
+                                      fill="#f87171"
+                                      fontSize={isMaximized ? "10" : "8"}
+                                      fontWeight="semibold"
+                                    >
+                                      Major Resistance: ₹{res}
+                                    </text>
+                                  </g>
+                                ))}
+
+                                {/* 4. Shaded Harmonic Dual Triangles (Delta XAB & Delta BCD) */}
                                 <polygon
                                   points={`${xX},${yX} ${xA},${yA} ${xB},${yB}`}
                                   fill={tri1Color}
@@ -1156,7 +1215,7 @@ export function HarmonicPatternScannerShell() {
                                   strokeDasharray="2 2"
                                 />
 
-                                {/* 3. Connecting Harmonic Legs (X -> A -> B -> C -> D) */}
+                                {/* 5. Connecting Harmonic Legs (X -> A -> B -> C -> D) */}
                                 <polyline
                                   points={`${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`}
                                   fill="none"
@@ -1177,40 +1236,7 @@ export function HarmonicPatternScannerShell() {
                                   strokeDasharray="4 4"
                                 />
 
-                                {/* Dashed alignment from X -> B */}
-                                <line
-                                  x1={xX}
-                                  y1={yX}
-                                  x2={xB}
-                                  y2={yB}
-                                  stroke="#64748b"
-                                  strokeWidth="1"
-                                  strokeDasharray="3 3"
-                                />
-
-                                {/* Dashed alignment from A -> C */}
-                                <line
-                                  x1={xA}
-                                  y1={yA}
-                                  x2={xC}
-                                  y2={yC}
-                                  stroke="#64748b"
-                                  strokeWidth="1"
-                                  strokeDasharray="3 3"
-                                />
-
-                                {/* Dashed alignment from B -> D */}
-                                <line
-                                  x1={xB}
-                                  y1={yB}
-                                  x2={xD}
-                                  y2={yD}
-                                  stroke="#64748b"
-                                  strokeWidth="1"
-                                  strokeDasharray="3 3"
-                                />
-
-                                {/* 4. Candlesticks */}
+                                {/* 6. Candlesticks */}
                                 {candles.map((c, i) => {
                                   const x = (i / (candles.length - 1 || 1)) * chartW + paddingX;
                                   const isGreen = c.close >= c.open;
@@ -1236,7 +1262,7 @@ export function HarmonicPatternScannerShell() {
                                   );
                                 })}
 
-                                {/* 5. Fibonacci Ratio Badges Right on the Geometric Lines */}
+                                {/* 7. Fibonacci Ratio Badges Right on the Geometric Lines */}
                                 <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
                                   <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
                                   <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
@@ -1265,7 +1291,7 @@ export function HarmonicPatternScannerShell() {
                                   </text>
                                 </g>
 
-                                {/* 6. Fibonacci Target Ladder Lines */}
+                                {/* 8. Fibonacci Target Ladder Lines */}
                                 <line
                                   x1="0"
                                   y1={toY(selectedStock.target_1)}
@@ -1324,7 +1350,7 @@ export function HarmonicPatternScannerShell() {
                                   SL: ₹{selectedStock.stop_loss}
                                 </text>
 
-                                {/* 7. Vertex Markers & Labels for X, A, B, C, D */}
+                                {/* 9. Vertex Markers & Labels for X, A, B, C, D */}
                                 {[
                                   { label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" },
                                   { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
@@ -1458,7 +1484,7 @@ export function HarmonicPatternScannerShell() {
                         </div>
                       )}
 
-                      {/* Explicit Base Price vs Live LTP Execution Tracker */}
+                      {/* Explicit Base Price vs Live LTP Execution Tracker & S/R Confluence */}
                       {(() => {
                         const isBull = selectedStock.direction === "BULLISH";
                         const baseP = selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid;
@@ -1471,10 +1497,17 @@ export function HarmonicPatternScannerShell() {
 
                         return (
                           <div className="card border-0 bg-body-tertiary p-3 mb-3">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="fw-bold small text-primary">
-                                🎯 Base Reversal ($D$) Anchor vs Live Market Execution
-                              </span>
+                            <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                              <div className="d-flex align-items-center gap-2">
+                                <span className="fw-bold small text-primary">
+                                  🎯 Base Reversal ($D$) Anchor vs Live Market Execution
+                                </span>
+                                {selectedStock.sr_confluence && (
+                                  <span className="badge bg-danger-subtle text-danger border border-danger-subtle small fw-bold">
+                                    🔥 S/R CONFLUENT
+                                  </span>
+                                )}
+                              </div>
                               <span className="badge bg-dark font-monospace">
                                 Live R:R: 1 : {liveRR.toFixed(2)}
                               </span>
@@ -1512,6 +1545,26 @@ export function HarmonicPatternScannerShell() {
                                     ₹{selectedStock.stop_loss} ({liveRisk >= 0 ? `-${liveRisk.toFixed(1)} pts` : "Breached"})
                                   </div>
                                   <div className="text-muted small">Terminal Invalidation</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Strong Support & Resistance Summary Row */}
+                            <div className="row g-2 small mt-2">
+                              <div className="col-12 col-md-6">
+                                <div className="border rounded p-2 bg-body d-flex justify-content-between align-items-center">
+                                  <span className="text-secondary">Major Support Floor:</span>
+                                  <strong className="text-success font-monospace">
+                                    {selectedStock.nearest_support ? `₹${selectedStock.nearest_support}` : "— (No major support below)"}
+                                  </strong>
+                                </div>
+                              </div>
+                              <div className="col-12 col-md-6">
+                                <div className="border rounded p-2 bg-body d-flex justify-content-between align-items-center">
+                                  <span className="text-secondary">Major Resistance Ceiling:</span>
+                                  <strong className="text-danger font-monospace">
+                                    {selectedStock.nearest_resistance ? `₹${selectedStock.nearest_resistance}` : "— (Clean air above)"}
+                                  </strong>
                                 </div>
                               </div>
                             </div>

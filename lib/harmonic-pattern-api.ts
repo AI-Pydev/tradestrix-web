@@ -52,6 +52,9 @@ export type HarmonicPatternScanItem = {
   updated_at?: string;
   timeframe: string;
   is_active?: boolean;
+  nearest_support?: number | null;
+  nearest_resistance?: number | null;
+  sr_confluence?: boolean;
 };
 
 export type HarmonicPatternScanResponse = {
@@ -90,6 +93,9 @@ export type HarmonicVisualChartResponse = {
     direction: "BULLISH" | "BEARISH";
     state: string;
     quality_score: number;
+    nearest_support?: number | null;
+    nearest_resistance?: number | null;
+    sr_confluence?: boolean;
     x: { price: number; time: string };
     a: { price: number; time: string };
     b: { price: number; time: string };
@@ -110,6 +116,10 @@ export type HarmonicVisualChartResponse = {
     price: number;
     kind: "PEAK" | "VALLEY";
   }>;
+  support_levels?: number[];
+  resistance_levels?: number[];
+  nearest_support?: number | null;
+  nearest_resistance?: number | null;
 };
 
 export type MTFConfluenceReport = {
