@@ -128,3 +128,4 @@ export async function fetchHarmonicVisualChart(
   await throwIfApiError(response);
   return response.json();
 }
+

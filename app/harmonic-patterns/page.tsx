@@ -3,3 +3,4 @@ import { HarmonicPatternScannerShell } from "@/components/harmonic-pattern-scann
 export default function HarmonicPatternsPage() {
   return <HarmonicPatternScannerShell />;
 }
+
