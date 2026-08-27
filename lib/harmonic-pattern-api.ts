@@ -495,3 +495,89 @@ export async function fetchHarmonicPaperSummary(): Promise<HarmonicPaperTradeSum
   return response.json();
 }
 
+export type HarmonicAutoTradeSettings = {
+  enabled: boolean;
+  execution_mode: "paper" | "live";
+  broker_id: "upstox" | "kite" | "kotak";
+  min_quality_score: number;
+  require_sr_confluence: boolean;
+  require_mtf_confirmation: boolean;
+  max_open_positions: number;
+  stock_quantity: number;
+  index_quantity: number;
+  auto_exit_time: string;
+  trail_sl_to_breakeven_on_t1: boolean;
+  check_interval_sec: number;
+  updated_at?: string;
+};
+
+export type HarmonicAutoTradeSettingsResponse = {
+  status: string;
+  settings: HarmonicAutoTradeSettings;
+};
+
+export type HarmonicAutoEntryResponse = {
+  status: string;
+  message?: string;
+  trades_opened_count?: number;
+  trades_opened?: HarmonicPaperTrade[];
+  available_slots_remaining?: number;
+};
+
+export async function fetchHarmonicAutoTradeSettings(): Promise<HarmonicAutoTradeSettingsResponse> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/settings`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function updateHarmonicAutoTradeSettings(
+  settings: Partial<HarmonicAutoTradeSettings>
+): Promise<HarmonicAutoTradeSettingsResponse> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/settings`,
+    {
+      method: "POST",
+      headers: {
+        ...buildAuthorizedHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(settings),
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function runHarmonicAutoEntryNow(): Promise<HarmonicAutoEntryResponse> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/run-entry-now`,
+    {
+      method: "POST",
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function runHarmonicAutoExitNow(): Promise<Record<string, unknown>> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/run-exit-now`,
+    {
+      method: "POST",
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+

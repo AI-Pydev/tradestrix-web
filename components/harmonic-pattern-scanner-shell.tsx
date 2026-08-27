@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import {
   HARMONIC_SUPPORTED_TIMEFRAMES,
+  HarmonicAutoTradeSettings,
   HarmonicPaperTrade,
   HarmonicPaperTradeSummary,
   HarmonicPatternScanItem,
@@ -10,15 +10,19 @@ import {
   MTFConfluenceReport,
   closeHarmonicPaperTrade,
   createHarmonicPaperTrade,
+  fetchHarmonicAutoTradeSettings,
   fetchHarmonicPaperTrades,
   fetchHarmonicPatternScan,
   fetchHarmonicVisualChart,
   fetchMTFConfluence,
   fetchMTFUniverseConfluence,
   fetchPersistentDBHarmonicPatterns,
+  runHarmonicAutoEntryNow,
   syncHarmonicPaperTrades,
   triggerHarmonicAutoScanCycle,
+  updateHarmonicAutoTradeSettings,
 } from "@/lib/harmonic-pattern-api";
+import { useEffect, useMemo, useState } from "react";
 
 export type PatternLifecycleStatus = "ALL" | "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
 
@@ -116,6 +120,10 @@ export function HarmonicPatternScannerShell() {
   const [paperOrderQty, setPaperOrderQty] = useState(10);
   const [paperOrderPrice, setPaperOrderPrice] = useState(0);
 
+  // Auto-Trade State
+  const [autoTradeSettings, setAutoTradeSettings] = useState<HarmonicAutoTradeSettings | null>(null);
+  const [autoTradeLoading, setAutoTradeLoading] = useState(false);
+
   const [selectedStock, setSelectedStock] = useState<HarmonicPatternScanItem | null>(null);
   const [chartData, setChartData] = useState<HarmonicVisualChartResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
@@ -155,9 +163,17 @@ export function HarmonicPatternScannerShell() {
         });
         setMtfReports(resp.results || []);
       } else if (viewMode === "paper_portfolio") {
-        const resp = await fetchHarmonicPaperTrades({ status: paperStatusFilter });
-        setPaperTrades(resp.results || []);
-        setPaperSummary(resp.summary);
+        const [tradesResp, autoSettingsResp] = await Promise.allSettled([
+          fetchHarmonicPaperTrades({ status: paperStatusFilter }),
+          fetchHarmonicAutoTradeSettings(),
+        ]);
+        if (tradesResp.status === "fulfilled") {
+          setPaperTrades(tradesResp.value.results || []);
+          setPaperSummary(tradesResp.value.summary);
+        }
+        if (autoSettingsResp.status === "fulfilled") {
+          setAutoTradeSettings(autoSettingsResp.value.settings);
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to retrieve harmonic patterns.");
@@ -190,6 +206,48 @@ export function HarmonicPatternScannerShell() {
       setError(err instanceof Error ? err.message : "Failed to run auto scan cycle.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAutoTrade = async (enabled: boolean) => {
+    setAutoTradeLoading(true);
+    try {
+      const resp = await updateHarmonicAutoTradeSettings({ enabled });
+      setAutoTradeSettings(resp.settings);
+      setSuccessMsg(enabled ? "🟢 Harmonic Auto-Trade Bot ENABLED!" : "⚪ Harmonic Auto-Trade Bot PAUSED.");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to toggle auto-trade.");
+    } finally {
+      setAutoTradeLoading(false);
+    }
+  };
+
+  const handleUpdateAutoSettings = async (settings: Partial<HarmonicAutoTradeSettings>) => {
+    setAutoTradeLoading(true);
+    try {
+      const resp = await updateHarmonicAutoTradeSettings(settings);
+      setAutoTradeSettings(resp.settings);
+      setSuccessMsg("Auto-trade settings updated successfully.");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save auto-trade settings.");
+    } finally {
+      setAutoTradeLoading(false);
+    }
+  };
+
+  const handleRunAutoEntryNow = async () => {
+    setAutoTradeLoading(true);
+    try {
+      const resp = await runHarmonicAutoEntryNow();
+      setSuccessMsg(`Auto-Entry evaluated: ${resp.trades_opened_count || 0} new trade(s) entered.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+      await loadData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to run auto-entry cycle.");
+    } finally {
+      setAutoTradeLoading(false);
     }
   };
 
@@ -589,6 +647,180 @@ export function HarmonicPatternScannerShell() {
       {/* Mode 4: Dedicated Paper Trading Portfolio View */}
       {viewMode === "paper_portfolio" && (
         <div className="d-flex flex-column gap-4">
+          {/* 🤖 Harmonic Auto-Trade Bot Controller */}
+          <div className="card shadow-sm border-0 bg-surface">
+            <div className="card-body p-4">
+              <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-3">
+                <div className="d-flex align-items-center gap-3">
+                  <div
+                    className={`rounded-circle p-3 d-flex align-items-center justify-content-center ${
+                      autoTradeSettings?.enabled
+                        ? "bg-success bg-opacity-10 text-success ring-2 ring-success"
+                        : "bg-secondary bg-opacity-10 text-secondary"
+                    }`}
+                    style={{ width: "52px", height: "52px" }}
+                  >
+                    <i className={`bi ${autoTradeSettings?.enabled ? "bi-robot" : "bi-pause-circle"} fs-4`} />
+                  </div>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <h5 className="mb-0 fw-bold">Harmonic Auto-Trade Bot</h5>
+                      <span
+                        className={`badge ${
+                          autoTradeSettings?.enabled
+                            ? "bg-success text-white fw-bold shadow-sm"
+                            : "bg-secondary text-white"
+                        }`}
+                      >
+                        {autoTradeSettings?.enabled ? "● AUTO-TRADE ACTIVE" : "○ PAUSED"}
+                      </span>
+                      <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace">
+                        Mode: {autoTradeSettings?.execution_mode?.toUpperCase() || "PAPER"}
+                      </span>
+                    </div>
+                    <p className="text-secondary small mb-0 mt-1">
+                      Automated entry on PRZ formations, real-time risk sizing, and target/stop profit taking.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    className={`btn btn-sm fw-bold px-3 d-flex align-items-center gap-1 ${
+                      autoTradeSettings?.enabled ? "btn-danger" : "btn-success text-white"
+                    }`}
+                    onClick={() => handleToggleAutoTrade(!autoTradeSettings?.enabled)}
+                    disabled={autoTradeLoading}
+                  >
+                    {autoTradeLoading ? (
+                      <span className="spinner-border spinner-border-sm" />
+                    ) : autoTradeSettings?.enabled ? (
+                      <>
+                        <i className="bi bi-pause-fill" /> Stop Auto-Trade
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-play-fill" /> Enable Auto-Trade
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+                    onClick={handleRunAutoEntryNow}
+                    disabled={autoTradeLoading}
+                    title="Immediately evaluate universe and enter all qualified setups"
+                  >
+                    <i className="bi bi-lightning-charge-fill" /> Run Auto-Entry Cycle
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-Trade Settings Parameters Form */}
+              <div className="row g-3 align-items-end small">
+                <div className="col-6 col-md-2">
+                  <label className="form-label text-secondary mb-1">Execution Mode</label>
+                  <select
+                    className="form-select form-select-sm fw-semibold"
+                    value={autoTradeSettings?.execution_mode || "paper"}
+                    onChange={(e) =>
+                      handleUpdateAutoSettings({
+                        execution_mode: e.target.value as "paper" | "live",
+                      })
+                    }
+                  >
+                    <option value="paper">📄 Paper (Simulation)</option>
+                    <option value="live">⚡ Live (Real Broker)</option>
+                  </select>
+                </div>
+
+                <div className="col-6 col-md-2">
+                  <label className="form-label text-secondary mb-1">Min Quality</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={autoTradeSettings?.min_quality_score ?? 0.75}
+                    onChange={(e) =>
+                      handleUpdateAutoSettings({
+                        min_quality_score: parseFloat(e.target.value),
+                      })
+                    }
+                  >
+                    <option value="0.65">65% (Standard)</option>
+                    <option value="0.70">70% (Solid)</option>
+                    <option value="0.75">75% (High Conviction)</option>
+                    <option value="0.80">80% (Institutional Strict)</option>
+                  </select>
+                </div>
+
+                <div className="col-6 col-md-2">
+                  <label className="form-label text-secondary mb-1">Max Positions</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={autoTradeSettings?.max_open_positions || 4}
+                    onChange={(e) =>
+                      handleUpdateAutoSettings({
+                        max_open_positions: parseInt(e.target.value),
+                      })
+                    }
+                  >
+                    <option value="2">2 Positions</option>
+                    <option value="4">4 Positions</option>
+                    <option value="6">6 Positions</option>
+                    <option value="8">8 Positions</option>
+                  </select>
+                </div>
+
+                <div className="col-6 col-md-2">
+                  <label className="form-label text-secondary mb-1">Stock Qty</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control form-control-sm font-monospace"
+                    value={autoTradeSettings?.stock_quantity || 10}
+                    onChange={(e) =>
+                      handleUpdateAutoSettings({
+                        stock_quantity: parseInt(e.target.value) || 1,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="col-6 col-md-2">
+                  <label className="form-label text-secondary mb-1">Index Qty</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control form-control-sm font-monospace"
+                    value={autoTradeSettings?.index_quantity || 25}
+                    onChange={(e) =>
+                      handleUpdateAutoSettings({
+                        index_quantity: parseInt(e.target.value) || 1,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="col-6 col-md-2">
+                  <div className="form-check pt-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="requireSrConfluenceCheck"
+                      checked={autoTradeSettings?.require_sr_confluence ?? true}
+                      onChange={(e) =>
+                        handleUpdateAutoSettings({
+                          require_sr_confluence: e.target.checked,
+                        })
+                      }
+                    />
+                    <label className="form-check-label text-secondary" htmlFor="requireSrConfluenceCheck">
+                      Require S/R Confluence 🔥
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Top Paper Trading KPI Metrics */}
           <div className="row g-3">
             <div className="col-6 col-md-3">
