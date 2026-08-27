@@ -164,6 +164,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "AI",
       },
       {
+        href: "/harmonic-patterns",
+        label: "Harmonics",
+        caption: "Pattern scanner & PRZ chart",
+        monogram: "HP",
+      },
+      {
         href: "/custom-candle-lab",
         label: "Candle Lab",
         caption: "Custom timeframe preview",

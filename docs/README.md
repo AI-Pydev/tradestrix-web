@@ -2,6 +2,14 @@
 
 This is a Bootstrap-based Next.js frontend for the multi-stock FastAPI backend.
 
+## Modernization Architecture
+
+The cross-application modernization program is maintained in the companion API
+repository under `docs/architecture/`. The frontend-specific target is
+[`WEB_APPLICATION_ARCHITECTURE.md`](https://github.com/AI-Pydev/tradestrix-api/blob/main/docs/architecture/WEB_APPLICATION_ARCHITECTURE.md),
+covering feature ownership, API clients, command states, real-time updates,
+security, PWA cache safety, performance, testing, and incremental migration.
+
 ## Environment
 
 Create `.env.local` from `.env.example`:
