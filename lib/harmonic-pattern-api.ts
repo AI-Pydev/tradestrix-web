@@ -29,6 +29,13 @@ export type HarmonicPatternScanItem = {
   quality_score: number;
   geometry_score: number;
   current_price: number;
+  base_price?: number;
+  dist_from_base?: number;
+  reward_points_t1?: number;
+  reward_points_t2?: number;
+  risk_points_sl?: number;
+  live_rr_ratio?: number;
+  base_rr_ratio?: number;
   prz_low: number;
   prz_high: number;
   prz_mid: number;

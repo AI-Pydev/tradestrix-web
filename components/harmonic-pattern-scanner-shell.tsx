@@ -206,11 +206,11 @@ export function HarmonicPatternScannerShell() {
               11 Timeframes (1m → 1M)
             </span>
             <span className="badge bg-success-subtle text-success border border-success-subtle">
-              Deduplicated Multi-TF Tabs
+              Base Price & Live LTP Execution
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Institutional Harmonic Scanner with interactive timeframe tabs and top-down MTF confluence validation.
+            Harmonic Targets & Stop Loss anchored to Base Reversal ($D$ / PRZ) with live real-time risk/reward calibrated to current market price.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -582,7 +582,7 @@ export function HarmonicPatternScannerShell() {
                     {viewMode === "database" ? "Database Pattern Registry" : "Live Scanner Findings"}
                   </h5>
                   <span className="text-muted small">
-                    {groupedResults.length} Unique Instruments | Click any highlighted timeframe tab
+                    {groupedResults.length} Unique Instruments | Base Reversal ($D$) vs Live LTP Execution
                   </span>
                 </div>
                 <span className="badge bg-secondary-subtle text-secondary small">
@@ -593,11 +593,11 @@ export function HarmonicPatternScannerShell() {
                 <table className="table table-hover align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Symbol & Price</th>
+                      <th>Symbol</th>
                       <th>Timeframe Formations</th>
-                      <th>Primary Pattern</th>
+                      <th>Base $D$ vs Live LTP</th>
                       <th>Quality</th>
-                      <th>PRZ & Targets</th>
+                      <th>Live Target & Risk</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -614,6 +614,15 @@ export function HarmonicPatternScannerShell() {
                       groupedResults.map((group) => {
                         const prim = group.primary_pattern;
                         const isSelected = selectedStock?.instrument_key === group.instrument_key;
+                        const isBull = prim.direction === "BULLISH";
+                        const basePrice = prim.base_price ?? prim.d?.price ?? prim.prz_mid;
+                        const currentPrice = group.current_price;
+
+                        // Live remaining points
+                        const remT1 = prim.reward_points_t1 ?? (isBull ? prim.target_1 - currentPrice : currentPrice - prim.target_1);
+                        const liveRisk = prim.risk_points_sl ?? (isBull ? currentPrice - prim.stop_loss : prim.stop_loss - currentPrice);
+                        const liveRR = prim.live_rr_ratio ?? (Math.max(remT1, 0) / Math.max(liveRisk, 0.1));
+                        const distFromBase = prim.dist_from_base ?? (isBull ? currentPrice - basePrice : basePrice - currentPrice);
 
                         return (
                           <tr
@@ -622,7 +631,6 @@ export function HarmonicPatternScannerShell() {
                           >
                             <td>
                               <div className="fw-bold">{group.label}</div>
-                              <div className="small text-secondary">₹{group.current_price}</div>
                               <span className="badge bg-light text-muted border small font-monospace">
                                 {group.kind.toUpperCase()}
                               </span>
@@ -636,7 +644,7 @@ export function HarmonicPatternScannerShell() {
                                     isSelected && activeChartTf === tf.id;
 
                                   if (pat) {
-                                    const isBull = pat.direction === "BULLISH";
+                                    const isPatBull = pat.direction === "BULLISH";
                                     return (
                                       <button
                                         key={tf.id}
@@ -644,7 +652,7 @@ export function HarmonicPatternScannerShell() {
                                         className={`btn btn-xs fw-bold ${
                                           isCurrentActive
                                             ? "btn-primary shadow-sm"
-                                            : isBull
+                                            : isPatBull
                                             ? "btn-success-subtle text-success border border-success"
                                             : "btn-danger-subtle text-danger border border-danger"
                                         }`}
@@ -677,21 +685,35 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </td>
                             <td>
-                              <div className="d-flex align-items-center gap-1">
-                                <span className="badge bg-primary-subtle text-primary fw-semibold">
-                                  {prim.pattern_name.toUpperCase()}
-                                </span>
-                                <span
-                                  className={`badge ${
-                                    prim.direction === "BULLISH" ? "bg-success" : "bg-danger"
-                                  }`}
-                                >
-                                  {prim.direction}
-                                </span>
+                              <div className="d-flex flex-column gap-1">
+                                <div className="d-flex align-items-center gap-1">
+                                  <span className="badge bg-primary-subtle text-primary fw-semibold small">
+                                    {prim.pattern_name.toUpperCase()}
+                                  </span>
+                                  <span
+                                    className={`badge ${
+                                      isBull ? "bg-success" : "bg-danger"
+                                    }`}
+                                  >
+                                    {prim.direction}
+                                  </span>
+                                </div>
+                                <div className="small">
+                                  <span className="text-secondary">Base D: </span>
+                                  <strong className="text-primary font-monospace">₹{basePrice}</strong>
+                                </div>
+                                <div className="small">
+                                  <span className="text-secondary">Live LTP: </span>
+                                  <span className="fw-bold font-monospace">₹{currentPrice}</span>{" "}
+                                  <span
+                                    className={`badge ${
+                                      distFromBase >= 0 ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"
+                                    } small font-monospace`}
+                                  >
+                                    {distFromBase >= 0 ? `+${distFromBase.toFixed(1)}` : distFromBase.toFixed(1)} pts
+                                  </span>
+                                </div>
                               </div>
-                              <span className="badge bg-primary text-white font-monospace small mt-1">
-                                {prim.timeframe.toUpperCase()}
-                              </span>
                             </td>
                             <td>
                               <div className="fw-bold">{(prim.quality_score * 100).toFixed(0)}%</div>
@@ -712,11 +734,17 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </td>
                             <td>
-                              <div className="text-secondary small font-monospace">
-                                PRZ: ₹{prim.prz_low} - ₹{prim.prz_high}
+                              <div className="d-flex flex-column small font-monospace">
+                                <div className="text-success fw-semibold">
+                                  T1: ₹{prim.target_1} ({remT1 >= 0 ? `+${remT1.toFixed(1)} pts` : "Hit"})
+                                </div>
+                                <div className="text-danger">
+                                  SL: ₹{prim.stop_loss} ({liveRisk >= 0 ? `-${liveRisk.toFixed(1)} pts` : "Breached"})
+                                </div>
+                                <div className="text-primary fw-bold">
+                                  Live R:R: 1 : {liveRR.toFixed(2)}
+                                </div>
                               </div>
-                              <div className="text-success small fw-semibold">T1: ₹{prim.target_1}</div>
-                              <div className="text-danger small">SL: ₹{prim.stop_loss}</div>
                             </td>
                             <td>
                               <button
@@ -774,8 +802,9 @@ export function HarmonicPatternScannerShell() {
                       </span>
                     </div>
                     <span className="text-secondary small">
-                      TF: <strong>{activeChartTf.toUpperCase()}</strong> | PRZ Reversal Zone: ₹
-                      {selectedStock.prz_low} - ₹{selectedStock.prz_high} | Quality:{" "}
+                      TF: <strong>{activeChartTf.toUpperCase()}</strong> | Base Reversal: ₹
+                      {selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid} | Live LTP: ₹
+                      {selectedStock.current_price} | Quality:{" "}
                       <strong>{(selectedStock.quality_score * 100).toFixed(0)}%</strong>
                     </span>
                   </div>
@@ -1286,6 +1315,67 @@ export function HarmonicPatternScannerShell() {
                           </div>
                         </div>
                       )}
+
+                      {/* Explicit Base Price vs Live LTP Execution Tracker */}
+                      {(() => {
+                        const isBull = selectedStock.direction === "BULLISH";
+                        const baseP = selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid;
+                        const curP = selectedStock.current_price;
+                        const remT1 = isBull ? selectedStock.target_1 - curP : curP - selectedStock.target_1;
+                        const remT2 = isBull ? selectedStock.target_2 - curP : curP - selectedStock.target_2;
+                        const liveRisk = isBull ? curP - selectedStock.stop_loss : selectedStock.stop_loss - curP;
+                        const distBase = isBull ? curP - baseP : baseP - curP;
+                        const liveRR = Math.max(remT1, 0) / Math.max(liveRisk, 0.1);
+
+                        return (
+                          <div className="card border-0 bg-body-tertiary p-3 mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="fw-bold small text-primary">
+                                🎯 Base Reversal ($D$) Anchor vs Live Market Execution
+                              </span>
+                              <span className="badge bg-dark font-monospace">
+                                Live R:R: 1 : {liveRR.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="row g-2 small">
+                              <div className="col-6 col-md-3">
+                                <div className="border rounded p-2 bg-body">
+                                  <div className="text-secondary">Base Reversal Price ($D$)</div>
+                                  <div className="fw-bold text-primary font-monospace">₹{baseP}</div>
+                                  <div className="text-muted small">Pattern Anchor</div>
+                                </div>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <div className="border rounded p-2 bg-body">
+                                  <div className="text-secondary">Current Live LTP</div>
+                                  <div className="fw-bold font-monospace">₹{curP}</div>
+                                  <div className={`small ${distBase >= 0 ? "text-success" : "text-warning"}`}>
+                                    {distBase >= 0 ? `+${distBase.toFixed(1)} pts bounced` : `${distBase.toFixed(1)} pts to PRZ`}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <div className="border rounded p-2 bg-body">
+                                  <div className="text-success">Remaining to Target 1 & 2</div>
+                                  <div className="fw-bold font-monospace text-success">
+                                    T1: ₹{selectedStock.target_1} ({remT1 >= 0 ? `+${remT1.toFixed(1)}` : "Hit"}) | T2: ₹{selectedStock.target_2} ({remT2 >= 0 ? `+${remT2.toFixed(1)}` : "Hit"})
+                                  </div>
+                                  <div className="text-muted small">38.2% & 61.8% CD Extension</div>
+                                </div>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <div className="border rounded p-2 bg-body">
+                                  <div className="text-danger">Current Risk to Stop Loss</div>
+                                  <div className="fw-bold font-monospace text-danger">
+                                    ₹{selectedStock.stop_loss} ({liveRisk >= 0 ? `-${liveRisk.toFixed(1)} pts` : "Breached"})
+                                  </div>
+                                  <div className="text-muted small">Terminal Invalidation</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Coordinates & Target Ladder Details */}
                       <div className="row g-2 small">
