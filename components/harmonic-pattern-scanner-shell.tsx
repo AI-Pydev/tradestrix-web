@@ -558,6 +558,16 @@ export function HarmonicPatternScannerShell() {
                             : (viewW - paddingX);
                           const yD = toY(dPrice);
 
+                          // Accurate Institutional Fibonacci Ratios
+                          const diffXA = Math.abs(selectedStock.a.price - selectedStock.x.price) || 1;
+                          const diffAB = Math.abs(selectedStock.b.price - selectedStock.a.price) || 1;
+                          const diffBC = Math.abs(selectedStock.c.price - selectedStock.b.price) || 1;
+
+                          const ratioB = (Math.abs(selectedStock.b.price - selectedStock.a.price) / diffXA).toFixed(3);
+                          const ratioC = (Math.abs(selectedStock.c.price - selectedStock.b.price) / diffAB).toFixed(3);
+                          const ratioD_BC = (Math.abs(dPrice - selectedStock.c.price) / diffBC).toFixed(3);
+                          const ratioD_XA = (Math.abs(dPrice - selectedStock.x.price) / diffXA).toFixed(3);
+
                           const isBullish = selectedStock.direction === "BULLISH";
                           const tri1Color = isBullish ? "rgba(59, 130, 246, 0.25)" : "rgba(239, 68, 68, 0.25)";
                           const tri2Color = isBullish ? "rgba(34, 197, 94, 0.28)" : "rgba(249, 115, 22, 0.28)";
@@ -622,6 +632,39 @@ export function HarmonicPatternScannerShell() {
                                 strokeDasharray="4 4"
                               />
 
+                              {/* Dashed alignment from X -> B */}
+                              <line
+                                x1={xX}
+                                y1={yX}
+                                x2={xB}
+                                y2={yB}
+                                stroke="#64748b"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                              />
+
+                              {/* Dashed alignment from A -> C */}
+                              <line
+                                x1={xA}
+                                y1={yA}
+                                x2={xC}
+                                y2={yC}
+                                stroke="#64748b"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                              />
+
+                              {/* Dashed alignment from B -> D */}
+                              <line
+                                x1={xB}
+                                y1={yB}
+                                x2={xD}
+                                y2={yD}
+                                stroke="#64748b"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                              />
+
                               {/* 4. Candlesticks */}
                               {candles.map((c, i) => {
                                 const x = (i / (candles.length - 1 || 1)) * chartW + paddingX;
@@ -648,7 +691,40 @@ export function HarmonicPatternScannerShell() {
                                 );
                               })}
 
-                              {/* 5. Fibonacci Target Ladder Lines */}
+                              {/* 5. Fibonacci Ratio Badges Right on the Geometric Lines */}
+                              {/* AB Retracement Badge */}
+                              <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
+                                <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
+                                <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                  {ratioB}
+                                </text>
+                              </g>
+
+                              {/* BC Retracement Badge */}
+                              <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
+                                <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                                <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                  {ratioC}
+                                </text>
+                              </g>
+
+                              {/* CD Extension Badge */}
+                              <g transform={`translate(${(xC + xD) / 2}, ${(yC + yD) / 2})`}>
+                                <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#10b981" strokeWidth="1.5" />
+                                <text x="0" y="4" fill="#10b981" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                  {ratioD_BC}
+                                </text>
+                              </g>
+
+                              {/* XD Pattern Completion Ratio Badge */}
+                              <g transform={`translate(${(xX + xD) / 2}, ${(yX + yD) / 2})`}>
+                                <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
+                                <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                  {ratioD_XA} XA
+                                </text>
+                              </g>
+
+                              {/* 6. Fibonacci Target Ladder Lines */}
                               <line
                                 x1="0"
                                 y1={toY(selectedStock.target_1)}
@@ -707,7 +783,7 @@ export function HarmonicPatternScannerShell() {
                                 SL: ₹{selectedStock.stop_loss}
                               </text>
 
-                              {/* 6. Vertex Markers & Labels for X, A, B, C, D */}
+                              {/* 7. Vertex Markers & Labels for X, A, B, C, D */}
                               {[
                                 { label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" },
                                 { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
