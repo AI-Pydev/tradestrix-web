@@ -14,6 +14,16 @@ import {
   triggerHarmonicAutoScanCycle,
 } from "@/lib/harmonic-pattern-api";
 
+export type GroupedHarmonicItem = {
+  instrument_key: string;
+  label: string;
+  kind: "index" | "stock";
+  current_price: number;
+  patterns_by_tf: Record<string, HarmonicPatternScanItem>;
+  primary_pattern: HarmonicPatternScanItem;
+  active_timeframes: string[];
+};
+
 export function HarmonicPatternScannerShell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +112,63 @@ export function HarmonicPatternScannerShell() {
     }
   };
 
+  // Group multiple timeframe entries by instrument key to eliminate duplicate rows
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, GroupedHarmonicItem>();
+
+    results.forEach((item) => {
+      const existing = map.get(item.instrument_key);
+      if (!existing) {
+        map.set(item.instrument_key, {
+          instrument_key: item.instrument_key,
+          label: item.label,
+          kind: item.kind,
+          current_price: item.current_price,
+          patterns_by_tf: { [item.timeframe]: item },
+          primary_pattern: item,
+          active_timeframes: [item.timeframe],
+        });
+      } else {
+        existing.patterns_by_tf[item.timeframe] = item;
+        if (!existing.active_timeframes.includes(item.timeframe)) {
+          existing.active_timeframes.push(item.timeframe);
+        }
+        if (
+          item.timeframe === timeframe ||
+          (existing.primary_pattern.timeframe !== timeframe &&
+            item.quality_score > existing.primary_pattern.quality_score)
+        ) {
+          existing.primary_pattern = item;
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [results, timeframe]);
+
+  // Find all active pattern timeframes for the selected stock
+  const selectedStockActivePatterns = useMemo(() => {
+    if (!selectedStock) return {};
+    const match = groupedResults.find(
+      (g) => g.instrument_key === selectedStock.instrument_key
+    );
+    return match ? match.patterns_by_tf : { [selectedStock.timeframe]: selectedStock };
+  }, [selectedStock, groupedResults]);
+
   const loadVisualChart = async (item: HarmonicPatternScanItem, customTf?: string) => {
     const tf = customTf || item.timeframe || "3m";
-    setSelectedStock(item);
+    // If we have a pattern for this specific timeframe, use that item
+    const targetItem = selectedStockActivePatterns[tf] || {
+      ...item,
+      timeframe: tf,
+    };
+    setSelectedStock(targetItem);
     setActiveChartTf(tf);
     setChartLoading(true);
     try {
       const [chartResp, mtfResp] = await Promise.allSettled([
-        fetchHarmonicVisualChart(item.instrument_key, { timeframe: tf }),
-        fetchMTFConfluence(item.instrument_key, { label: item.label }),
+        fetchHarmonicVisualChart(targetItem.instrument_key, { timeframe: tf }),
+        fetchMTFConfluence(targetItem.instrument_key, { label: targetItem.label }),
       ]);
 
       if (chartResp.status === "fulfilled") {
@@ -130,11 +188,12 @@ export function HarmonicPatternScannerShell() {
 
   const summary = useMemo(() => {
     const total = results.length;
+    const uniqueSymbols = groupedResults.length;
     const bullish = results.filter((r) => r.direction === "BULLISH").length;
     const bearish = results.filter((r) => r.direction === "BEARISH").length;
     const highQuality = results.filter((r) => r.quality_score >= 0.8).length;
-    return { total, bullish, bearish, highQuality };
-  }, [results]);
+    return { total, uniqueSymbols, bullish, bearish, highQuality };
+  }, [results, groupedResults]);
 
   return (
     <div className="container-fluid p-4">
@@ -147,11 +206,11 @@ export function HarmonicPatternScannerShell() {
               11 Timeframes (1m → 1M)
             </span>
             <span className="badge bg-success-subtle text-success border border-success-subtle">
-              MTF Fractal + OI Confluence
+              Deduplicated Multi-TF Tabs
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Top-down institutional harmonic validation: Macro (1D/4H/1H) PRZ detection confirmed by Micro (15M/5M/3M) triggers and Option Chain PCR / Open Interest Buildups.
+            Institutional Harmonic Scanner with interactive timeframe tabs and top-down MTF confluence validation.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -277,7 +336,7 @@ export function HarmonicPatternScannerShell() {
                   ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
                   : viewMode === "mtf_confluence"
                   ? `Evaluated ${mtfReports.length} MTF setups with Option Chain PCR & OI`
-                  : `Showing ${results.length} active pattern(s)`}
+                  : `Showing ${groupedResults.length} unique symbol(s) across ${results.length} active pattern(s)`}
               </span>
             </div>
           </div>
@@ -289,17 +348,17 @@ export function HarmonicPatternScannerShell() {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
             <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Total MTF Setups" : "Active Formations"}
+              {viewMode === "mtf_confluence" ? "Total MTF Setups" : "Unique Symbols"}
             </div>
             <div className="h3 fw-bold mb-0 text-primary">
-              {viewMode === "mtf_confluence" ? mtfReports.length : summary.total}
+              {viewMode === "mtf_confluence" ? mtfReports.length : summary.uniqueSymbols}
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
             <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Micro Trigger Confirmed ⚡" : "Bullish Setups"}
+              {viewMode === "mtf_confluence" ? "Micro Trigger Confirmed ⚡" : "Bullish Patterns"}
             </div>
             <div className="h3 fw-bold mb-0 text-success">
               {viewMode === "mtf_confluence"
@@ -311,7 +370,7 @@ export function HarmonicPatternScannerShell() {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm border-0 p-3 bg-surface">
             <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Monitoring in PRZ ⏳" : "Bearish Setups"}
+              {viewMode === "mtf_confluence" ? "Monitoring in PRZ ⏳" : "Bearish Patterns"}
             </div>
             <div className="h3 fw-bold mb-0 text-warning">
               {viewMode === "mtf_confluence"
@@ -511,110 +570,165 @@ export function HarmonicPatternScannerShell() {
         </div>
       )}
 
-      {/* Main Layout for Database & Live View */}
+      {/* Main Layout for Database & Live View (Deduplicated with Timeframe Tabs) */}
       {viewMode !== "mtf_confluence" && (
         <div className="row g-4">
-          {/* Qualified Stocks Table */}
+          {/* Qualified Stocks Table (Grouped by Symbol) */}
           <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>
             <div className="card shadow-sm border-0 bg-surface">
               <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold">
-                  {viewMode === "database" ? "Database Pattern Registry" : "Live Scanner Findings"}
-                </h5>
+                <div>
+                  <h5 className="mb-0 fw-bold">
+                    {viewMode === "database" ? "Database Pattern Registry" : "Live Scanner Findings"}
+                  </h5>
+                  <span className="text-muted small">
+                    {groupedResults.length} Unique Instruments | Click any highlighted timeframe tab
+                  </span>
+                </div>
                 <span className="badge bg-secondary-subtle text-secondary small">
-                  Timeframe: {timeframe.toUpperCase()}
+                  Filter TF: {timeframe.toUpperCase()}
                 </span>
               </div>
               <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Symbol & TF</th>
-                      <th>Pattern</th>
-                      <th>Direction</th>
+                      <th>Symbol & Price</th>
+                      <th>Timeframe Formations</th>
+                      <th>Primary Pattern</th>
                       <th>Quality</th>
-                      <th>LTP / PRZ</th>
-                      <th>Targets / SL</th>
+                      <th>PRZ & Targets</th>
                       <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {results.length === 0 ? (
+                    {groupedResults.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-5 text-secondary">
+                        <td colSpan={6} className="text-center py-5 text-secondary">
                           {loading
                             ? "Scanning multi-timeframe universe..."
                             : "No active harmonic patterns matching the selected filters. Click 'Sync All TFs to DB' to trigger a full refresh."}
                         </td>
                       </tr>
                     ) : (
-                      results.map((r, idx) => (
-                        <tr
-                          key={`${r.instrument_key}-${r.timeframe}-${idx}`}
-                          className={
-                            selectedStock?.instrument_key === r.instrument_key &&
-                            selectedStock?.timeframe === r.timeframe
-                              ? "table-active"
-                              : ""
-                          }
-                        >
-                          <td>
-                            <div className="fw-bold">{r.label}</div>
-                            <span className="badge bg-primary text-white font-monospace small px-2">
-                              {r.timeframe.toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="badge bg-primary-subtle text-primary fw-semibold">
-                              {r.pattern_name.toUpperCase()}
-                            </span>
-                            <div className="text-muted small font-monospace">{r.state}</div>
-                          </td>
-                          <td>
-                            {r.direction === "BULLISH" ? (
-                              <span className="badge bg-success text-white">BULLISH</span>
-                            ) : (
-                              <span className="badge bg-danger text-white">BEARISH</span>
-                            )}
-                          </td>
-                          <td>
-                            <div className="fw-bold">{(r.quality_score * 100).toFixed(0)}%</div>
-                            <div
-                              className="progress"
-                              style={{ height: "4px", width: "45px" }}
-                            >
+                      groupedResults.map((group) => {
+                        const prim = group.primary_pattern;
+                        const isSelected = selectedStock?.instrument_key === group.instrument_key;
+
+                        return (
+                          <tr
+                            key={group.instrument_key}
+                            className={isSelected ? "table-active" : ""}
+                          >
+                            <td>
+                              <div className="fw-bold">{group.label}</div>
+                              <div className="small text-secondary">₹{group.current_price}</div>
+                              <span className="badge bg-light text-muted border small font-monospace">
+                                {group.kind.toUpperCase()}
+                              </span>
+                            </td>
+                            <td>
+                              {/* Highlighted Timeframe Tabs for this instrument */}
+                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: "220px" }}>
+                                {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => {
+                                  const pat = group.patterns_by_tf[tf.id];
+                                  const isCurrentActive =
+                                    isSelected && activeChartTf === tf.id;
+
+                                  if (pat) {
+                                    const isBull = pat.direction === "BULLISH";
+                                    return (
+                                      <button
+                                        key={tf.id}
+                                        type="button"
+                                        className={`btn btn-xs fw-bold ${
+                                          isCurrentActive
+                                            ? "btn-primary shadow-sm"
+                                            : isBull
+                                            ? "btn-success-subtle text-success border border-success"
+                                            : "btn-danger-subtle text-danger border border-danger"
+                                        }`}
+                                        style={{ fontSize: "10px", padding: "2px 6px" }}
+                                        title={`${tf.label}: ${pat.pattern_name} (${pat.direction}) - ${(pat.quality_score * 100).toFixed(0)}%`}
+                                        onClick={() => loadVisualChart(pat, tf.id)}
+                                      >
+                                        {tf.id.toUpperCase()} ●
+                                      </button>
+                                    );
+                                  }
+
+                                  return (
+                                    <button
+                                      key={tf.id}
+                                      type="button"
+                                      className={`btn btn-xs ${
+                                        isCurrentActive
+                                          ? "btn-primary shadow-sm fw-bold"
+                                          : "btn-light text-muted opacity-50"
+                                      }`}
+                                      style={{ fontSize: "10px", padding: "2px 5px" }}
+                                      title={`${tf.label}: No pattern detected (Click to view chart)`}
+                                      onClick={() => loadVisualChart(prim, tf.id)}
+                                    >
+                                      {tf.id.toUpperCase()}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td>
+                              <div className="d-flex align-items-center gap-1">
+                                <span className="badge bg-primary-subtle text-primary fw-semibold">
+                                  {prim.pattern_name.toUpperCase()}
+                                </span>
+                                <span
+                                  className={`badge ${
+                                    prim.direction === "BULLISH" ? "bg-success" : "bg-danger"
+                                  }`}
+                                >
+                                  {prim.direction}
+                                </span>
+                              </div>
+                              <span className="badge bg-primary text-white font-monospace small mt-1">
+                                {prim.timeframe.toUpperCase()}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-bold">{(prim.quality_score * 100).toFixed(0)}%</div>
                               <div
-                                className={`progress-bar ${
-                                  r.quality_score >= 0.8
-                                    ? "bg-success"
-                                    : r.quality_score >= 0.7
-                                    ? "bg-primary"
-                                    : "bg-warning"
-                                }`}
-                                style={{ width: `${r.quality_score * 100}%` }}
-                              />
-                            </div>
-                          </td>
-                          <td>
-                            <div className="fw-semibold">₹{r.current_price}</div>
-                            <div className="text-secondary small font-monospace">
-                              ₹{r.prz_low} - ₹{r.prz_high}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="text-success small fw-semibold">T1: ₹{r.target_1}</div>
-                            <div className="text-danger small">SL: ₹{r.stop_loss}</div>
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={() => loadVisualChart(r, r.timeframe)}
-                            >
-                              Chart
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                                className="progress"
+                                style={{ height: "4px", width: "45px" }}
+                              >
+                                <div
+                                  className={`progress-bar ${
+                                    prim.quality_score >= 0.8
+                                      ? "bg-success"
+                                      : prim.quality_score >= 0.7
+                                      ? "bg-primary"
+                                      : "bg-warning"
+                                  }`}
+                                  style={{ width: `${prim.quality_score * 100}%` }}
+                                />
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-secondary small font-monospace">
+                                PRZ: ₹{prim.prz_low} - ₹{prim.prz_high}
+                              </div>
+                              <div className="text-success small fw-semibold">T1: ₹{prim.target_1}</div>
+                              <div className="text-danger small">SL: ₹{prim.stop_loss}</div>
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => loadVisualChart(prim, prim.timeframe)}
+                              >
+                                Chart
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -686,21 +800,48 @@ export function HarmonicPatternScannerShell() {
                 </div>
 
                 <div className="card-body d-flex flex-column">
-                  {/* Timeframe selector bar for the chart */}
+                  {/* Highlighted Timeframe Selector Bar for the Selected Stock Chart */}
                   <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div className="d-flex flex-wrap gap-1">
-                      {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => (
-                        <button
-                          key={tf.id}
-                          className={`btn btn-xs ${
-                            activeChartTf === tf.id ? "btn-primary fw-bold shadow-sm" : "btn-outline-secondary"
-                          }`}
-                          style={{ fontSize: "11px", padding: "3px 9px" }}
-                          onClick={() => loadVisualChart(selectedStock, tf.id)}
-                        >
-                          {tf.id.toUpperCase()}
-                        </button>
-                      ))}
+                      {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => {
+                        const pat = selectedStockActivePatterns[tf.id];
+                        const isCurrent = activeChartTf === tf.id;
+
+                        if (pat) {
+                          const isBull = pat.direction === "BULLISH";
+                          return (
+                            <button
+                              key={tf.id}
+                              className={`btn btn-xs fw-bold ${
+                                isCurrent
+                                  ? "btn-primary shadow-sm border-light"
+                                  : isBull
+                                  ? "btn-success-subtle text-success border border-success"
+                                  : "btn-danger-subtle text-danger border border-danger"
+                              }`}
+                              style={{ fontSize: "11px", padding: "3px 9px" }}
+                              title={`${tf.label}: Active ${pat.pattern_name} (${pat.direction}) - ${(pat.quality_score * 100).toFixed(0)}%`}
+                              onClick={() => loadVisualChart(pat, tf.id)}
+                            >
+                              ★ {tf.id.toUpperCase()} ({pat.pattern_name.slice(0, 3)})
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={tf.id}
+                            className={`btn btn-xs ${
+                              isCurrent ? "btn-primary fw-bold shadow-sm" : "btn-outline-secondary opacity-75"
+                            }`}
+                            style={{ fontSize: "11px", padding: "3px 9px" }}
+                            title={`${tf.label}: Candlestick chart`}
+                            onClick={() => loadVisualChart(selectedStock, tf.id)}
+                          >
+                            {tf.id.toUpperCase()}
+                          </button>
+                        );
+                      })}
                     </div>
                     <span className="badge bg-secondary-subtle text-secondary small font-monospace">
                       {chartData?.candles?.length || 0} Candles ({activeChartTf.toUpperCase()})
