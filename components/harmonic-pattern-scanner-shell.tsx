@@ -14,6 +14,8 @@ import {
   triggerHarmonicAutoScanCycle,
 } from "@/lib/harmonic-pattern-api";
 
+export type PatternLifecycleStatus = "ALL" | "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
+
 export type GroupedHarmonicItem = {
   instrument_key: string;
   label: string;
@@ -24,6 +26,67 @@ export type GroupedHarmonicItem = {
   active_timeframes: string[];
 };
 
+export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice: number): {
+  status: "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
+  badgeLabel: string;
+  badgeClass: string;
+  rowClass: string;
+} {
+  const isBull = item.direction === "BULLISH";
+  const t1 = item.target_1;
+  const t2 = item.target_2;
+  const sl = item.stop_loss;
+  const przLow = item.prz_low;
+  const przHigh = item.prz_high;
+
+  // 1. Target Hit check
+  const isT2Hit = isBull ? currentPrice >= t2 : currentPrice <= t2;
+  const isT1Hit = isBull ? currentPrice >= t1 : currentPrice <= t1;
+
+  if (isT2Hit) {
+    return {
+      status: "TARGET_ACHIEVED",
+      badgeLabel: "🎯 T2 ACHIEVED",
+      badgeClass: "bg-success text-white fw-bold",
+      rowClass: "bg-success bg-opacity-10 border-start border-success border-3",
+    };
+  }
+
+  if (isT1Hit) {
+    return {
+      status: "TARGET_ACHIEVED",
+      badgeLabel: "🎯 T1 HIT (Trailing)",
+      badgeClass: "bg-success-subtle text-success border border-success fw-bold",
+      rowClass: "bg-success bg-opacity-10 border-start border-success border-3",
+    };
+  }
+
+  // 2. Stop Loss / Invalidation check
+  const isSLBreached = isBull ? currentPrice <= sl : currentPrice >= sl;
+  if (isSLBreached) {
+    return {
+      status: "SL_BREACHED",
+      badgeLabel: "⚠️ SL BREACHED",
+      badgeClass: "bg-warning-subtle text-warning-emphasis border border-warning fw-bold",
+      rowClass: "bg-warning bg-opacity-10 border-start border-warning border-3",
+    };
+  }
+
+  // 3. Open for Trade check
+  const inPRZ =
+    currentPrice >= Math.min(przLow, przHigh) &&
+    currentPrice <= Math.max(przLow, przHigh);
+
+  return {
+    status: "OPEN_ACTIVE",
+    badgeLabel: inPRZ ? "⚡ IN PRZ ENTRY" : "⚡ ACTIVE SETUP",
+    badgeClass: inPRZ
+      ? "bg-primary text-white fw-bold"
+      : "bg-info-subtle text-info border border-info-subtle",
+    rowClass: "bg-surface",
+  };
+}
+
 export function HarmonicPatternScannerShell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +94,7 @@ export function HarmonicPatternScannerShell() {
   const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence">("database");
   const [mtfReports, setMtfReports] = useState<MTFConfluenceReport[]>([]);
   const [timeframe, setTimeframe] = useState("all");
+  const [lifecycleFilter, setLifecycleFilter] = useState<PatternLifecycleStatus>("ALL");
   const [minQuality, setMinQuality] = useState(0.65);
   const [includeIndices, setIncludeIndices] = useState(true);
   const [includeStocks, setIncludeStocks] = useState(true);
@@ -146,6 +210,15 @@ export function HarmonicPatternScannerShell() {
     return Array.from(map.values());
   }, [results, timeframe]);
 
+  // Filter grouped results by trade lifecycle status
+  const filteredGroupedResults = useMemo(() => {
+    if (lifecycleFilter === "ALL") return groupedResults;
+    return groupedResults.filter((g) => {
+      const lifecycle = getPatternLifecycle(g.primary_pattern, g.current_price);
+      return lifecycle.status === lifecycleFilter;
+    });
+  }, [groupedResults, lifecycleFilter]);
+
   // Find all active pattern timeframes for the selected stock
   const selectedStockActivePatterns = useMemo(() => {
     if (!selectedStock) return {};
@@ -157,7 +230,6 @@ export function HarmonicPatternScannerShell() {
 
   const loadVisualChart = async (item: HarmonicPatternScanItem, customTf?: string) => {
     const tf = customTf || item.timeframe || "3m";
-    // If we have a pattern for this specific timeframe, use that item
     const targetItem = selectedStockActivePatterns[tf] || {
       ...item,
       timeframe: tf,
@@ -189,10 +261,20 @@ export function HarmonicPatternScannerShell() {
   const summary = useMemo(() => {
     const total = results.length;
     const uniqueSymbols = groupedResults.length;
+    let targetAchieved = 0;
+    let openActive = 0;
+    let slBreached = 0;
+
+    groupedResults.forEach((g) => {
+      const life = getPatternLifecycle(g.primary_pattern, g.current_price);
+      if (life.status === "TARGET_ACHIEVED") targetAchieved++;
+      else if (life.status === "SL_BREACHED") slBreached++;
+      else openActive++;
+    });
+
     const bullish = results.filter((r) => r.direction === "BULLISH").length;
     const bearish = results.filter((r) => r.direction === "BEARISH").length;
-    const highQuality = results.filter((r) => r.quality_score >= 0.8).length;
-    return { total, uniqueSymbols, bullish, bearish, highQuality };
+    return { total, uniqueSymbols, targetAchieved, openActive, slBreached, bullish, bearish };
   }, [results, groupedResults]);
 
   return (
@@ -206,11 +288,11 @@ export function HarmonicPatternScannerShell() {
               11 Timeframes (1m → 1M)
             </span>
             <span className="badge bg-success-subtle text-success border border-success-subtle">
-              Base Price & Live LTP Execution
+              Lifecycle Color Tracking
             </span>
           </div>
           <p className="text-secondary mb-0 small mt-1">
-            Harmonic Targets & Stop Loss anchored to Base Reversal ($D$ / PRZ) with live real-time risk/reward calibrated to current market price.
+            Real-time Harmonic Scanner with dynamic color coding: <strong>Light Green</strong> (Target Hit), <strong>White</strong> (Open for Trade), and <strong>Light Yellow</strong> (SL Invalidation).
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -336,59 +418,69 @@ export function HarmonicPatternScannerShell() {
                   ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
                   : viewMode === "mtf_confluence"
                   ? `Evaluated ${mtfReports.length} MTF setups with Option Chain PCR & OI`
-                  : `Showing ${groupedResults.length} unique symbol(s) across ${results.length} active pattern(s)`}
+                  : `Showing ${filteredGroupedResults.length} unique symbol(s) across ${results.length} active pattern(s)`}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards with Lifecycle Breakdown */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-3">
-          <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Total MTF Setups" : "Unique Symbols"}
+          <div
+            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : ""}`}
+            onClick={() => setLifecycleFilter(lifecycleFilter === "OPEN_ACTIVE" ? "ALL" : "OPEN_ACTIVE")}
+            style={{ cursor: "pointer" }}
+            title="Click to filter only open active trade setups (White rows)"
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="text-secondary small">⚡ Open for Trade (White)</div>
+              <span className="badge bg-light text-dark border small">Filter</span>
             </div>
-            <div className="h3 fw-bold mb-0 text-primary">
-              {viewMode === "mtf_confluence" ? mtfReports.length : summary.uniqueSymbols}
-            </div>
+            <div className="h3 fw-bold mb-0 text-primary">{summary.openActive}</div>
           </div>
         </div>
         <div className="col-6 col-md-3">
-          <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Micro Trigger Confirmed ⚡" : "Bullish Patterns"}
+          <div
+            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : ""}`}
+            onClick={() => setLifecycleFilter(lifecycleFilter === "TARGET_ACHIEVED" ? "ALL" : "TARGET_ACHIEVED")}
+            style={{ cursor: "pointer" }}
+            title="Click to filter targets achieved setups (Light Green rows)"
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="text-secondary small">🎯 Target Achieved (Green)</div>
+              <span className="badge bg-success-subtle text-success border border-success-subtle small">Filter</span>
             </div>
-            <div className="h3 fw-bold mb-0 text-success">
-              {viewMode === "mtf_confluence"
-                ? mtfReports.filter((r) => r.readiness_stage === "MICRO_TRIGGER_CONFIRMED").length
-                : summary.bullish}
-            </div>
+            <div className="h3 fw-bold mb-0 text-success">{summary.targetAchieved}</div>
           </div>
         </div>
         <div className="col-6 col-md-3">
-          <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Monitoring in PRZ ⏳" : "Bearish Patterns"}
+          <div
+            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : ""}`}
+            onClick={() => setLifecycleFilter(lifecycleFilter === "SL_BREACHED" ? "ALL" : "SL_BREACHED")}
+            style={{ cursor: "pointer" }}
+            title="Click to filter invalidated / SL breached setups (Light Yellow rows)"
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="text-secondary small">⚠️ SL Breached (Yellow)</div>
+              <span className="badge bg-warning-subtle text-warning border border-warning-subtle small">Filter</span>
             </div>
-            <div className="h3 fw-bold mb-0 text-warning">
-              {viewMode === "mtf_confluence"
-                ? mtfReports.filter((r) => r.readiness_stage === "IN_PRZ_MONITORING").length
-                : summary.bearish}
-            </div>
+            <div className="h3 fw-bold mb-0 text-warning">{summary.slBreached}</div>
           </div>
         </div>
         <div className="col-6 col-md-3">
-          <div className="card shadow-sm border-0 p-3 bg-surface">
-            <div className="text-secondary small">
-              {viewMode === "mtf_confluence" ? "Watchlist (Macro)" : "High Conviction (≥80%)"}
+          <div
+            className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "ALL" ? "ring-2 ring-secondary border border-secondary" : ""}`}
+            onClick={() => setLifecycleFilter("ALL")}
+            style={{ cursor: "pointer" }}
+            title="Click to show all setups"
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="text-secondary small">All Unique Symbols</div>
+              <span className="badge bg-primary-subtle text-primary small">Reset</span>
             </div>
-            <div className="h3 fw-bold mb-0 text-info">
-              {viewMode === "mtf_confluence"
-                ? mtfReports.filter((r) => r.readiness_stage === "MACRO_DETECTED").length
-                : summary.highQuality}
-            </div>
+            <div className="h3 fw-bold mb-0 text-info">{summary.uniqueSymbols}</div>
           </div>
         </div>
       </div>
@@ -576,24 +668,62 @@ export function HarmonicPatternScannerShell() {
           {/* Qualified Stocks Table (Grouped by Symbol) */}
           <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>
             <div className="card shadow-sm border-0 bg-surface">
-              <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
+              <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                   <h5 className="mb-0 fw-bold">
                     {viewMode === "database" ? "Database Pattern Registry" : "Live Scanner Findings"}
                   </h5>
                   <span className="text-muted small">
-                    {groupedResults.length} Unique Instruments | Base Reversal ($D$) vs Live LTP Execution
+                    {filteredGroupedResults.length} Instruments | Showing:{" "}
+                    <strong>
+                      {lifecycleFilter === "ALL"
+                        ? "All Setups"
+                        : lifecycleFilter === "OPEN_ACTIVE"
+                        ? "⚡ Open for Trade (White)"
+                        : lifecycleFilter === "TARGET_ACHIEVED"
+                        ? "🎯 Target Achieved (Green)"
+                        : "⚠️ SL Breached (Yellow)"}
+                    </strong>
                   </span>
                 </div>
-                <span className="badge bg-secondary-subtle text-secondary small">
-                  Filter TF: {timeframe.toUpperCase()}
-                </span>
+
+                {/* Quick Lifecycle Filter Switcher Pills */}
+                <div className="btn-group btn-group-sm" role="group">
+                  <button
+                    type="button"
+                    className={`btn ${lifecycleFilter === "ALL" ? "btn-dark fw-bold" : "btn-outline-secondary"}`}
+                    onClick={() => setLifecycleFilter("ALL")}
+                  >
+                    All ({groupedResults.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${lifecycleFilter === "OPEN_ACTIVE" ? "btn-primary fw-bold" : "btn-outline-primary"}`}
+                    onClick={() => setLifecycleFilter("OPEN_ACTIVE")}
+                  >
+                    ⚡ Open ({summary.openActive})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${lifecycleFilter === "TARGET_ACHIEVED" ? "btn-success fw-bold" : "btn-outline-success"}`}
+                    onClick={() => setLifecycleFilter("TARGET_ACHIEVED")}
+                  >
+                    🎯 Hit ({summary.targetAchieved})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${lifecycleFilter === "SL_BREACHED" ? "btn-warning text-dark fw-bold" : "btn-outline-warning text-dark"}`}
+                    onClick={() => setLifecycleFilter("SL_BREACHED")}
+                  >
+                    ⚠️ SL ({summary.slBreached})
+                  </button>
+                </div>
               </div>
               <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
+                <table className="table align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Symbol</th>
+                      <th>Symbol & Status</th>
                       <th>Timeframe Formations</th>
                       <th>Base $D$ vs Live LTP</th>
                       <th>Quality</th>
@@ -602,21 +732,24 @@ export function HarmonicPatternScannerShell() {
                     </tr>
                   </thead>
                   <tbody>
-                    {groupedResults.length === 0 ? (
+                    {filteredGroupedResults.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="text-center py-5 text-secondary">
                           {loading
                             ? "Scanning multi-timeframe universe..."
-                            : "No active harmonic patterns matching the selected filters. Click 'Sync All TFs to DB' to trigger a full refresh."}
+                            : "No harmonic patterns matching the current lifecycle filter."}
                         </td>
                       </tr>
                     ) : (
-                      groupedResults.map((group) => {
+                      filteredGroupedResults.map((group) => {
                         const prim = group.primary_pattern;
                         const isSelected = selectedStock?.instrument_key === group.instrument_key;
                         const isBull = prim.direction === "BULLISH";
                         const basePrice = prim.base_price ?? prim.d?.price ?? prim.prz_mid;
                         const currentPrice = group.current_price;
+
+                        // Lifecycle evaluation for color styling
+                        const lifecycle = getPatternLifecycle(prim, currentPrice);
 
                         // Live remaining points
                         const remT1 = prim.reward_points_t1 ?? (isBull ? prim.target_1 - currentPrice : currentPrice - prim.target_1);
@@ -627,13 +760,19 @@ export function HarmonicPatternScannerShell() {
                         return (
                           <tr
                             key={group.instrument_key}
-                            className={isSelected ? "table-active" : ""}
+                            className={`${lifecycle.rowClass} ${isSelected ? "ring-2 ring-primary" : ""}`}
+                            style={{ transition: "background-color 0.2s ease" }}
                           >
                             <td>
                               <div className="fw-bold">{group.label}</div>
-                              <span className="badge bg-light text-muted border small font-monospace">
-                                {group.kind.toUpperCase()}
-                              </span>
+                              <div className="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                <span className={`badge ${lifecycle.badgeClass} small`}>
+                                  {lifecycle.badgeLabel}
+                                </span>
+                                <span className="badge bg-light text-muted border small font-monospace">
+                                  {group.kind.toUpperCase()}
+                                </span>
+                              </div>
                             </td>
                             <td>
                               {/* Highlighted Timeframe Tabs for this instrument */}
@@ -795,11 +934,14 @@ export function HarmonicPatternScannerShell() {
                       >
                         {selectedStock.pattern_name.toUpperCase()} ({selectedStock.direction})
                       </span>
-                      <span className="badge bg-info-subtle text-info border border-info-subtle small">
-                        {selectedStock.state === "APPROACHING_PRZ" || !selectedStock.d
-                          ? "Point D: Predicted Completion (PRZ)"
-                          : "Point D: Confirmed Reversal"}
-                      </span>
+                      {(() => {
+                        const life = getPatternLifecycle(selectedStock, selectedStock.current_price);
+                        return (
+                          <span className={`badge ${life.badgeClass} small`}>
+                            {life.badgeLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <span className="text-secondary small">
                       TF: <strong>{activeChartTf.toUpperCase()}</strong> | Base Reversal: ₹
