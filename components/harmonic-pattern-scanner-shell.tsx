@@ -29,6 +29,7 @@ export function HarmonicPatternScannerShell() {
   const [chartData, setChartData] = useState<HarmonicVisualChartResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
   const [activeChartTf, setActiveChartTf] = useState("3m");
+  const [isMaximized, setIsMaximized] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -65,6 +66,17 @@ export function HarmonicPatternScannerShell() {
   useEffect(() => {
     loadData();
   }, [viewMode, timeframe, minQuality, maxStocks]);
+
+  // Handle Esc key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isMaximized) {
+        setIsMaximized(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMaximized]);
 
   const handleTriggerAutoScan = async () => {
     setLoading(true);
@@ -270,7 +282,7 @@ export function HarmonicPatternScannerShell() {
       {/* Main Layout */}
       <div className="row g-4">
         {/* Qualified Stocks Table */}
-        <div className={selectedStock ? "col-lg-5" : "col-12"}>
+        <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>
           <div className="card shadow-sm border-0 bg-surface">
             <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
               <h5 className="mb-0 fw-bold">
@@ -379,18 +391,39 @@ export function HarmonicPatternScannerShell() {
 
         {/* Visual Chart View Panel */}
         {selectedStock && (
-          <div className="col-lg-7">
-            <div className="card shadow-sm border-0 bg-surface sticky-top" style={{ top: "80px" }}>
-              <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-0">
+          <div
+            className={
+              isMaximized
+                ? "position-fixed top-0 start-0 w-100 h-100 p-3 p-md-4 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center"
+                : "col-lg-7"
+            }
+            style={isMaximized ? { zIndex: 1060, backdropFilter: "blur(6px)" } : {}}
+          >
+            <div
+              className={`card shadow-lg border-0 bg-surface ${
+                isMaximized ? "w-100 h-100 overflow-auto" : "sticky-top"
+              }`}
+              style={
+                isMaximized
+                  ? { maxWidth: "1500px", maxHeight: "95vh" }
+                  : { top: "80px" }
+              }
+            >
+              <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-bottom">
                 <div>
-                  <div className="d-flex align-items-center gap-2">
-                    <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave Overlay</h5>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <h5 className="mb-0 fw-bold">{selectedStock.label} — Harmonic Wave Geometry</h5>
                     <span
                       className={`badge ${
                         selectedStock.direction === "BULLISH" ? "bg-success" : "bg-danger"
                       }`}
                     >
                       {selectedStock.pattern_name.toUpperCase()} ({selectedStock.direction})
+                    </span>
+                    <span className="badge bg-info-subtle text-info border border-info-subtle small">
+                      {selectedStock.state === "APPROACHING_PRZ" || !selectedStock.d
+                        ? "Point D: Predicted Completion (PRZ)"
+                        : "Point D: Confirmed Reversal"}
                     </span>
                   </div>
                   <span className="text-secondary small">
@@ -399,15 +432,27 @@ export function HarmonicPatternScannerShell() {
                     <strong>{(selectedStock.quality_score * 100).toFixed(0)}%</strong>
                   </span>
                 </div>
-                <button
-                  className="btn-close"
-                  onClick={() => {
-                    setSelectedStock(null);
-                    setChartData(null);
-                  }}
-                />
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                    onClick={() => setIsMaximized(!isMaximized)}
+                    title={isMaximized ? "Restore default window (Esc)" : "Maximize chart to full screen"}
+                  >
+                    <i className={`bi ${isMaximized ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"}`} />
+                    <span className="d-none d-sm-inline">{isMaximized ? "Restore" : "Maximize"}</span>
+                  </button>
+                  <button
+                    className="btn-close"
+                    onClick={() => {
+                      setSelectedStock(null);
+                      setChartData(null);
+                      setIsMaximized(false);
+                    }}
+                  />
+                </div>
               </div>
-              <div className="card-body">
+
+              <div className="card-body d-flex flex-column">
                 {/* Timeframe selector bar for the chart */}
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                   <div className="d-flex flex-wrap gap-1">
@@ -425,35 +470,41 @@ export function HarmonicPatternScannerShell() {
                     ))}
                   </div>
                   <span className="badge bg-secondary-subtle text-secondary small font-monospace">
-                    {chartData?.candles?.length || 0} Candles
+                    {chartData?.candles?.length || 0} Candles ({activeChartTf.toUpperCase()})
                   </span>
                 </div>
 
                 {chartLoading ? (
-                  <div className="text-center py-5">
+                  <div className="text-center py-5 my-auto">
                     <span className="spinner-border text-primary" role="status" />
                     <div className="text-secondary small mt-2">
-                      Rendering geometric harmonic wave for {activeChartTf.toUpperCase()}...
+                      Computing XABCD harmonic wave geometry for {activeChartTf.toUpperCase()}...
                     </div>
                   </div>
                 ) : chartData && chartData.candles.length > 0 ? (
-                  <div>
+                  <div className="d-flex flex-column flex-grow-1">
                     {/* SVG Interactive Chart Visualizer with XABCD Harmonic Wave Geometry */}
                     <div
-                      className="border rounded bg-dark p-2 mb-3 shadow-inner"
-                      style={{ height: "360px", position: "relative" }}
+                      className="border rounded bg-dark p-2 mb-3 shadow-inner flex-grow-1 position-relative"
+                      style={{ minHeight: isMaximized ? "520px" : "360px" }}
                     >
-                      <svg width="100%" height="100%" viewBox="0 0 600 320" preserveAspectRatio="none">
+                      <svg width="100%" height="100%" viewBox={isMaximized ? "0 0 900 480" : "0 0 600 320"} preserveAspectRatio="none">
                         {/* Grid lines */}
-                        <line x1="0" y1="80" x2="600" y2="80" stroke="#262626" strokeDasharray="3 3" />
-                        <line x1="0" y1="160" x2="600" y2="160" stroke="#262626" strokeDasharray="3 3" />
-                        <line x1="0" y1="240" x2="600" y2="240" stroke="#262626" strokeDasharray="3 3" />
+                        <line x1="0" y1={isMaximized ? 120 : 80} x2={isMaximized ? 900 : 600} y2={isMaximized ? 120 : 80} stroke="#262626" strokeDasharray="3 3" />
+                        <line x1="0" y1={isMaximized ? 240 : 160} x2={isMaximized ? 900 : 600} y2={isMaximized ? 240 : 160} stroke="#262626" strokeDasharray="3 3" />
+                        <line x1="0" y1={isMaximized ? 360 : 240} x2={isMaximized ? 900 : 600} y2={isMaximized ? 360 : 240} stroke="#262626" strokeDasharray="3 3" />
 
                         {(() => {
-                          const candles = chartData.candles.slice(-50);
+                          const candleCount = isMaximized ? 75 : 50;
+                          const candles = chartData.candles.slice(-candleCount);
                           const highs = candles.map((c) => c.high);
                           const lows = candles.map((c) => c.low);
                           
+                          const viewW = isMaximized ? 900 : 600;
+                          const viewH = isMaximized ? 480 : 320;
+                          const paddingX = isMaximized ? 60 : 40;
+                          const chartW = viewW - paddingX * 2;
+
                           // Include XABCD, PRZ, and Targets in scale calculation
                           const allPrices = [
                             ...highs,
@@ -472,7 +523,7 @@ export function HarmonicPatternScannerShell() {
                           const minP = Math.min(...allPrices);
                           const maxP = Math.max(...allPrices);
                           const range = maxP - minP || 1.0;
-                          const toY = (p: number) => 300 - ((p - minP) / range) * 260;
+                          const toY = (p: number) => (viewH - 25) - ((p - minP) / range) * (viewH - 60);
 
                           // Map timestamps to closest candle index for accurate vertex positioning
                           const findCandleX = (targetTime: string, fallbackIdx: number) => {
@@ -486,7 +537,7 @@ export function HarmonicPatternScannerShell() {
                                 bestIdx = idx;
                               }
                             });
-                            return (bestIdx / (candles.length - 1 || 1)) * 520 + 40;
+                            return (bestIdx / (candles.length - 1 || 1)) * chartW + paddingX;
                           };
 
                           const xX = findCandleX(selectedStock.x.time, Math.max(0, candles.length - 40));
@@ -504,7 +555,7 @@ export function HarmonicPatternScannerShell() {
                           const dPrice = selectedStock.d?.price || selectedStock.prz_mid;
                           const xD = selectedStock.d?.time
                             ? findCandleX(selectedStock.d.time, candles.length - 1)
-                            : 560;
+                            : (viewW - paddingX);
                           const yD = toY(dPrice);
 
                           const isBullish = selectedStock.direction === "BULLISH";
@@ -518,7 +569,7 @@ export function HarmonicPatternScannerShell() {
                               <rect
                                 x="0"
                                 y={Math.min(toY(selectedStock.prz_low), toY(selectedStock.prz_high))}
-                                width="600"
+                                width={viewW}
                                 height={Math.abs(toY(selectedStock.prz_low) - toY(selectedStock.prz_high)) || 10}
                                 fill="rgba(34, 197, 94, 0.18)"
                                 stroke="rgba(34, 197, 94, 0.6)"
@@ -528,10 +579,10 @@ export function HarmonicPatternScannerShell() {
                                 x="10"
                                 y={Math.min(toY(selectedStock.prz_low), toY(selectedStock.prz_high)) + 12}
                                 fill="#22c55e"
-                                fontSize="9"
+                                fontSize={isMaximized ? "11" : "9"}
                                 fontWeight="bold"
                               >
-                                PRZ: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
+                                PRZ Zone: ₹{selectedStock.prz_low} - ₹{selectedStock.prz_high}
                               </text>
 
                               {/* 2. Shaded Harmonic Dual Triangles (Delta XAB & Delta BCD) */}
@@ -555,7 +606,7 @@ export function HarmonicPatternScannerShell() {
                                 points={`${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`}
                                 fill="none"
                                 stroke={isBullish ? "#38bdf8" : "#fb7185"}
-                                strokeWidth="2.5"
+                                strokeWidth={isMaximized ? "3" : "2.5"}
                                 strokeLinejoin="round"
                                 strokeLinecap="round"
                               />
@@ -573,21 +624,22 @@ export function HarmonicPatternScannerShell() {
 
                               {/* 4. Candlesticks */}
                               {candles.map((c, i) => {
-                                const x = (i / (candles.length - 1 || 1)) * 520 + 40;
+                                const x = (i / (candles.length - 1 || 1)) * chartW + paddingX;
                                 const isGreen = c.close >= c.open;
                                 const yOpen = toY(c.open);
                                 const yClose = toY(c.close);
                                 const yHigh = toY(c.high);
                                 const yLow = toY(c.low);
                                 const color = isGreen ? "#22c55e" : "#ef4444";
+                                const candleW = isMaximized ? 9 : 7;
 
                                 return (
                                   <g key={i}>
                                     <line x1={x} y1={yHigh} x2={x} y2={yLow} stroke={color} strokeWidth="1" />
                                     <rect
-                                      x={x - 3.5}
+                                      x={x - candleW / 2}
                                       y={Math.min(yOpen, yClose)}
-                                      width="7"
+                                      width={candleW}
                                       height={Math.max(Math.abs(yOpen - yClose), 2)}
                                       fill={color}
                                       rx="1"
@@ -600,26 +652,38 @@ export function HarmonicPatternScannerShell() {
                               <line
                                 x1="0"
                                 y1={toY(selectedStock.target_1)}
-                                x2="600"
+                                x2={viewW}
                                 y2={toY(selectedStock.target_1)}
                                 stroke="#10b981"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
                               />
-                              <text x="530" y={toY(selectedStock.target_1) - 4} fill="#10b981" fontSize="10" fontWeight="bold">
+                              <text
+                                x={viewW - 90}
+                                y={toY(selectedStock.target_1) - 4}
+                                fill="#10b981"
+                                fontSize={isMaximized ? "11" : "10"}
+                                fontWeight="bold"
+                              >
                                 T1: ₹{selectedStock.target_1}
                               </text>
 
                               <line
                                 x1="0"
                                 y1={toY(selectedStock.target_2)}
-                                x2="600"
+                                x2={viewW}
                                 y2={toY(selectedStock.target_2)}
                                 stroke="#059669"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
                               />
-                              <text x="530" y={toY(selectedStock.target_2) - 4} fill="#059669" fontSize="10" fontWeight="bold">
+                              <text
+                                x={viewW - 90}
+                                y={toY(selectedStock.target_2) - 4}
+                                fill="#059669"
+                                fontSize={isMaximized ? "11" : "10"}
+                                fontWeight="bold"
+                              >
                                 T2: ₹{selectedStock.target_2}
                               </text>
 
@@ -627,13 +691,19 @@ export function HarmonicPatternScannerShell() {
                               <line
                                 x1="0"
                                 y1={toY(selectedStock.stop_loss)}
-                                x2="600"
+                                x2={viewW}
                                 y2={toY(selectedStock.stop_loss)}
                                 stroke="#f43f5e"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
                               />
-                              <text x="530" y={toY(selectedStock.stop_loss) - 4} fill="#f43f5e" fontSize="10" fontWeight="bold">
+                              <text
+                                x={viewW - 90}
+                                y={toY(selectedStock.stop_loss) - 4}
+                                fill="#f43f5e"
+                                fontSize={isMaximized ? "11" : "10"}
+                                fontWeight="bold"
+                              >
                                 SL: ₹{selectedStock.stop_loss}
                               </text>
 
@@ -643,15 +713,28 @@ export function HarmonicPatternScannerShell() {
                                 { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
                                 { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
                                 { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
-                                { label: "D", x: xD, y: yD, price: dPrice, bg: "#10b981" },
+                                {
+                                  label: selectedStock.d ? "D" : "D (PRZ)",
+                                  x: xD,
+                                  y: yD,
+                                  price: dPrice,
+                                  bg: "#10b981",
+                                },
                               ].map((pt, idx) => (
                                 <g key={idx}>
-                                  <circle cx={pt.x} cy={pt.y} r="7" fill={pt.bg} stroke="#ffffff" strokeWidth="2" />
+                                  <circle
+                                    cx={pt.x}
+                                    cy={pt.y}
+                                    r={isMaximized ? "9" : "7"}
+                                    fill={pt.bg}
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                  />
                                   <text
                                     x={pt.x}
-                                    y={pt.y + 3.5}
+                                    y={pt.y + (isMaximized ? 4 : 3.5)}
                                     fill="#ffffff"
-                                    fontSize="8"
+                                    fontSize={isMaximized ? "10" : "8"}
                                     fontWeight="bold"
                                     textAnchor="middle"
                                   >
@@ -659,9 +742,9 @@ export function HarmonicPatternScannerShell() {
                                   </text>
                                   <text
                                     x={pt.x}
-                                    y={pt.y > 50 ? pt.y - 11 : pt.y + 18}
+                                    y={pt.y > 50 ? pt.y - (isMaximized ? 14 : 11) : pt.y + (isMaximized ? 22 : 18)}
                                     fill="#e2e8f0"
-                                    fontSize="9"
+                                    fontSize={isMaximized ? "11" : "9"}
                                     fontWeight="bold"
                                     textAnchor="middle"
                                   >
@@ -677,43 +760,43 @@ export function HarmonicPatternScannerShell() {
 
                     {/* Coordinates & Target Ladder Details */}
                     <div className="row g-2 small">
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-body-tertiary">
-                          <div className="text-secondary">Point X / A</div>
+                          <div className="text-secondary">Point X → A Swing</div>
                           <div className="fw-bold">
                             ₹{selectedStock.x.price} → ₹{selectedStock.a.price}
                           </div>
                         </div>
                       </div>
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-body-tertiary">
-                          <div className="text-secondary">Point B / C</div>
+                          <div className="text-secondary">Point B → C Retracement</div>
                           <div className="fw-bold">
                             ₹{selectedStock.b.price} → ₹{selectedStock.c.price}
                           </div>
                         </div>
                       </div>
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-body-tertiary">
-                          <div className="text-secondary">PRZ Zone</div>
-                          <div className="fw-bold text-primary">₹{selectedStock.prz_mid}</div>
+                          <div className="text-secondary">Point D Predicted PRZ</div>
+                          <div className="fw-bold text-primary">₹{selectedStock.prz_mid} (₹{selectedStock.prz_low} - ₹{selectedStock.prz_high})</div>
                         </div>
                       </div>
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-success-subtle text-success">
-                          <div>Target 1 (38.2%)</div>
+                          <div>Target 1 (38.2% CD)</div>
                           <div className="fw-bold">₹{selectedStock.target_1}</div>
                         </div>
                       </div>
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-success-subtle text-success">
-                          <div>Target 2 (61.8%)</div>
+                          <div>Target 2 (61.8% CD)</div>
                           <div className="fw-bold">₹{selectedStock.target_2}</div>
                         </div>
                       </div>
-                      <div className="col-4">
+                      <div className="col-6 col-md-4">
                         <div className="border rounded p-2 bg-danger-subtle text-danger">
-                          <div>Terminal Stop Loss</div>
+                          <div>Terminal Stop Loss (X-Exceed)</div>
                           <div className="fw-bold">₹{selectedStock.stop_loss}</div>
                         </div>
                       </div>
