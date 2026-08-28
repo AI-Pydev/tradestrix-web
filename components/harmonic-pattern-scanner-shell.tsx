@@ -27,7 +27,12 @@ import {
 } from "@/lib/harmonic-pattern-api";
 import { useEffect, useMemo, useState } from "react";
 
-export type PatternLifecycleStatus = "ALL" | "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
+export type PatternLifecycleStatus =
+  | "ALL"
+  | "OPEN_ACTIVE"
+  | "FORMING_D"
+  | "TARGET_ACHIEVED"
+  | "SL_BREACHED";
 
 export type GroupedHarmonicItem = {
   instrument_key: string;
@@ -35,16 +40,28 @@ export type GroupedHarmonicItem = {
   kind: "index" | "stock";
   current_price: number;
   patterns_by_tf: Record<string, HarmonicPatternScanItem>;
+  forming_patterns_by_tf: Record<string, PredictiveDProjection>;
+  has_forming_d: boolean;
+  primary_forming_d: PredictiveDProjection | null;
   primary_pattern: HarmonicPatternScanItem;
   active_timeframes: string[];
 };
 
 export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice: number): {
-  status: "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
+  status: "OPEN_ACTIVE" | "FORMING_D" | "TARGET_ACHIEVED" | "SL_BREACHED";
   badgeLabel: string;
   badgeClass: string;
   rowClass: string;
 } {
+  if (item.state === "FORMING") {
+    return {
+      status: "FORMING_D",
+      badgeLabel: "🔮 FORMING D",
+      badgeClass: "bg-info text-white fw-bold shadow-sm",
+      rowClass: "bg-info bg-opacity-10 border-start border-info border-3",
+    };
+  }
+
   const isBull = item.direction === "BULLISH";
   const t1 = item.target_1;
   const t2 = item.target_2;
@@ -367,6 +384,11 @@ export function HarmonicPatternScannerShell() {
 
     results.forEach((item) => {
       const existing = map.get(item.instrument_key);
+      const formingMap: Record<string, PredictiveDProjection> = {};
+      if (item.forming_prediction) {
+        formingMap[item.timeframe] = item.forming_prediction;
+      }
+
       if (!existing) {
         map.set(item.instrument_key, {
           instrument_key: item.instrument_key,
@@ -374,11 +396,24 @@ export function HarmonicPatternScannerShell() {
           kind: item.kind,
           current_price: item.current_price,
           patterns_by_tf: { [item.timeframe]: item },
+          forming_patterns_by_tf: formingMap,
+          has_forming_d: !!item.forming_prediction,
+          primary_forming_d: item.forming_prediction || null,
           primary_pattern: item,
           active_timeframes: [item.timeframe],
         });
       } else {
         existing.patterns_by_tf[item.timeframe] = item;
+        if (item.forming_prediction) {
+          existing.forming_patterns_by_tf[item.timeframe] = item.forming_prediction;
+          existing.has_forming_d = true;
+          if (
+            !existing.primary_forming_d ||
+            item.forming_prediction.quality_score > existing.primary_forming_d.quality_score
+          ) {
+            existing.primary_forming_d = item.forming_prediction;
+          }
+        }
         if (!existing.active_timeframes.includes(item.timeframe)) {
           existing.active_timeframes.push(item.timeframe);
         }
@@ -398,6 +433,9 @@ export function HarmonicPatternScannerShell() {
   // Filter grouped results by trade lifecycle status
   const filteredGroupedResults = useMemo(() => {
     if (lifecycleFilter === "ALL") return groupedResults;
+    if (lifecycleFilter === "FORMING_D") {
+      return groupedResults.filter((g) => g.has_forming_d || g.primary_pattern.state === "FORMING");
+    }
     return groupedResults.filter((g) => {
       const lifecycle = getPatternLifecycle(g.primary_pattern, g.current_price);
       return lifecycle.status === lifecycleFilter;
@@ -448,6 +486,7 @@ export function HarmonicPatternScannerShell() {
     const uniqueSymbols = groupedResults.length;
     let targetAchieved = 0;
     let openActive = 0;
+    let formingCount = 0;
     let slBreached = 0;
     let srConfluentCount = 0;
 
@@ -455,6 +494,7 @@ export function HarmonicPatternScannerShell() {
       const life = getPatternLifecycle(g.primary_pattern, g.current_price);
       if (life.status === "TARGET_ACHIEVED") targetAchieved++;
       else if (life.status === "SL_BREACHED") slBreached++;
+      else if (life.status === "FORMING_D" || g.has_forming_d) formingCount++;
       else openActive++;
 
       if (g.primary_pattern.sr_confluence) srConfluentCount++;
@@ -462,7 +502,7 @@ export function HarmonicPatternScannerShell() {
 
     const bullish = results.filter((r) => r.direction === "BULLISH").length;
     const bearish = results.filter((r) => r.direction === "BEARISH").length;
-    return { total, uniqueSymbols, targetAchieved, openActive, slBreached, srConfluentCount, bullish, bearish };
+    return { total, uniqueSymbols, targetAchieved, openActive, formingCount, slBreached, srConfluentCount, bullish, bearish };
   }, [results, groupedResults]);
 
   return (
@@ -475,25 +515,27 @@ export function HarmonicPatternScannerShell() {
             <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
               11 Timeframes (1m → 1M)
             </span>
+            <span className="badge bg-info-subtle text-info border border-info-subtle">
+              🔮 Auto Point D Predictor
+            </span>
             <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
               🔥 S/R Confluence
             </span>
-            <span className="badge bg-success-subtle text-success border border-success-subtle">
-              📄 Paper Trading Engine
-            </span>
           </div>
-          <p className="text-secondary mb-0 small mt-1">
-            Institutional Harmonic Reversal Zones with <strong>Lifecycle Timestamps</strong>, Strong S/R Confluence, and <strong>1-Click Paper Trading</strong>.
+          <p className="text-secondary small mb-0 mt-1">
+            Real-time Fibonacci geometry scanner, automated Point D projections, and multi-timeframe confirmation engine.
           </p>
         </div>
+
+        {/* View Mode Tabs */}
         <div className="d-flex align-items-center gap-2">
-          <div className="btn-group p-1 bg-body-tertiary rounded border" role="group">
+          <div className="btn-group p-1 bg-surface rounded-3 border shadow-sm" role="group">
             <button
               type="button"
               className={`btn btn-sm ${viewMode === "database" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
               onClick={() => setViewMode("database")}
             >
-              <i className="bi bi-database me-1" /> Persistent DB
+              <i className="bi bi-database me-1" /> Pattern Registry (DB)
             </button>
             <button
               type="button"
@@ -623,7 +665,7 @@ export function HarmonicPatternScannerShell() {
                 <span className="text-secondary small">
                   {viewMode === "database" && typeof dbSummary?.latest_update === "string"
                     ? `DB Last Synced: ${new Date(dbSummary.latest_update).toLocaleTimeString()}`
-                    : `Showing ${filteredGroupedResults.length} unique symbol(s) (${summary.srConfluentCount} S/R Confluent)`}
+                    : `Showing ${filteredGroupedResults.length} unique symbol(s) (${summary.formingCount} Forming Point D)`}
                 </span>
               </div>
             </div>
@@ -634,7 +676,7 @@ export function HarmonicPatternScannerShell() {
       {/* Summary KPI Cards with Lifecycle & S/R Confluence Breakdown */}
       {viewMode !== "paper_portfolio" && (
         <div className="row g-3 mb-4">
-          <div className="col-6 col-md-3">
+          <div className="col">
             <div
               className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : ""}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "OPEN_ACTIVE" ? "ALL" : "OPEN_ACTIVE")}
@@ -642,13 +684,27 @@ export function HarmonicPatternScannerShell() {
               title="Click to filter only open active trade setups (White rows)"
             >
               <div className="d-flex justify-content-between align-items-center">
-                <div className="text-secondary small">⚡ Open for Trade (White)</div>
+                <div className="text-secondary small">⚡ Open Setups</div>
                 <span className="badge bg-light text-dark border small">Filter</span>
               </div>
               <div className="h3 fw-bold mb-0 text-primary">{summary.openActive}</div>
             </div>
           </div>
-          <div className="col-6 col-md-3">
+          <div className="col">
+            <div
+              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "FORMING_D" ? "ring-2 ring-info border border-info" : ""}`}
+              onClick={() => setLifecycleFilter(lifecycleFilter === "FORMING_D" ? "ALL" : "FORMING_D")}
+              style={{ cursor: "pointer" }}
+              title="Click to filter symbols with auto-calculated Point D projections (Cyan rows)"
+            >
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-secondary small">🔮 Forming Point D</div>
+                <span className="badge bg-info-subtle text-info border border-info-subtle small">Auto</span>
+              </div>
+              <div className="h3 fw-bold mb-0 text-info">{summary.formingCount}</div>
+            </div>
+          </div>
+          <div className="col">
             <div
               className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : ""}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "TARGET_ACHIEVED" ? "ALL" : "TARGET_ACHIEVED")}
@@ -656,13 +712,13 @@ export function HarmonicPatternScannerShell() {
               title="Click to filter targets achieved setups (Light Green rows)"
             >
               <div className="d-flex justify-content-between align-items-center">
-                <div className="text-secondary small">🎯 Target Achieved (Green)</div>
+                <div className="text-secondary small">🎯 Targets Hit</div>
                 <span className="badge bg-success-subtle text-success border border-success-subtle small">Filter</span>
               </div>
               <div className="h3 fw-bold mb-0 text-success">{summary.targetAchieved}</div>
             </div>
           </div>
-          <div className="col-6 col-md-3">
+          <div className="col">
             <div
               className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : ""}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "SL_BREACHED" ? "ALL" : "SL_BREACHED")}
@@ -670,16 +726,16 @@ export function HarmonicPatternScannerShell() {
               title="Click to filter invalidated / SL breached setups (Light Yellow rows)"
             >
               <div className="d-flex justify-content-between align-items-center">
-                <div className="text-secondary small">⚠️ SL Breached (Yellow)</div>
+                <div className="text-secondary small">⚠️ SL Breached</div>
                 <span className="badge bg-warning-subtle text-warning border border-warning-subtle small">Filter</span>
               </div>
               <div className="h3 fw-bold mb-0 text-warning">{summary.slBreached}</div>
             </div>
           </div>
-          <div className="col-6 col-md-3">
+          <div className="col">
             <div className="card shadow-sm border-0 p-3 bg-surface">
               <div className="d-flex justify-content-between align-items-center">
-                <div className="text-secondary small">🔥 S/R Confluent Setups</div>
+                <div className="text-secondary small">🔥 S/R Confluent</div>
                 <span className="badge bg-danger-subtle text-danger small">High Edge</span>
               </div>
               <div className="h3 fw-bold mb-0 text-danger">{summary.srConfluentCount}</div>
@@ -1416,10 +1472,12 @@ export function HarmonicPatternScannerShell() {
                       {lifecycleFilter === "ALL"
                         ? "All Setups"
                         : lifecycleFilter === "OPEN_ACTIVE"
-                        ? "⚡ Open for Trade (White)"
+                        ? "⚡ Open for Trade"
+                        : lifecycleFilter === "FORMING_D"
+                        ? "🔮 Forming Point D (Auto-Calculated)"
                         : lifecycleFilter === "TARGET_ACHIEVED"
-                        ? "🎯 Target Achieved (Green)"
-                        : "⚠️ SL Breached (Yellow)"}
+                        ? "🎯 Target Achieved"
+                        : "⚠️ SL Breached"}
                     </strong>
                   </span>
                 </div>
@@ -1442,6 +1500,13 @@ export function HarmonicPatternScannerShell() {
                   </button>
                   <button
                     type="button"
+                    className={`btn ${lifecycleFilter === "FORMING_D" ? "btn-info text-white fw-bold" : "btn-outline-info"}`}
+                    onClick={() => setLifecycleFilter("FORMING_D")}
+                  >
+                    🔮 Forming D ({summary.formingCount})
+                  </button>
+                  <button
+                    type="button"
                     className={`btn ${lifecycleFilter === "TARGET_ACHIEVED" ? "btn-success fw-bold" : "btn-outline-success"}`}
                     onClick={() => setLifecycleFilter("TARGET_ACHIEVED")}
                   >
@@ -1460,9 +1525,10 @@ export function HarmonicPatternScannerShell() {
                 <table className="table align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Symbol & Prediction Audit</th>
+                      <th>Symbol & Pattern Audit</th>
                       <th>Timeframe Formations</th>
                       <th>Base $D$ vs Live LTP</th>
+                      <th>🔮 Predicted Point D (Target & C→D)</th>
                       <th>Strong S/R Levels</th>
                       <th>Live Target & Risk</th>
                       <th>Action</th>
@@ -1471,10 +1537,10 @@ export function HarmonicPatternScannerShell() {
                   <tbody>
                     {filteredGroupedResults.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-5 text-secondary">
+                        <td colSpan={7} className="text-center py-5 text-secondary">
                           {loading
                             ? "Scanning multi-timeframe universe..."
-                            : "No harmonic patterns matching the current lifecycle filter."}
+                            : "No harmonic patterns matching the current filter."}
                         </td>
                       </tr>
                     ) : (
@@ -1493,6 +1559,7 @@ export function HarmonicPatternScannerShell() {
                         const liveRisk = prim.risk_points_sl ?? (isBull ? currentPrice - prim.stop_loss : prim.stop_loss - currentPrice);
                         const liveRR = prim.live_rr_ratio ?? (Math.max(remT1, 0) / Math.max(liveRisk, 0.1));
                         const distFromBase = prim.dist_from_base ?? (isBull ? currentPrice - basePrice : basePrice - currentPrice);
+                        const topForming = group.primary_forming_d;
 
                         return (
                           <tr
@@ -1522,13 +1589,14 @@ export function HarmonicPatternScannerShell() {
                             </td>
                             <td>
                               {/* Highlighted Timeframe Tabs for this instrument */}
-                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: "220px" }}>
+                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: "240px" }}>
                                 {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => {
                                   const pat = group.patterns_by_tf[tf.id];
+                                  const formingForTf = group.forming_patterns_by_tf[tf.id];
                                   const isCurrentActive =
                                     isSelected && activeChartTf === tf.id;
 
-                                  if (pat) {
+                                  if (pat && pat.state !== "FORMING") {
                                     const isPatBull = pat.direction === "BULLISH";
                                     return (
                                       <button
@@ -1542,10 +1610,33 @@ export function HarmonicPatternScannerShell() {
                                             : "btn-danger-subtle text-danger border border-danger"
                                         }`}
                                         style={{ fontSize: "10px", padding: "2px 6px" }}
-                                        title={`${tf.label}: ${pat.pattern_name} (${pat.direction}) - ${(pat.quality_score * 100).toFixed(0)}%`}
+                                        title={`${tf.label}: Completed ${pat.pattern_name} (${pat.direction}) in PRZ`}
                                         onClick={() => loadVisualChart(pat, tf.id)}
                                       >
                                         {tf.id.toUpperCase()} ●
+                                      </button>
+                                    );
+                                  }
+
+                                  if (formingForTf || (pat && pat.state === "FORMING")) {
+                                    const fData = formingForTf || pat?.forming_prediction;
+                                    return (
+                                      <button
+                                        key={tf.id}
+                                        type="button"
+                                        className="btn btn-xs fw-bold btn-info text-white shadow-sm"
+                                        style={{ fontSize: "10px", padding: "2px 6px" }}
+                                        title={`${tf.label}: 🔮 ${fData?.pattern_name || "Harmonic"} Forming (${fData?.direction || ""}) - Target D: ₹${fData?.predicted_d_mid ?? "—"}`}
+                                        onClick={() =>
+                                          handleOpenPredictiveDModal(
+                                            group.instrument_key,
+                                            group.label,
+                                            tf.id,
+                                            fData
+                                          )
+                                        }
+                                      >
+                                        🔮 {tf.id.toUpperCase()}
                                       </button>
                                     );
                                   }
@@ -1560,7 +1651,7 @@ export function HarmonicPatternScannerShell() {
                                           : "btn-light text-muted opacity-50"
                                       }`}
                                       style={{ fontSize: "10px", padding: "2px 5px" }}
-                                      title={`${tf.label}: No pattern detected (Click to view chart)`}
+                                      title={`${tf.label}: No pattern detected`}
                                       onClick={() => loadVisualChart(prim, tf.id)}
                                     >
                                       {tf.id.toUpperCase()}
@@ -1599,6 +1690,45 @@ export function HarmonicPatternScannerShell() {
                                   </span>
                                 </div>
                               </div>
+                            </td>
+                            {/* Auto-Calculated Point D Column */}
+                            <td>
+                              {topForming ? (
+                                <div className="d-flex flex-column gap-1">
+                                  <div className="d-flex align-items-center gap-1">
+                                    <span className="badge bg-info text-white fw-bold small">
+                                      🔮 {topForming.pattern_name}
+                                    </span>
+                                    <span
+                                      className={`badge ${
+                                        topForming.direction === "BULLISH"
+                                          ? "bg-success"
+                                          : "bg-danger"
+                                      } small`}
+                                    >
+                                      {topForming.direction}
+                                    </span>
+                                    <span className="badge bg-dark-subtle text-dark small font-monospace">
+                                      {topForming.timeframe}
+                                    </span>
+                                  </div>
+                                  <div className="small font-monospace">
+                                    <span className="text-secondary">Target D: </span>
+                                    <strong className="text-info fw-bold">₹{topForming.predicted_d_mid}</strong>
+                                  </div>
+                                  <div className="small font-monospace">
+                                    <span className="text-secondary">C→D Run: </span>
+                                    <span className="fw-semibold text-primary">
+                                      {topForming.dist_to_d_points > 0 ? `+${topForming.dist_to_d_points}` : topForming.dist_to_d_points} pts
+                                    </span>
+                                    <span className="text-muted ms-1">({topForming.dist_to_d_pct}%)</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-muted small font-monospace">
+                                  <span>— No Forming D</span>
+                                </div>
+                              )}
                             </td>
                             <td>
                               {/* Strong S/R Levels and Confluence Badge */}
@@ -1643,19 +1773,37 @@ export function HarmonicPatternScannerShell() {
                                 >
                                   Chart
                                 </button>
-                                <button
-                                  className="btn btn-xs btn-outline-info fw-bold d-flex align-items-center gap-1 justify-content-center"
-                                  onClick={() =>
-                                    handleOpenPredictiveDModal(
-                                      prim.instrument_key,
-                                      prim.label,
-                                      prim.timeframe
-                                    )
-                                  }
-                                  title="Predict Point D PRZ target zone & C->D roadmap"
-                                >
-                                  🔮 Predict D
-                                </button>
+                                {topForming ? (
+                                  <button
+                                    className="btn btn-xs btn-info text-white fw-bold shadow-sm d-flex align-items-center gap-1 justify-content-center"
+                                    onClick={() =>
+                                      handleOpenPredictiveDModal(
+                                        group.instrument_key,
+                                        group.label,
+                                        topForming.timeframe,
+                                        topForming
+                                      )
+                                    }
+                                    title={`🔮 Point D Target: ₹${topForming.predicted_d_mid} (${topForming.pattern_name})`}
+                                  >
+                                    <i className="bi bi-bullseye" />
+                                    <span>🔮 Predict D Ready</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn btn-xs btn-light text-muted border opacity-75 d-flex align-items-center gap-1 justify-content-center"
+                                    onClick={() =>
+                                      handleOpenPredictiveDModal(
+                                        prim.instrument_key,
+                                        prim.label,
+                                        prim.timeframe
+                                      )
+                                    }
+                                    title="Check on-demand Point D calculation"
+                                  >
+                                    <span>🔮 Check D</span>
+                                  </button>
+                                )}
                                 <button
                                   className="btn btn-xs btn-outline-success fw-bold d-flex align-items-center gap-1 justify-content-center"
                                   onClick={() => handleOpenPaperTradeModal(prim)}

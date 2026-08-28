@@ -61,6 +61,7 @@ export type HarmonicPatternScanItem = {
   stop_loss_hit_at?: string | null;
   trade_outcome?: "OPEN" | "T1_HIT" | "T2_HIT" | "SL_BREACHED" | "EXPIRED" | string;
   hold_duration_mins?: number | null;
+  forming_prediction?: PredictiveDProjection | null;
 };
 
 export type HarmonicPaperTrade = {
