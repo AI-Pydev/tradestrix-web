@@ -1,5 +1,6 @@
 "use client";
 
+import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
 import {
   HARMONIC_SUPPORTED_TIMEFRAMES,
   HarmonicAutoTradeSettings,
@@ -24,7 +25,6 @@ import {
   triggerHarmonicAutoScanCycle,
   updateHarmonicAutoTradeSettings,
 } from "@/lib/harmonic-pattern-api";
-import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
 import { useEffect, useMemo, useState } from "react";
 
 export type PatternLifecycleStatus = "ALL" | "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";

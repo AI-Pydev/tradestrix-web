@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
-  HARMONIC_SUPPORTED_TIMEFRAMES,
-  PredictiveDChartData,
-  PredictiveDProjection,
-  fetchSymbolPredictiveD,
+    HARMONIC_SUPPORTED_TIMEFRAMES,
+    PredictiveDChartData,
+    PredictiveDProjection,
+    fetchSymbolPredictiveD,
 } from "@/lib/harmonic-pattern-api";
+import { useEffect, useState } from "react";
 
 type Props = {
   instrumentKey: string;

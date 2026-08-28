@@ -691,11 +691,16 @@ export async function fetchEmergingHarmonicPatterns(params?: {
 
 export async function fetchSymbolPredictiveD(
   instrumentKey: string,
-  timeframe: string = "3m"
+  timeframe: string = "3m",
+  brokerId: string = "upstox"
 ): Promise<PredictiveDChartResponse> {
+  const query = new URLSearchParams();
+  query.set("timeframe", timeframe);
+  if (brokerId) query.set("broker_id", brokerId);
+
   const encodedKey = encodeURIComponent(instrumentKey);
   const response = await fetch(
-    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/symbol/${encodedKey}/predict-d?timeframe=${timeframe}`,
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/predict-d/${encodedKey}?${query.toString()}`,
     {
       headers: buildAuthorizedHeaders(),
       cache: "no-store",
