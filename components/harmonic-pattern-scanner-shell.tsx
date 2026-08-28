@@ -8,8 +8,10 @@ import {
   HarmonicPatternScanItem,
   HarmonicVisualChartResponse,
   MTFConfluenceReport,
+  PredictiveDProjection,
   closeHarmonicPaperTrade,
   createHarmonicPaperTrade,
+  fetchEmergingHarmonicPatterns,
   fetchHarmonicAutoTradeSettings,
   fetchHarmonicPaperTrades,
   fetchHarmonicPatternScan,
@@ -22,6 +24,7 @@ import {
   triggerHarmonicAutoScanCycle,
   updateHarmonicAutoTradeSettings,
 } from "@/lib/harmonic-pattern-api";
+import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
 import { useEffect, useMemo, useState } from "react";
 
 export type PatternLifecycleStatus = "ALL" | "OPEN_ACTIVE" | "TARGET_ACHIEVED" | "SL_BREACHED";
@@ -102,8 +105,9 @@ export function HarmonicPatternScannerShell() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [results, setResults] = useState<HarmonicPatternScanItem[]>([]);
-  const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence" | "paper_portfolio">("database");
+  const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence" | "paper_portfolio" | "emerging_d">("database");
   const [mtfReports, setMtfReports] = useState<MTFConfluenceReport[]>([]);
+  const [emergingProjections, setEmergingProjections] = useState<PredictiveDProjection[]>([]);
   const [timeframe, setTimeframe] = useState("all");
   const [lifecycleFilter, setLifecycleFilter] = useState<PatternLifecycleStatus>("ALL");
   const [minQuality, setMinQuality] = useState(0.65);
@@ -111,6 +115,15 @@ export function HarmonicPatternScannerShell() {
   const [includeStocks, setIncludeStocks] = useState(true);
   const [maxStocks, setMaxStocks] = useState(24);
   const [dbSummary, setDbSummary] = useState<Record<string, unknown> | null>(null);
+
+  // Predictive Point D Modal State
+  const [predictiveModalOpen, setPredictiveModalOpen] = useState(false);
+  const [predictiveModalSymbol, setPredictiveModalSymbol] = useState<{
+    instrumentKey: string;
+    symbolLabel: string;
+    timeframe: string;
+    projection?: PredictiveDProjection | null;
+  } | null>(null);
 
   // Paper Trading State
   const [paperTrades, setPaperTrades] = useState<HarmonicPaperTrade[]>([]);
@@ -130,6 +143,21 @@ export function HarmonicPatternScannerShell() {
   const [activeChartTf, setActiveChartTf] = useState("3m");
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeMtfReport, setActiveMtfReport] = useState<MTFConfluenceReport | null>(null);
+
+  const handleOpenPredictiveDModal = (
+    instrumentKey: string,
+    symbolLabel: string,
+    tf: string = "15m",
+    projection?: PredictiveDProjection | null
+  ) => {
+    setPredictiveModalSymbol({
+      instrumentKey,
+      symbolLabel,
+      timeframe: tf,
+      projection,
+    });
+    setPredictiveModalOpen(true);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -155,6 +183,15 @@ export function HarmonicPatternScannerShell() {
           workers: 8,
         });
         setResults(resp.results || []);
+      } else if (viewMode === "emerging_d") {
+        const resp = await fetchEmergingHarmonicPatterns({
+          timeframe: timeframe === "all" ? undefined : timeframe,
+          min_quality: minQuality,
+          max_stocks: maxStocks,
+          include_indices: includeIndices,
+          include_stocks: includeStocks,
+        });
+        setEmergingProjections(resp.results || []);
       } else if (viewMode === "mtf_confluence") {
         const resp = await fetchMTFUniverseConfluence({
           max_indices: includeIndices ? 4 : 0,
@@ -464,6 +501,13 @@ export function HarmonicPatternScannerShell() {
               onClick={() => setViewMode("live")}
             >
               <i className="bi bi-broadcast me-1" /> Live Scan
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${viewMode === "emerging_d" ? "btn-info shadow-sm fw-semibold text-white" : "btn-light text-secondary"}`}
+              onClick={() => setViewMode("emerging_d")}
+            >
+              <i className="bi bi-bullseye me-1" /> 🔮 Predict D (Forming)
             </button>
             <button
               type="button"
@@ -1016,6 +1060,170 @@ export function HarmonicPatternScannerShell() {
         </div>
       )}
 
+      {/* Mode: Emerging Patterns & Point D Predictive Projections */}
+      {viewMode === "emerging_d" && (
+        <div className="card shadow-sm border-0 bg-surface mb-4">
+          <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <h5 className="mb-0 fw-bold">🔮 Emerging Harmonic Patterns & Point D Predictive Projections</h5>
+                <span className="badge bg-info-subtle text-info border border-info-subtle">
+                  {emergingProjections.length} Active Candidate(s)
+                </span>
+              </div>
+              <p className="text-secondary mb-0 small mt-1">
+                Once points <strong>X, A, B, and C</strong> are confirmed formed by the candles, Point D is mathematically projected based on the Ultimate Harmonic Strategy Guide.
+              </p>
+            </div>
+            <button
+              className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+              onClick={loadData}
+              disabled={loading}
+            >
+              <i className={`bi bi-arrow-clockwise ${loading ? "spin" : ""}`} />
+              <span>Refresh Projections</span>
+            </button>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>Symbol & TF</th>
+                  <th>Forming Pattern</th>
+                  <th>Confirmed Legs</th>
+                  <th>Predicted Point D (PRZ)</th>
+                  <th>⚡ Trade 1: C → D Scalp</th>
+                  <th>🔄 Trade 2: D Reversal</th>
+                  <th>Status & Quality</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emergingProjections.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5 text-secondary">
+                      {loading
+                        ? "Scanning universe for emerging X-A-B-C harmonic patterns & Point D projections..."
+                        : "No active emerging X-A-B-C patterns found matching current quality thresholds. Try refreshing or switching timeframes!"}
+                    </td>
+                  </tr>
+                ) : (
+                  emergingProjections.map((p, idx) => {
+                    const isBull = p.direction === "BULLISH";
+                    return (
+                      <tr key={`${p.projection_id}-${idx}`}>
+                        <td>
+                          <div className="fw-bold">{p.symbol_label}</div>
+                          <div className="d-flex align-items-center gap-1 mt-1">
+                            <span className="badge bg-primary text-white font-monospace" style={{ fontSize: "10px" }}>
+                              {p.timeframe.toUpperCase()}
+                            </span>
+                            <span className="badge bg-light text-muted border" style={{ fontSize: "10px" }}>
+                              LTP: ₹{p.current_price}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex align-items-center gap-1 mb-1">
+                            <span className="badge bg-primary-subtle text-primary fw-bold">
+                              {p.pattern_name.toUpperCase()}
+                            </span>
+                            <span className={`badge ${isBull ? "bg-success" : "bg-danger"}`}>
+                              {p.direction}
+                            </span>
+                          </div>
+                          <span className="text-muted small font-monospace" style={{ fontSize: "11px" }}>
+                            {p.notes ? p.notes.slice(0, 38) + "..." : ""}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column small font-monospace">
+                            <div>
+                              <span className="text-secondary">AB/XA: </span>
+                              <strong className="text-primary">{(p.ratio_ab_xa * 100).toFixed(1)}%</strong>
+                            </div>
+                            <div>
+                              <span className="text-secondary">BC/AB: </span>
+                              <strong className="text-primary">{(p.ratio_bc_ab * 100).toFixed(1)}%</strong>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column small font-monospace">
+                            <div className="fw-bold text-primary fs-6">₹{p.predicted_d_mid}</div>
+                            <div className="text-muted" style={{ fontSize: "11px" }}>
+                              Range: ₹{p.predicted_d_low} – ₹{p.predicted_d_high}
+                            </div>
+                            <div className={p.dist_to_d_points >= 0 ? "text-success fw-semibold" : "text-danger fw-semibold"}>
+                              Rem: {p.dist_to_d_points >= 0 ? "+" : ""}{p.dist_to_d_points} pts ({p.dist_to_d_pct}%)
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column small font-monospace">
+                            <div className="d-flex align-items-center gap-1">
+                              <span className={`badge ${p.cd_trade_direction === "BUY" ? "bg-success" : "bg-danger"}`}>
+                                {p.cd_trade_direction}
+                              </span>
+                              <strong>{p.cd_leg_points} pts</strong>
+                            </div>
+                            <span className="text-muted mt-1" style={{ fontSize: "10.5px" }}>
+                              Scalp towards Point D
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column small font-monospace">
+                            <div className="text-success">
+                              T1: ₹{p.anticipated_t1}
+                            </div>
+                            <div className="text-success">
+                              T2: ₹{p.anticipated_t2}
+                            </div>
+                            <div className="text-danger">
+                              SL: ₹{p.anticipated_sl}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column gap-1 small">
+                            <span className="badge bg-info-subtle text-info border border-info-subtle font-monospace">
+                              {p.status}
+                            </span>
+                            <span className="text-muted font-monospace" style={{ fontSize: "11px" }}>
+                              Score: <strong>{(p.quality_score * 100).toFixed(0)}%</strong>
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column gap-1">
+                            <button
+                              className="btn btn-sm btn-info text-white fw-bold d-flex align-items-center gap-1 justify-content-center"
+                              onClick={() =>
+                                handleOpenPredictiveDModal(
+                                  p.instrument_key,
+                                  p.symbol_label,
+                                  p.timeframe,
+                                  p
+                                )
+                              }
+                            >
+                              <i className="bi bi-bullseye" />
+                              <span>🔮 Roadmap</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Mode 3: MTF Universe Confluence View */}
       {viewMode === "mtf_confluence" && (
         <div className="card shadow-sm border-0 bg-surface mb-4">
@@ -1434,6 +1642,19 @@ export function HarmonicPatternScannerShell() {
                                   onClick={() => loadVisualChart(prim, prim.timeframe)}
                                 >
                                   Chart
+                                </button>
+                                <button
+                                  className="btn btn-xs btn-outline-info fw-bold d-flex align-items-center gap-1 justify-content-center"
+                                  onClick={() =>
+                                    handleOpenPredictiveDModal(
+                                      prim.instrument_key,
+                                      prim.label,
+                                      prim.timeframe
+                                    )
+                                  }
+                                  title="Predict Point D PRZ target zone & C->D roadmap"
+                                >
+                                  🔮 Predict D
                                 </button>
                                 <button
                                   className="btn btn-xs btn-outline-success fw-bold d-flex align-items-center gap-1 justify-content-center"
@@ -2220,6 +2441,48 @@ export function HarmonicPatternScannerShell() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Point D Predictive Projection & Roadmap Modal */}
+      {predictiveModalOpen && predictiveModalSymbol && (
+        <HarmonicPredictiveDModal
+          instrumentKey={predictiveModalSymbol.instrumentKey}
+          symbolLabel={predictiveModalSymbol.symbolLabel}
+          initialTimeframe={predictiveModalSymbol.timeframe}
+          initialProjection={predictiveModalSymbol.projection}
+          onTakePaperTrade={(proj) => {
+            setPredictiveModalOpen(false);
+            handleOpenPaperTradeModal({
+              label: proj.symbol_label,
+              instrument_key: proj.instrument_key,
+              kind: proj.kind || "stock",
+              pattern_name: proj.pattern_name,
+              direction: proj.direction,
+              state: proj.status,
+              quality_score: proj.quality_score,
+              geometry_score: proj.geometry_score,
+              current_price: proj.current_price,
+              base_price: proj.predicted_d_mid,
+              prz_low: proj.predicted_d_low,
+              prz_high: proj.predicted_d_high,
+              prz_mid: proj.predicted_d_mid,
+              stop_loss: proj.anticipated_sl,
+              target_1: proj.anticipated_t1,
+              target_2: proj.anticipated_t2,
+              target_3: proj.anticipated_t2,
+              x: { price: proj.x.price, time: proj.x.time },
+              a: { price: proj.a.price, time: proj.a.time },
+              b: { price: proj.b.price, time: proj.b.time },
+              c: { price: proj.c.price, time: proj.c.time },
+              detected_at: proj.detected_at || new Date().toISOString(),
+              timeframe: proj.timeframe,
+            });
+          }}
+          onClose={() => {
+            setPredictiveModalOpen(false);
+            setPredictiveModalSymbol(null);
+          }}
+        />
       )}
     </div>
   );

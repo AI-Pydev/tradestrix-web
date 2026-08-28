@@ -580,4 +580,129 @@ export async function runHarmonicAutoExitNow(): Promise<Record<string, unknown>>
   return response.json();
 }
 
+export type PredictiveDProjection = {
+  projection_id: string;
+  pattern_name: string;
+  direction: "BULLISH" | "BEARISH";
+  symbol_label: string;
+  instrument_key: string;
+  kind?: "index" | "stock";
+  timeframe: string;
+  current_price: number;
+  x: { price: number; time: string; index?: number; kind?: string };
+  a: { price: number; time: string; index?: number; kind?: string };
+  b: { price: number; time: string; index?: number; kind?: string };
+  c: { price: number; time: string; index?: number; kind?: string };
+  ratio_ab_xa: number;
+  ratio_bc_ab: number;
+  ratio_bc_xa?: number | null;
+  predicted_d_low: number;
+  predicted_d_high: number;
+  predicted_d_mid: number;
+  target_cd_bc_min: number;
+  target_cd_bc_max: number;
+  target_xd_xa_min: number;
+  target_xd_xa_max: number;
+  cd_leg_points: number;
+  cd_trade_direction: "BUY" | "SELL";
+  dist_to_d_points: number;
+  dist_to_d_pct: number;
+  anticipated_t1: number;
+  anticipated_t2: number;
+  anticipated_sl: number;
+  t1_rule_desc: string;
+  t2_rule_desc: string;
+  sl_rule_desc: string;
+  geometry_score: number;
+  quality_score: number;
+  status: "FORMING_CD" | "APPROACHING_PRZ" | "IN_PREDICTED_PRZ" | "OVERRUN" | string;
+  detected_at?: string;
+  notes?: string;
+  nearest_support?: number | null;
+  nearest_resistance?: number | null;
+};
+
+export type EmergingPatternScanResponse = {
+  status: string;
+  count: number;
+  timeframe: string;
+  results: PredictiveDProjection[];
+};
+
+export type PredictiveDChartData = {
+  instrument_key: string;
+  symbol_label: string;
+  timeframe: string;
+  candles: {
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }[];
+  pivots: {
+    index: number;
+    time: string;
+    price: number;
+    kind: string;
+  }[];
+  predictions: PredictiveDProjection[];
+  current_price: number;
+  support_levels: number[];
+  resistance_levels: number[];
+  nearest_support?: number | null;
+  nearest_resistance?: number | null;
+};
+
+export type PredictiveDChartResponse = {
+  status: string;
+  data: PredictiveDChartData;
+};
+
+export async function fetchEmergingHarmonicPatterns(params?: {
+  timeframe?: string;
+  min_quality?: number;
+  max_stocks?: number;
+  include_indices?: boolean;
+  include_stocks?: boolean;
+}): Promise<EmergingPatternScanResponse> {
+  const query = new URLSearchParams();
+  if (params?.timeframe) query.set("timeframe", params.timeframe);
+  if (params?.min_quality !== undefined)
+    query.set("min_quality", String(params.min_quality));
+  if (params?.max_stocks !== undefined)
+    query.set("max_stocks", String(params.max_stocks));
+  if (params?.include_indices !== undefined)
+    query.set("include_indices", String(params.include_indices));
+  if (params?.include_stocks !== undefined)
+    query.set("include_stocks", String(params.include_stocks));
+
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/emerging-patterns?${query.toString()}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchSymbolPredictiveD(
+  instrumentKey: string,
+  timeframe: string = "3m"
+): Promise<PredictiveDChartResponse> {
+  const encodedKey = encodeURIComponent(instrumentKey);
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/symbol/${encodedKey}/predict-d?timeframe=${timeframe}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
 
