@@ -67,7 +67,7 @@ const PRESET_POPULAR = [
   { label: "GOLD", name: "MCX Gold" },
 ];
 
-// Harmonic timeframe standards (1m removed as it contains excessive noise)
+// Harmonic timeframe standards (1m removed to eliminate high-frequency noise)
 const TIMEFRAMES = [
   "3m",
   "5m",
@@ -180,8 +180,91 @@ export function HarmonicCustomStudio({
     useState<CustomWaveEvaluationResponse | null>(null);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [paperTradeMsg, setPaperTradeMsg] = useState<string | null>(null);
+  const [isLiveSynced, setIsLiveSynced] = useState(false);
+  const [liveSyncTime, setLiveSyncTime] = useState<string | null>(null);
 
-  // Evaluate sandbox wave on startup or parameter change
+  // Auto-fetch live market pivots and auto-fill coordinates dynamically
+  const handleAutoFetchLivePivots = async (
+    targetKey: string,
+    targetTf: string,
+    symbolLabelHint?: string
+  ) => {
+    setSandboxLoading(true);
+    setSandboxError(null);
+    setPaperTradeMsg(null);
+    try {
+      const data = await fetchCustomHarmonicAnalysis(targetKey, targetTf);
+      if (data && data.current_price) {
+        const liveCmp = Number(data.current_price.toFixed(2));
+        setCmpPrice(liveCmp);
+
+        let newX = xPrice;
+        let newA = aPrice;
+        let newB = bPrice;
+        let newC = cPrice;
+        let newD = "";
+        let newDir: "AUTO" | "BULLISH" | "BEARISH" = "AUTO";
+
+        if (data.predictions && data.predictions.length > 0) {
+          const p = data.predictions[0];
+          newX = Number(p.x.price.toFixed(2));
+          newA = Number(p.a.price.toFixed(2));
+          newB = Number(p.b.price.toFixed(2));
+          newC = Number(p.c.price.toFixed(2));
+          newD = "";
+          newDir = p.direction === "BULLISH" ? "BULLISH" : "BEARISH";
+        } else if (data.patterns && data.patterns.length > 0) {
+          const pat = data.patterns[0];
+          newX = Number(pat.x.price.toFixed(2));
+          newA = Number(pat.a.price.toFixed(2));
+          newB = Number(pat.b.price.toFixed(2));
+          newC = Number(pat.c.price.toFixed(2));
+          newD = pat.d ? String(Number(pat.d.price.toFixed(2))) : "";
+          newDir = pat.direction === "BULLISH" ? "BULLISH" : "BEARISH";
+        } else if (data.pivots && data.pivots.length >= 4) {
+          // Take 4 most recent ZigZag pivots
+          const recent = data.pivots.slice(-4);
+          newX = Number(recent[0].price.toFixed(2));
+          newA = Number(recent[1].price.toFixed(2));
+          newB = Number(recent[2].price.toFixed(2));
+          newC = Number(recent[3].price.toFixed(2));
+          newD = "";
+        }
+
+        setXPrice(newX);
+        setAPrice(newA);
+        setBPrice(newB);
+        setCPrice(newC);
+        setDPrice(newD);
+        setSandboxDirection(newDir);
+        setIsLiveSynced(true);
+        setLiveSyncTime(new Date().toLocaleTimeString());
+
+        // Immediately evaluate wave with new prices
+        const res = await evaluateHarmonicSandboxWave({
+          x_price: newX,
+          a_price: newA,
+          b_price: newB,
+          c_price: newC,
+          d_price: newD !== "" ? parseFloat(newD) : null,
+          current_price: liveCmp,
+          symbol_label: symbolLabelHint || data.symbol_label,
+          instrument_key: targetKey,
+          timeframe: targetTf,
+          direction: newDir,
+        });
+        setSandboxResult(res);
+      }
+    } catch (err: any) {
+      setSandboxError(
+        `Failed to auto-fetch live pivots for ${targetKey}: ${err?.message || "Error"}`
+      );
+    } finally {
+      setSandboxLoading(false);
+    }
+  };
+
+  // Evaluate sandbox wave on manual parameter change
   const handleEvaluateSandbox = async () => {
     setSandboxLoading(true);
     setSandboxError(null);
@@ -208,13 +291,15 @@ export function HarmonicCustomStudio({
     }
   };
 
+  // On initial mount, auto-fetch live pivots for default symbol (VEDL)
   useEffect(() => {
-    handleEvaluateSandbox();
+    handleAutoFetchLivePivots(sandboxInstKey, sandboxTf, sandboxSymbol);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Quick preset loader for sandbox
   const handleLoadPreset = (type: string) => {
+    setIsLiveSynced(false);
     if (type === "vedl_bat") {
       setSandboxSymbol("VEDL");
       setSandboxInstKey("NSE_EQ|INE205A01025");
@@ -323,8 +408,7 @@ export function HarmonicCustomStudio({
             </span>
           </div>
           <p className="text-secondary small mb-0 mt-1">
-            Analyze any custom stock from the catalog or interactively simulate
-            Fibonacci coordinates (X-A-B-C → D) with instant rule validation.
+            <strong>Auto-calculates prices from live market candles</strong> on symbol selection, with full freedom to interactively simulate custom Fibonacci coordinates (X-A-B-C → D).
           </p>
         </div>
 
@@ -338,7 +422,7 @@ export function HarmonicCustomStudio({
             }`}
             onClick={() => setStudioMode("sandbox")}
           >
-            <i className="bi bi-sliders me-1" /> 🎛️ Interactive Sandbox
+            <i className="bi bi-sliders me-1" /> 🎛️ Interactive Sandbox & Wave Calculator
           </button>
           <button
             type="button"
@@ -349,7 +433,7 @@ export function HarmonicCustomStudio({
             }`}
             onClick={() => setStudioMode("symbol_scanner")}
           >
-            <i className="bi bi-search me-1" /> 🔍 Any Symbol Scanner
+            <i className="bi bi-search me-1" /> 🔍 Any Symbol Scanner & Chart
           </button>
         </div>
       </div>
@@ -360,9 +444,9 @@ export function HarmonicCustomStudio({
         {/* ========================================================================= */}
         {studioMode === "sandbox" && (
           <div>
-            {/* Quick Presets Bar */}
+            {/* Live Sync Status Bar & Quick Presets Bar */}
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 bg-light rounded-3 mb-4 border">
-              <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center flex-wrap gap-2">
                 <span className="small fw-bold text-secondary">
                   ⚡ Quick Presets:
                 </span>
@@ -395,19 +479,45 @@ export function HarmonicCustomStudio({
                 </button>
               </div>
 
-              <span className="badge bg-secondary-subtle text-secondary small">
-                Interactive Multi-Pattern Matrix
-              </span>
+              <div className="d-flex align-items-center gap-2">
+                {isLiveSynced ? (
+                  <span className="badge bg-success-subtle text-success border border-success-subtle small px-2 py-1">
+                    🟢 Live Market Coordinates Synced ({liveSyncTime})
+                  </span>
+                ) : (
+                  <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small px-2 py-1">
+                    ✏️ Manual / Custom Coordinate Simulation
+                  </span>
+                )}
+                <button
+                  className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1"
+                  onClick={() =>
+                    handleAutoFetchLivePivots(
+                      sandboxInstKey,
+                      sandboxTf,
+                      sandboxSymbol
+                    )
+                  }
+                  disabled={sandboxLoading}
+                  title="Auto-fetch recent swing high/low pivots directly from live market candles"
+                >
+                  <i className={`bi bi-arrow-repeat ${sandboxLoading ? "spin" : ""}`} />
+                  <span>Re-Sync Live Pivots</span>
+                </button>
+              </div>
             </div>
 
             {/* Input Form with Dropdown Select for Symbol */}
             <div className="row g-3 mb-4">
               <div className="col-12 col-md-4">
-                <label className="form-label small text-secondary fw-semibold">
-                  Select Symbol from Dropdown
+                <label className="form-label small text-primary fw-bold d-flex justify-content-between">
+                  <span>1. Select Stock / Index</span>
+                  <span className="text-muted fw-normal" style={{ fontSize: "11px" }}>
+                    Auto-updates prices
+                  </span>
                 </label>
                 <select
-                  className="form-select form-select-sm fw-bold border-secondary"
+                  className="form-select form-select-sm fw-bold border-primary shadow-sm"
                   value={sandboxInstKey}
                   onChange={(e) => {
                     const chosen = catalog.find(
@@ -416,6 +526,12 @@ export function HarmonicCustomStudio({
                     if (chosen) {
                       setSandboxInstKey(chosen.instrument_key);
                       setSandboxSymbol(chosen.label);
+                      // Auto-fetch live market prices for chosen stock
+                      handleAutoFetchLivePivots(
+                        chosen.instrument_key,
+                        sandboxTf,
+                        chosen.label
+                      );
                     }
                   }}
                 >
@@ -460,31 +576,43 @@ export function HarmonicCustomStudio({
 
               <div className="col-12 col-md-2">
                 <label className="form-label small text-secondary fw-semibold">
-                  Timeframe
+                  2. Timeframe
                 </label>
                 <select
                   className="form-select form-select-sm fw-semibold"
                   value={sandboxTf}
-                  onChange={(e) => setSandboxTf(e.target.value)}
+                  onChange={(e) => {
+                    const newTf = e.target.value;
+                    setSandboxTf(newTf);
+                    handleAutoFetchLivePivots(
+                      sandboxInstKey,
+                      newTf,
+                      sandboxSymbol
+                    );
+                  }}
                 >
                   {TIMEFRAMES.map((tf) => (
                     <option key={tf} value={tf}>
-                      {tf}
+                      {tf} Timeframe
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="col-6 col-md-3">
-                <label className="form-label small text-success fw-bold">
-                  Current Market Price (CMP)
+                <label className="form-label small text-success fw-bold d-flex justify-content-between">
+                  <span>Live Market CMP (₹)</span>
+                  <span className="badge bg-success-subtle text-success">LTP</span>
                 </label>
                 <input
                   type="number"
                   step="0.05"
-                  className="form-control form-control-sm fw-bold border-success text-success"
+                  className="form-control form-control-sm fw-bold border-success text-success font-monospace"
                   value={cmpPrice}
-                  onChange={(e) => setCmpPrice(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setCmpPrice(parseFloat(e.target.value) || 0);
+                  }}
                 />
               </div>
 
@@ -495,86 +623,107 @@ export function HarmonicCustomStudio({
                 <select
                   className="form-select form-select-sm"
                   value={sandboxDirection}
-                  onChange={(e: any) => setSandboxDirection(e.target.value)}
+                  onChange={(e: any) => {
+                    setSandboxDirection(e.target.value);
+                  }}
                 >
-                  <option value="AUTO">Auto Detect</option>
-                  <option value="BULLISH">Bullish Setup</option>
-                  <option value="BEARISH">Bearish Setup</option>
+                  <option value="AUTO">Auto Detect Wave</option>
+                  <option value="BULLISH">Bullish Setup (Buy PRZ)</option>
+                  <option value="BEARISH">Bearish Setup (Sell PRZ)</option>
                 </select>
               </div>
             </div>
 
-            {/* Coordinates Row */}
+            {/* Coordinates Row (Auto-filled from live market, freely editable for custom analysis) */}
             <div className="row g-3 align-items-end mb-4">
               <div className="col-6 col-md-2">
-                <label className="form-label small text-primary fw-bold">
-                  X Price
+                <label className="form-label small text-primary fw-bold d-flex justify-content-between">
+                  <span>Point X (₹)</span>
+                  <span className="text-muted small" style={{ fontSize: "10px" }}>Anchor</span>
                 </label>
                 <input
                   type="number"
                   step="0.05"
-                  className="form-control form-control-sm fw-semibold border-primary"
+                  className="form-control form-control-sm fw-semibold border-primary font-monospace"
                   value={xPrice}
-                  onChange={(e) => setXPrice(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setXPrice(parseFloat(e.target.value) || 0);
+                  }}
                 />
               </div>
 
               <div className="col-6 col-md-2">
-                <label className="form-label small text-primary fw-bold">
-                  A Price
+                <label className="form-label small text-primary fw-bold d-flex justify-content-between">
+                  <span>Point A (₹)</span>
+                  <span className="text-muted small" style={{ fontSize: "10px" }}>1st Leg</span>
                 </label>
                 <input
                   type="number"
                   step="0.05"
-                  className="form-control form-control-sm fw-semibold border-primary"
+                  className="form-control form-control-sm fw-semibold border-primary font-monospace"
                   value={aPrice}
-                  onChange={(e) => setAPrice(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setAPrice(parseFloat(e.target.value) || 0);
+                  }}
                 />
               </div>
 
               <div className="col-6 col-md-2">
-                <label className="form-label small text-primary fw-bold">
-                  B Price
+                <label className="form-label small text-primary fw-bold d-flex justify-content-between">
+                  <span>Point B (₹)</span>
+                  <span className="text-muted small" style={{ fontSize: "10px" }}>Retracement</span>
                 </label>
                 <input
                   type="number"
                   step="0.05"
-                  className="form-control form-control-sm fw-semibold border-primary"
+                  className="form-control form-control-sm fw-semibold border-primary font-monospace"
                   value={bPrice}
-                  onChange={(e) => setBPrice(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setBPrice(parseFloat(e.target.value) || 0);
+                  }}
                 />
               </div>
 
               <div className="col-6 col-md-2">
-                <label className="form-label small text-primary fw-bold">
-                  C Price
+                <label className="form-label small text-primary fw-bold d-flex justify-content-between">
+                  <span>Point C (₹)</span>
+                  <span className="text-muted small" style={{ fontSize: "10px" }}>Pullback</span>
                 </label>
                 <input
                   type="number"
                   step="0.05"
-                  className="form-control form-control-sm fw-semibold border-primary"
+                  className="form-control form-control-sm fw-semibold border-primary font-monospace"
                   value={cPrice}
-                  onChange={(e) => setCPrice(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setCPrice(parseFloat(e.target.value) || 0);
+                  }}
                 />
               </div>
 
               <div className="col-6 col-md-2">
                 <label className="form-label small text-secondary fw-semibold">
-                  Optional D (Leave blank to predict)
+                  Point D (₹) (Optional)
                 </label>
                 <input
                   type="number"
                   step="0.05"
                   placeholder="Auto-projected"
-                  className="form-control form-control-sm"
+                  className="form-control form-control-sm font-monospace"
                   value={dPrice}
-                  onChange={(e) => setDPrice(e.target.value)}
+                  onChange={(e) => {
+                    setIsLiveSynced(false);
+                    setDPrice(e.target.value);
+                  }}
                 />
               </div>
 
               <div className="col-6 col-md-2">
                 <button
-                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
+                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm"
                   onClick={handleEvaluateSandbox}
                   disabled={sandboxLoading}
                 >
@@ -656,10 +805,10 @@ export function HarmonicCustomStudio({
                             ).map(([key, ratio]) => (
                               <tr key={key}>
                                 <td className="fw-bold">{ratio.name}</td>
-                                <td className="fw-semibold text-primary">
+                                <td className="fw-semibold text-primary font-monospace">
                                   {ratio.actual.toFixed(3)}
                                 </td>
-                                <td className="text-secondary">
+                                <td className="text-secondary font-monospace">
                                   {ratio.min.toFixed(3)} – {ratio.max.toFixed(3)}{" "}
                                   (Target: {ratio.ideal.toFixed(3)})
                                 </td>
@@ -766,7 +915,7 @@ export function HarmonicCustomStudio({
                               38.2% Run
                             </span>
                           </div>
-                          <span className="fw-bold text-primary fs-6">
+                          <span className="fw-bold text-primary fs-6 font-monospace">
                             ₹{sandboxResult.best_match.target_1.toFixed(2)}
                           </span>
                         </div>
@@ -780,7 +929,7 @@ export function HarmonicCustomStudio({
                               61.8% Run
                             </span>
                           </div>
-                          <span className="fw-bold text-info fs-6">
+                          <span className="fw-bold text-info fs-6 font-monospace">
                             ₹{sandboxResult.best_match.target_2.toFixed(2)}
                           </span>
                         </div>
@@ -794,7 +943,7 @@ export function HarmonicCustomStudio({
                               PRZ Completion
                             </span>
                           </div>
-                          <span className="fw-bold text-success fs-6">
+                          <span className="fw-bold text-success fs-6 font-monospace">
                             ₹{sandboxResult.best_match.target_3.toFixed(2)}
                           </span>
                         </div>
@@ -808,7 +957,7 @@ export function HarmonicCustomStudio({
                               Invalidation
                             </span>
                           </div>
-                          <span className="fw-bold text-danger fs-6">
+                          <span className="fw-bold text-danger fs-6 font-monospace">
                             ₹{sandboxResult.best_match.stop_loss.toFixed(2)}
                           </span>
                         </div>
@@ -817,7 +966,7 @@ export function HarmonicCustomStudio({
                           <span className="small fw-semibold text-secondary">
                             Live Risk : Reward
                           </span>
-                          <span className="badge bg-dark fs-6 px-3 py-1">
+                          <span className="badge bg-dark fs-6 px-3 py-1 font-monospace">
                             1 : {sandboxResult.best_match.live_rr_ratio}
                           </span>
                         </div>
@@ -952,7 +1101,7 @@ export function HarmonicCustomStudio({
 
               <div className="col-12 col-md-2">
                 <button
-                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
+                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm"
                   onClick={() => handleAnalyzeSymbol()}
                   disabled={scannerLoading}
                 >
@@ -1022,7 +1171,7 @@ export function HarmonicCustomStudio({
                     <div className="d-flex align-items-center gap-3">
                       <div className="text-end">
                         <div className="small text-secondary">CMP</div>
-                        <div className="fs-5 fw-bold text-dark">
+                        <div className="fs-5 fw-bold text-dark font-monospace">
                           ₹{scannerData.current_price.toFixed(2)}
                         </div>
                       </div>
@@ -1076,7 +1225,7 @@ export function HarmonicCustomStudio({
                             </span>
                           </div>
 
-                          <div className="row g-2 small text-secondary mb-2">
+                          <div className="row g-2 small text-secondary mb-2 font-monospace">
                             <div className="col-6">
                               Point D PRZ:{" "}
                               <strong className="text-dark">
@@ -1135,7 +1284,7 @@ export function HarmonicCustomStudio({
                             </span>
                           </div>
 
-                          <div className="row g-2 small text-secondary mb-2">
+                          <div className="row g-2 small text-secondary mb-2 font-monospace">
                             <div className="col-6">
                               Target 1:{" "}
                               <strong className="text-success">
@@ -1237,7 +1386,7 @@ export function HarmonicCustomStudio({
                           <span className="text-secondary">
                             Nearest Support (S1)
                           </span>
-                          <span className="fw-bold text-success">
+                          <span className="fw-bold text-success font-monospace">
                             {scannerData.nearest_support
                               ? `₹${scannerData.nearest_support.toFixed(2)}`
                               : "—"}
@@ -1247,7 +1396,7 @@ export function HarmonicCustomStudio({
                           <span className="text-secondary">
                             Nearest Resistance (R1)
                           </span>
-                          <span className="fw-bold text-danger">
+                          <span className="fw-bold text-danger font-monospace">
                             {scannerData.nearest_resistance
                               ? `₹${scannerData.nearest_resistance.toFixed(2)}`
                               : "—"}
