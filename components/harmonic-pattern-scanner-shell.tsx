@@ -1,6 +1,7 @@
 "use client";
 
 import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
+import { HarmonicCustomStudio } from "@/components/harmonic-custom-studio";
 import {
   HARMONIC_SUPPORTED_TIMEFRAMES,
   HarmonicAutoTradeSettings,
@@ -122,7 +123,14 @@ export function HarmonicPatternScannerShell() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [results, setResults] = useState<HarmonicPatternScanItem[]>([]);
-  const [viewMode, setViewMode] = useState<"database" | "live" | "mtf_confluence" | "paper_portfolio" | "emerging_d">("database");
+  const [viewMode, setViewMode] = useState<
+    | "database"
+    | "live"
+    | "mtf_confluence"
+    | "paper_portfolio"
+    | "emerging_d"
+    | "custom_studio"
+  >("database");
   const [mtfReports, setMtfReports] = useState<MTFConfluenceReport[]>([]);
   const [emergingProjections, setEmergingProjections] = useState<PredictiveDProjection[]>([]);
   const [timeframe, setTimeframe] = useState("all");
@@ -565,6 +573,13 @@ export function HarmonicPatternScannerShell() {
             >
               <i className="bi bi-journal-check me-1" /> 📄 Paper Portfolio
             </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${viewMode === "custom_studio" ? "btn-warning shadow-sm fw-bold text-dark" : "btn-light text-secondary"}`}
+              onClick={() => setViewMode("custom_studio")}
+            >
+              <i className="bi bi-sliders me-1" /> 🔬 Harmonic Lab
+            </button>
           </div>
 
           <button
@@ -587,7 +602,9 @@ export function HarmonicPatternScannerShell() {
       {error && <div className="alert alert-danger py-2 small shadow-sm">{error}</div>}
 
       {/* Mode 1 & 2: Filter Bar */}
-      {viewMode !== "mtf_confluence" && viewMode !== "paper_portfolio" && (
+      {viewMode !== "mtf_confluence" &&
+        viewMode !== "paper_portfolio" &&
+        viewMode !== "custom_studio" && (
         <div className="card shadow-sm border-0 mb-4 bg-surface">
           <div className="card-body py-3">
             <div className="row g-3 align-items-center">
@@ -674,7 +691,7 @@ export function HarmonicPatternScannerShell() {
       )}
 
       {/* Summary KPI Cards with Lifecycle & S/R Confluence Breakdown */}
-      {viewMode !== "paper_portfolio" && (
+      {viewMode !== "paper_portfolio" && viewMode !== "custom_studio" && (
         <div className="row g-3 mb-4">
           <div className="col">
             <div
@@ -1455,8 +1472,35 @@ export function HarmonicPatternScannerShell() {
         </div>
       )}
 
+      {/* Mode: Custom Harmonic Studio & Sandbox */}
+      {viewMode === "custom_studio" && (
+        <HarmonicCustomStudio
+          onPaperTradeSuccess={() => {
+            fetchHarmonicPaperTrades({ status: "ALL" }).then((res) => {
+              setPaperTrades(res.results);
+              setPaperSummary(res.summary);
+            });
+            setSuccessMsg("Paper trade placed from Harmonic Lab successfully!");
+          }}
+          onOpenPatternModal={(pat) => {
+            setSelectedStock(pat);
+          }}
+          onOpenPredictiveModal={(proj) => {
+            handleOpenPredictiveDModal(
+              proj.instrument_key,
+              proj.symbol_label,
+              proj.timeframe,
+              proj
+            );
+          }}
+        />
+      )}
+
       {/* Main Layout for Database & Live View */}
-      {viewMode !== "mtf_confluence" && viewMode !== "paper_portfolio" && (
+      {viewMode !== "mtf_confluence" &&
+        viewMode !== "paper_portfolio" &&
+        viewMode !== "emerging_d" &&
+        viewMode !== "custom_studio" && (
         <div className="row g-4">
           {/* Qualified Stocks Table (Grouped by Symbol) */}
           <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>

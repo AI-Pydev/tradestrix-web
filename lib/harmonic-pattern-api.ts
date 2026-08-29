@@ -711,4 +711,138 @@ export async function fetchSymbolPredictiveD(
   return response.json();
 }
 
+export interface CustomWaveEvaluationRequest {
+  x_price: number;
+  a_price: number;
+  b_price: number;
+  c_price: number;
+  d_price?: number | null;
+  current_price?: number | null;
+  symbol_label?: string;
+  instrument_key?: string | null;
+  timeframe?: string;
+  direction?: "BULLISH" | "BEARISH" | "AUTO";
+}
+
+export interface RatioDetail {
+  name: string;
+  actual: number;
+  min: number;
+  max: number;
+  ideal: number;
+  status: "PERFECT" | "ACCEPTABLE" | "BORDERLINE" | "INVALID";
+}
+
+export interface PatternMatch {
+  pattern_name: string;
+  direction: "BULLISH" | "BEARISH";
+  is_valid: boolean;
+  quality_score: number;
+  geometry_score: number;
+  status: string;
+  ratios: Record<string, RatioDetail>;
+  predicted_d_low: number;
+  predicted_d_high: number;
+  predicted_d_mid: number;
+  target_1: number;
+  target_2: number;
+  target_3: number;
+  stop_loss: number;
+  live_rr_ratio: number;
+  prz_mid: number;
+}
+
+export interface CustomWaveEvaluationResponse {
+  status: string;
+  symbol_label: string;
+  instrument_key: string;
+  timeframe: string;
+  current_price: number;
+  direction: "BULLISH" | "BEARISH";
+  wave_points: {
+    x: { price: number; label: string };
+    a: { price: number; label: string };
+    b: { price: number; label: string };
+    c: { price: number; label: string };
+    d: { price: number; label: string } | null;
+  };
+  actual_ratios: {
+    AB_XA: number;
+    BC_AB: number;
+    BC_XA: number;
+    CD_BC: number | null;
+    XD_XA: number | null;
+  };
+  best_match: PatternMatch | null;
+  all_matches: PatternMatch[];
+  message?: string;
+}
+
+export interface CustomSymbolAnalysisResponse {
+  status: string;
+  message?: string;
+  symbol_label: string;
+  instrument_key: string;
+  timeframe: string;
+  current_price: number;
+  candles: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>;
+  pivots: Array<{
+    price: number;
+    time: string;
+    type: "HIGH" | "LOW";
+    index: number;
+  }>;
+  patterns: any[];
+  predictions: any[];
+  support_levels: number[];
+  resistance_levels: number[];
+  nearest_support: number | null;
+  nearest_resistance: number | null;
+}
+
+export async function evaluateHarmonicSandboxWave(
+  payload: CustomWaveEvaluationRequest
+): Promise<CustomWaveEvaluationResponse> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/sandbox/evaluate`,
+    {
+      method: "POST",
+      headers: buildAuthorizedHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchCustomHarmonicAnalysis(
+  symbol: string,
+  timeframe: string = "1d",
+  brokerId: string = "upstox"
+): Promise<CustomSymbolAnalysisResponse> {
+  const query = new URLSearchParams();
+  query.set("symbol", symbol);
+  query.set("timeframe", timeframe);
+  if (brokerId) query.set("broker_id", brokerId);
+
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/custom-analyze?${query.toString()}`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+
 

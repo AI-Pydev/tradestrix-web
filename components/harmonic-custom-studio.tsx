@@ -1,0 +1,1064 @@
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  evaluateHarmonicSandboxWave,
+  fetchCustomHarmonicAnalysis,
+  createHarmonicPaperTrade,
+  CustomWaveEvaluationResponse,
+  CustomSymbolAnalysisResponse,
+  PatternMatch,
+} from "@/lib/harmonic-pattern-api";
+
+interface HarmonicCustomStudioProps {
+  onPaperTradeSuccess?: () => void;
+  onOpenPatternModal?: (pattern: any) => void;
+  onOpenPredictiveModal?: (prediction: any) => void;
+}
+
+const PRESET_SYMBOLS = [
+  { label: "VEDL", name: "Vedanta Ltd" },
+  { label: "TATAMOTORS", name: "Tata Motors Ltd" },
+  { label: "RELIANCE", name: "Reliance Industries" },
+  { label: "HDFCBANK", name: "HDFC Bank Ltd" },
+  { label: "NIFTY 50", name: "NIFTY 50 Index" },
+  { label: "BANKNIFTY", name: "Nifty Bank Index" },
+  { label: "GOLD", name: "MCX Gold" },
+];
+
+const TIMEFRAMES = [
+  "1m",
+  "3m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "1d",
+  "1w",
+  "1M",
+];
+
+export function HarmonicCustomStudio({
+  onPaperTradeSuccess,
+  onOpenPatternModal,
+  onOpenPredictiveModal,
+}: HarmonicCustomStudioProps) {
+  const [studioMode, setStudioMode] = useState<"sandbox" | "symbol_scanner">(
+    "sandbox"
+  );
+
+  // --- Mode A: Custom Symbol Scanner State ---
+  const [searchSymbol, setSearchSymbol] = useState("VEDL");
+  const [scannerTf, setScannerTf] = useState("1d");
+  const [scannerLoading, setScannerLoading] = useState(false);
+  const [scannerData, setScannerData] =
+    useState<CustomSymbolAnalysisResponse | null>(null);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+
+  // --- Mode B: Interactive Sandbox State ---
+  const [xPrice, setXPrice] = useState<number>(358.0);
+  const [aPrice, setAPrice] = useState<number>(251.0);
+  const [bPrice, setBPrice] = useState<number>(287.0);
+  const [cPrice, setCPrice] = useState<number>(260.0);
+  const [dPrice, setDPrice] = useState<string>("");
+  const [cmpPrice, setCmpPrice] = useState<number>(288.0);
+  const [sandboxSymbol, setSandboxSymbol] = useState("VEDL");
+  const [sandboxTf, setSandboxTf] = useState("1d");
+  const [sandboxDirection, setSandboxDirection] = useState<
+    "AUTO" | "BULLISH" | "BEARISH"
+  >("AUTO");
+
+  const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [sandboxResult, setSandboxResult] =
+    useState<CustomWaveEvaluationResponse | null>(null);
+  const [sandboxError, setSandboxError] = useState<string | null>(null);
+  const [paperTradeMsg, setPaperTradeMsg] = useState<string | null>(null);
+
+  // Evaluate sandbox wave on startup or parameter change
+  const handleEvaluateSandbox = async () => {
+    setSandboxLoading(true);
+    setSandboxError(null);
+    setPaperTradeMsg(null);
+    try {
+      const parsedD = dPrice.trim() !== "" ? parseFloat(dPrice) : null;
+      const res = await evaluateHarmonicSandboxWave({
+        x_price: Number(xPrice),
+        a_price: Number(aPrice),
+        b_price: Number(bPrice),
+        c_price: Number(cPrice),
+        d_price: parsedD && !isNaN(parsedD) ? parsedD : null,
+        current_price: Number(cmpPrice),
+        symbol_label: sandboxSymbol,
+        timeframe: sandboxTf,
+        direction: sandboxDirection,
+      });
+      setSandboxResult(res);
+    } catch (err: any) {
+      setSandboxError(err?.message || "Failed to evaluate sandbox coordinates");
+    } finally {
+      setSandboxLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    handleEvaluateSandbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Quick preset loader for sandbox
+  const handleLoadPreset = (type: string) => {
+    if (type === "vedl_bat") {
+      setSandboxSymbol("VEDL");
+      setSandboxTf("1d");
+      setXPrice(358.0);
+      setAPrice(251.0);
+      setBPrice(287.0);
+      setCPrice(260.0);
+      setDPrice("");
+      setCmpPrice(288.0);
+      setSandboxDirection("BULLISH");
+    } else if (type === "nifty_gartley") {
+      setSandboxSymbol("NIFTY 50");
+      setSandboxTf("15m");
+      setXPrice(24200.0);
+      setAPrice(24800.0);
+      setBPrice(24429.0); // 0.618 ret
+      setCPrice(24650.0); // 0.58 ret
+      setDPrice("");
+      setCmpPrice(24620.0);
+      setSandboxDirection("BULLISH");
+    } else if (type === "butterfly_expansion") {
+      setSandboxSymbol("BANKNIFTY");
+      setSandboxTf("1h");
+      setXPrice(50000.0);
+      setAPrice(48500.0);
+      setBPrice(49679.0); // 0.786 ret
+      setCPrice(48900.0); // 0.618 ret
+      setDPrice("");
+      setCmpPrice(49100.0);
+      setSandboxDirection("BEARISH");
+    }
+  };
+
+  // Mode A: Fetch custom symbol analysis
+  const handleAnalyzeSymbol = async (symToAnalyze?: string) => {
+    const targetSym = symToAnalyze || searchSymbol;
+    if (!targetSym.trim()) return;
+
+    setScannerLoading(true);
+    setScannerError(null);
+    try {
+      const data = await fetchCustomHarmonicAnalysis(targetSym, scannerTf);
+      setScannerData(data);
+    } catch (err: any) {
+      setScannerError(err?.message || `Failed to analyze ${targetSym}`);
+    } finally {
+      setScannerLoading(false);
+    }
+  };
+
+  // 1-Click Paper Trade from Sandbox
+  const handleExecuteSandboxPaperTrade = async () => {
+    if (!sandboxResult?.best_match) return;
+    const match = sandboxResult.best_match;
+    try {
+      setPaperTradeMsg("Submitting paper order...");
+      const res = await createHarmonicPaperTrade({
+        pattern_id: `HPT-CUSTOM-${sandboxSymbol}-${Date.now().toString(36).toUpperCase()}`,
+        symbol_label: sandboxSymbol,
+        instrument_key: sandboxResult.instrument_key,
+        timeframe: sandboxTf,
+        pattern_name: match.pattern_name,
+        direction: match.direction,
+        entry_price: cmpPrice || sandboxResult.current_price,
+        target_1: match.target_1,
+        target_2: match.target_2,
+        stop_loss: match.stop_loss,
+        quantity: 10,
+        notes: `Custom Sandbox setup for ${sandboxSymbol} (${match.pattern_name})`,
+      });
+      setPaperTradeMsg(
+        `✅ Paper Trade active! ID: ${res?.trade?.trade_id || "OK"} (Target 1: ₹${match.target_1.toFixed(2)})`
+      );
+      if (onPaperTradeSuccess) onPaperTradeSuccess();
+    } catch (err: any) {
+      setPaperTradeMsg(`❌ Trade failed: ${err?.message || "Error"}`);
+    }
+  };
+
+  // Helper for compliance badge color
+  const getBadgeClass = (status: string) => {
+    switch (status) {
+      case "PERFECT":
+        return "bg-success text-white";
+      case "ACCEPTABLE":
+        return "bg-info text-white";
+      case "BORDERLINE":
+        return "bg-warning text-dark";
+      default:
+        return "bg-danger text-white";
+    }
+  };
+
+  return (
+    <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
+      {/* Top Header & Mode Toggle */}
+      <div className="card-header bg-dark text-white p-3 p-md-4 border-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <div className="d-flex align-items-center gap-2">
+            <h4 className="mb-0 fw-bold">🔬 Harmonic Custom Lab & Sandbox</h4>
+            <span className="badge bg-primary text-white">
+              Studio & Wave Simulator
+            </span>
+          </div>
+          <p className="text-secondary small mb-0 mt-1">
+            Test any custom stock on-demand or interactively simulate Fibonacci
+            wave coordinates (X-A-B-C → D) with instant rule validation.
+          </p>
+        </div>
+
+        <div className="btn-group p-1 bg-white bg-opacity-10 rounded-3" role="group">
+          <button
+            type="button"
+            className={`btn btn-sm px-3 ${
+              studioMode === "sandbox"
+                ? "btn-primary shadow-sm fw-bold"
+                : "btn-outline-light text-white"
+            }`}
+            onClick={() => setStudioMode("sandbox")}
+          >
+            <i className="bi bi-sliders me-1" /> 🎛️ Interactive Sandbox
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm px-3 ${
+              studioMode === "symbol_scanner"
+                ? "btn-primary shadow-sm fw-bold"
+                : "btn-outline-light text-white"
+            }`}
+            onClick={() => setStudioMode("symbol_scanner")}
+          >
+            <i className="bi bi-search me-1" /> 🔍 Any Symbol Scanner
+          </button>
+        </div>
+      </div>
+
+      <div className="card-body p-3 p-md-4">
+        {/* ========================================================================= */}
+        {/* MODE B: INTERACTIVE FIBONACCI SANDBOX & WAVE SIMULATOR                    */}
+        {/* ========================================================================= */}
+        {studioMode === "sandbox" && (
+          <div>
+            {/* Quick Presets Bar */}
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 bg-light rounded-3 mb-4 border">
+              <div className="d-flex align-items-center gap-2">
+                <span className="small fw-bold text-secondary">
+                  ⚡ Quick Presets:
+                </span>
+                <button
+                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  onClick={() => {
+                    handleLoadPreset("vedl_bat");
+                    setTimeout(handleEvaluateSandbox, 50);
+                  }}
+                >
+                  🦇 VEDL (1D) Bat Setup
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  onClick={() => {
+                    handleLoadPreset("nifty_gartley");
+                    setTimeout(handleEvaluateSandbox, 50);
+                  }}
+                >
+                  🦅 NIFTY (15m) Gartley
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  onClick={() => {
+                    handleLoadPreset("butterfly_expansion");
+                    setTimeout(handleEvaluateSandbox, 50);
+                  }}
+                >
+                  🦋 BANKNIFTY (1h) Butterfly
+                </button>
+              </div>
+
+              <span className="badge bg-secondary-subtle text-secondary small">
+                Interactive Multi-Pattern Matrix
+              </span>
+            </div>
+
+            {/* Input Form */}
+            <div className="row g-3 mb-4">
+              <div className="col-12 col-md-2">
+                <label className="form-label small text-secondary fw-semibold">
+                  Symbol
+                </label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm fw-bold uppercase"
+                  value={sandboxSymbol}
+                  onChange={(e) => setSandboxSymbol(e.target.value.toUpperCase())}
+                />
+              </div>
+
+              <div className="col-12 col-md-2">
+                <label className="form-label small text-secondary fw-semibold">
+                  Timeframe
+                </label>
+                <select
+                  className="form-select form-select-sm fw-semibold"
+                  value={sandboxTf}
+                  onChange={(e) => setSandboxTf(e.target.value)}
+                >
+                  {TIMEFRAMES.map((tf) => (
+                    <option key={tf} value={tf}>
+                      {tf}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-6 col-md-2">
+                <label className="form-label small text-primary fw-bold">
+                  X Price
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-semibold border-primary"
+                  value={xPrice}
+                  onChange={(e) => setXPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="col-6 col-md-2">
+                <label className="form-label small text-primary fw-bold">
+                  A Price
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-semibold border-primary"
+                  value={aPrice}
+                  onChange={(e) => setAPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="col-6 col-md-2">
+                <label className="form-label small text-primary fw-bold">
+                  B Price
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-semibold border-primary"
+                  value={bPrice}
+                  onChange={(e) => setBPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="col-6 col-md-2">
+                <label className="form-label small text-primary fw-bold">
+                  C Price
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-semibold border-primary"
+                  value={cPrice}
+                  onChange={(e) => setCPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="row g-3 align-items-end mb-4">
+              <div className="col-6 col-md-3">
+                <label className="form-label small text-secondary fw-semibold">
+                  Optional D (Leave blank to predict)
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  placeholder="Auto-projected"
+                  className="form-control form-control-sm"
+                  value={dPrice}
+                  onChange={(e) => setDPrice(e.target.value)}
+                />
+              </div>
+
+              <div className="col-6 col-md-3">
+                <label className="form-label small text-success fw-bold">
+                  Current Market Price (CMP)
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-bold border-success text-success"
+                  value={cmpPrice}
+                  onChange={(e) => setCmpPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="col-6 col-md-3">
+                <label className="form-label small text-secondary fw-semibold">
+                  Direction Override
+                </label>
+                <select
+                  className="form-select form-select-sm"
+                  value={sandboxDirection}
+                  onChange={(e: any) => setSandboxDirection(e.target.value)}
+                >
+                  <option value="AUTO">Auto Detect</option>
+                  <option value="BULLISH">Bullish Setup</option>
+                  <option value="BEARISH">Bearish Setup</option>
+                </select>
+              </div>
+
+              <div className="col-6 col-md-3">
+                <button
+                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
+                  onClick={handleEvaluateSandbox}
+                  disabled={sandboxLoading}
+                >
+                  {sandboxLoading ? (
+                    <span className="spinner-border spinner-border-sm" />
+                  ) : (
+                    <i className="bi bi-cpu" />
+                  )}
+                  <span>Calculate & Validate Wave</span>
+                </button>
+              </div>
+            </div>
+
+            {sandboxError && (
+              <div className="alert alert-danger py-2 small shadow-sm">
+                {sandboxError}
+              </div>
+            )}
+            {paperTradeMsg && (
+              <div className="alert alert-info py-2 small fw-semibold shadow-sm">
+                {paperTradeMsg}
+              </div>
+            )}
+
+            {/* Results Display */}
+            {sandboxResult && sandboxResult.best_match && (
+              <div className="row g-4 mt-2">
+                {/* Left Card: Best Match & Trade Setup */}
+                <div className="col-12 col-lg-7">
+                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-light">
+                    <div className="card-body p-4">
+                      <div className="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                          <span className="badge bg-primary text-white mb-1">
+                            🎯 Best Pattern Classification
+                          </span>
+                          <h3 className="fw-bold mb-0 text-dark">
+                            {sandboxResult.best_match.direction === "BULLISH"
+                              ? "🟢 BULLISH"
+                              : "🔴 BEARISH"}{" "}
+                            {sandboxResult.best_match.pattern_name}
+                          </h3>
+                          <span className="text-secondary small">
+                            {sandboxSymbol} • {sandboxTf} Timeframe • CMP: ₹
+                            {cmpPrice.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="text-end">
+                          <span className="badge bg-success-subtle text-success fs-6 border border-success-subtle px-3 py-2">
+                            Quality:{" "}
+                            {(
+                              sandboxResult.best_match.quality_score * 100
+                            ).toFixed(0)}
+                            %
+                          </span>
+                        </div>
+                      </div>
+
+                      <hr className="my-3 opacity-10" />
+
+                      {/* Actual Fibonacci Ratios vs Spec */}
+                      <h6 className="fw-bold text-secondary small text-uppercase mb-2">
+                        📐 Fibonacci Ratio Compliance
+                      </h6>
+                      <div className="table-responsive mb-3">
+                        <table className="table table-sm table-bordered bg-white small mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Leg Ratio</th>
+                              <th>Actual Value</th>
+                              <th>Ideal Range</th>
+                              <th>Compliance Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(
+                              sandboxResult.best_match.ratios
+                            ).map(([key, ratio]) => (
+                              <tr key={key}>
+                                <td className="fw-bold">{ratio.name}</td>
+                                <td className="fw-semibold text-primary">
+                                  {ratio.actual.toFixed(3)}
+                                </td>
+                                <td className="text-secondary">
+                                  {ratio.min.toFixed(3)} – {ratio.max.toFixed(3)}{" "}
+                                  (Target: {ratio.ideal.toFixed(3)})
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge ${getBadgeClass(
+                                      ratio.status
+                                    )}`}
+                                  >
+                                    {ratio.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Geometric Wave SVG Diagram */}
+                      <div className="p-3 bg-white rounded-3 border text-center my-3">
+                        <div className="small fw-semibold text-secondary mb-1">
+                          Geometric Wave Formation
+                        </div>
+                        <svg
+                          viewBox="0 0 400 120"
+                          className="w-100"
+                          style={{ maxHeight: "120px" }}
+                        >
+                          <polyline
+                            fill="none"
+                            stroke="#0d6efd"
+                            strokeWidth="3"
+                            points="30,20 110,100 190,45 270,90 370,15"
+                          />
+                          <polygon
+                            fill="rgba(13, 110, 253, 0.12)"
+                            points="30,20 110,100 190,45"
+                          />
+                          <polygon
+                            fill="rgba(25, 135, 84, 0.12)"
+                            points="190,45 270,90 370,15"
+                          />
+                          {/* Points */}
+                          <circle cx="30" cy="20" r="5" fill="#0d6efd" />
+                          <text x="25" y="15" fontSize="10" fontWeight="bold">
+                            X ({xPrice})
+                          </text>
+                          <circle cx="110" cy="100" r="5" fill="#0d6efd" />
+                          <text x="105" y="115" fontSize="10" fontWeight="bold">
+                            A ({aPrice})
+                          </text>
+                          <circle cx="190" cy="45" r="5" fill="#0d6efd" />
+                          <text x="185" y="38" fontSize="10" fontWeight="bold">
+                            B ({bPrice})
+                          </text>
+                          <circle cx="270" cy="90" r="5" fill="#0d6efd" />
+                          <text x="265" y="105" fontSize="10" fontWeight="bold">
+                            C ({cPrice})
+                          </text>
+                          <circle cx="370" cy="15" r="6" fill="#198754" />
+                          <text
+                            x="345"
+                            y="12"
+                            fontSize="11"
+                            fontWeight="bold"
+                            fill="#198754"
+                          >
+                            D (PRZ ~
+                            {sandboxResult.best_match.predicted_d_mid.toFixed(
+                              1
+                            )}
+                            )
+                          </text>
+                        </svg>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="d-flex gap-2 mt-3">
+                        <button
+                          className="btn btn-success fw-bold px-4 flex-grow-1 shadow-sm"
+                          onClick={handleExecuteSandboxPaperTrade}
+                        >
+                          <i className="bi bi-lightning-charge-fill me-1" /> 1-Click
+                          Paper Trade This Setup
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Card: Target Ladder & PRZ */}
+                <div className="col-12 col-lg-5">
+                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                    <div className="card-body p-4">
+                      <h5 className="fw-bold text-dark mb-3">
+                        🎯 PRZ Target & Stop Loss Ladder
+                      </h5>
+
+                      <div className="list-group list-group-flush mb-4">
+                        <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+                          <div>
+                            <span className="badge bg-primary me-2">Target 1</span>
+                            <span className="small text-secondary">
+                              38.2% Run
+                            </span>
+                          </div>
+                          <span className="fw-bold text-primary fs-6">
+                            ₹{sandboxResult.best_match.target_1.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+                          <div>
+                            <span className="badge bg-info text-white me-2">
+                              Target 2
+                            </span>
+                            <span className="small text-secondary">
+                              61.8% Run
+                            </span>
+                          </div>
+                          <span className="fw-bold text-info fs-6">
+                            ₹{sandboxResult.best_match.target_2.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+                          <div>
+                            <span className="badge bg-success text-white me-2">
+                              Target 3 (Point D)
+                            </span>
+                            <span className="small text-secondary">
+                              PRZ Completion
+                            </span>
+                          </div>
+                          <span className="fw-bold text-success fs-6">
+                            ₹{sandboxResult.best_match.target_3.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+                          <div>
+                            <span className="badge bg-danger me-2">
+                              Stop Loss
+                            </span>
+                            <span className="small text-secondary">
+                              Invalidation
+                            </span>
+                          </div>
+                          <span className="fw-bold text-danger fs-6">
+                            ₹{sandboxResult.best_match.stop_loss.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+                          <span className="small fw-semibold text-secondary">
+                            Live Risk : Reward
+                          </span>
+                          <span className="badge bg-dark fs-6 px-3 py-1">
+                            1 : {sandboxResult.best_match.live_rr_ratio}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* All Pattern Candidates Table */}
+                      <h6 className="fw-bold text-secondary small text-uppercase mb-2">
+                        📋 All Pattern Candidate Matches
+                      </h6>
+                      <div className="table-responsive">
+                        <table className="table table-sm table-hover small mb-0">
+                          <thead>
+                            <tr className="text-secondary">
+                              <th>Pattern</th>
+                              <th>Score</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sandboxResult.all_matches.map((m, idx) => (
+                              <tr key={idx}>
+                                <td className="fw-bold">{m.pattern_name}</td>
+                                <td>{(m.quality_score * 100).toFixed(0)}%</td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      m.is_valid
+                                        ? "bg-success-subtle text-success"
+                                        : "bg-light text-secondary"
+                                    }`}
+                                  >
+                                    {m.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODE A: ANY SYMBOL ON-DEMAND AUTO SCANNER & CHART VISUALIZER              */}
+        {/* ========================================================================= */}
+        {studioMode === "symbol_scanner" && (
+          <div>
+            {/* Search and Timeframe Toolbar */}
+            <div className="row g-3 align-items-end mb-4">
+              <div className="col-12 col-md-5">
+                <label className="form-label small text-secondary fw-semibold">
+                  Search Any Stock / Index / Commodity
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text bg-white">
+                    <i className="bi bi-search text-muted" />
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control fw-bold uppercase"
+                    placeholder="e.g. VEDL, TATAMOTORS, RELIANCE, NIFTY 50"
+                    value={searchSymbol}
+                    onChange={(e) => setSearchSymbol(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && handleAnalyzeSymbol()}
+                  />
+                  <button
+                    className="btn btn-primary fw-bold px-4"
+                    onClick={() => handleAnalyzeSymbol()}
+                    disabled={scannerLoading}
+                  >
+                    {scannerLoading ? (
+                      <span className="spinner-border spinner-border-sm" />
+                    ) : (
+                      "Analyze"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-7">
+                <label className="form-label small text-secondary fw-semibold">
+                  Select Timeframe
+                </label>
+                <div className="d-flex flex-wrap gap-1">
+                  {TIMEFRAMES.map((tf) => (
+                    <button
+                      key={tf}
+                      className={`btn btn-sm px-2 py-1 ${
+                        scannerTf === tf
+                          ? "btn-primary fw-bold"
+                          : "btn-outline-secondary"
+                      }`}
+                      onClick={() => {
+                        setScannerTf(tf);
+                      }}
+                    >
+                      {tf}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Popular Presets */}
+            <div className="d-flex flex-wrap gap-2 align-items-center mb-4">
+              <span className="small text-secondary fw-semibold">
+                Popular Symbols:
+              </span>
+              {PRESET_SYMBOLS.map((s) => (
+                <button
+                  key={s.label}
+                  className="btn btn-sm btn-light border text-dark fw-semibold"
+                  onClick={() => {
+                    setSearchSymbol(s.label);
+                    handleAnalyzeSymbol(s.label);
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {scannerError && (
+              <div className="alert alert-danger py-2 small shadow-sm">
+                {scannerError}
+              </div>
+            )}
+
+            {/* Analysis Results View */}
+            {scannerData && (
+              <div className="row g-4">
+                {/* Header Summary */}
+                <div className="col-12">
+                  <div className="p-3 bg-light rounded-4 border d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                      <h4 className="fw-bold mb-0">
+                        {scannerData.symbol_label}{" "}
+                        <span className="text-secondary fs-6 fw-normal">
+                          ({scannerData.timeframe})
+                        </span>
+                      </h4>
+                      <span className="text-secondary small">
+                        Instrument: {scannerData.instrument_key} • History:{" "}
+                        {scannerData.candles.length} Candles
+                      </span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-3">
+                      <div className="text-end">
+                        <div className="small text-secondary">CMP</div>
+                        <div className="fs-5 fw-bold text-dark">
+                          ₹{scannerData.current_price.toFixed(2)}
+                        </div>
+                      </div>
+                      <span className="badge bg-success-subtle text-success fs-6 border border-success-subtle px-3 py-2">
+                        {scannerData.patterns.length} Active •{" "}
+                        {scannerData.predictions.length} Forming
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Left: Detected Patterns / Predictions */}
+                <div className="col-12 col-lg-6">
+                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                    <div className="card-body p-3 p-md-4">
+                      <h5 className="fw-bold text-dark mb-3">
+                        🔮 Emerging & Completed Setups
+                      </h5>
+
+                      {scannerData.patterns.length === 0 &&
+                        scannerData.predictions.length === 0 && (
+                          <div className="text-center py-4 text-muted">
+                            <i className="bi bi-info-circle fs-3 d-block mb-2 text-secondary" />
+                            No active harmonic setups detected on{" "}
+                            {scannerData.symbol_label} ({scannerData.timeframe}).
+                            <br />
+                            <span className="small text-secondary">
+                              Try switching timeframes (e.g. 15m, 1h, 1d) or test
+                              custom coordinates in the Sandbox tab.
+                            </span>
+                          </div>
+                        )}
+
+                      {/* Forming Point D Predictions */}
+                      {scannerData.predictions.map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-3 border border-info-subtle bg-info bg-opacity-10 mb-3"
+                        >
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <span className="badge bg-info text-white me-2">
+                                🔮 FORMING POINT D
+                              </span>
+                              <span className="fw-bold text-dark">
+                                {p.direction} {p.pattern_name}
+                              </span>
+                            </div>
+                            <span className="badge bg-white text-dark border">
+                              Quality: {(p.quality_score * 100).toFixed(0)}%
+                            </span>
+                          </div>
+
+                          <div className="row g-2 small text-secondary mb-2">
+                            <div className="col-6">
+                              Point D PRZ:{" "}
+                              <strong className="text-dark">
+                                ₹{p.predicted_d_mid.toFixed(2)}
+                              </strong>
+                            </div>
+                            <div className="col-6">
+                              Target 1:{" "}
+                              <strong className="text-success">
+                                ₹{p.target_1.toFixed(2)}
+                              </strong>
+                            </div>
+                            <div className="col-6">
+                              Stop Loss:{" "}
+                              <strong className="text-danger">
+                                ₹{p.stop_loss.toFixed(2)}
+                              </strong>
+                            </div>
+                            <div className="col-6">
+                              AB/XA:{" "}
+                              <strong className="text-dark">
+                                {p.ratio_ab_xa.toFixed(3)}
+                              </strong>
+                            </div>
+                          </div>
+
+                          <button
+                            className="btn btn-sm btn-outline-primary w-100 fw-semibold"
+                            onClick={() =>
+                              onOpenPredictiveModal && onOpenPredictiveModal(p)
+                            }
+                          >
+                            <i className="bi bi-bullseye me-1" /> View Full D
+                            Projection Modal
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Confirmed Patterns */}
+                      {scannerData.patterns.map((pat, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-3 border bg-light mb-3"
+                        >
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <span className="badge bg-success text-white me-2">
+                                COMPLETED
+                              </span>
+                              <span className="fw-bold text-dark">
+                                {pat.direction} {pat.pattern_name}
+                              </span>
+                            </div>
+                            <span className="badge bg-dark text-white">
+                              Quality: {(pat.quality_score * 100).toFixed(0)}%
+                            </span>
+                          </div>
+
+                          <div className="row g-2 small text-secondary mb-2">
+                            <div className="col-6">
+                              Target 1:{" "}
+                              <strong className="text-success">
+                                ₹{pat.target_1.toFixed(2)}
+                              </strong>
+                            </div>
+                            <div className="col-6">
+                              Stop Loss:{" "}
+                              <strong className="text-danger">
+                                ₹{pat.stop_loss.toFixed(2)}
+                              </strong>
+                            </div>
+                          </div>
+
+                          <button
+                            className="btn btn-sm btn-outline-dark w-100 fw-semibold"
+                            onClick={() =>
+                              onOpenPatternModal && onOpenPatternModal(pat)
+                            }
+                          >
+                            <i className="bi bi-eye me-1" /> View Visual Chart
+                            Modal
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Candlestick History Chart Visualizer */}
+                <div className="col-12 col-lg-6">
+                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                    <div className="card-body p-3 p-md-4">
+                      <h5 className="fw-bold text-dark mb-3">
+                        📊 Candlestick History & Pivot Structure
+                      </h5>
+
+                      {/* Candlestick Canvas / Summary */}
+                      <div className="p-3 bg-light rounded-3 border text-center mb-3">
+                        <div className="small fw-semibold text-secondary mb-2">
+                          Recent 150 Bars History
+                        </div>
+                        <div
+                          className="d-flex align-items-end justify-content-between gap-1 overflow-hidden"
+                          style={{ height: "140px" }}
+                        >
+                          {scannerData.candles.slice(-40).map((c, i) => {
+                            const isGreen = c.close >= c.open;
+                            const heightPct = Math.max(
+                              10,
+                              Math.min(
+                                100,
+                                ((c.close -
+                                  Math.min(
+                                    ...scannerData.candles
+                                      .slice(-40)
+                                      .map((k) => k.low)
+                                  )) /
+                                  (Math.max(
+                                    ...scannerData.candles
+                                      .slice(-40)
+                                      .map((k) => k.high)
+                                  ) -
+                                    Math.min(
+                                      ...scannerData.candles
+                                        .slice(-40)
+                                        .map((k) => k.low)
+                                    ) || 1)) *
+                                  100
+                              )
+                            );
+                            return (
+                              <div
+                                key={i}
+                                className="d-flex flex-column align-items-center flex-grow-1"
+                                style={{ height: "100%" }}
+                                title={`${c.time}\nO: ${c.open} H: ${c.high} L: ${c.low} C: ${c.close}`}
+                              >
+                                <div
+                                  className="w-100 rounded-1"
+                                  style={{
+                                    height: `${heightPct}%`,
+                                    backgroundColor: isGreen
+                                      ? "#198754"
+                                      : "#dc3545",
+                                    marginTop: "auto",
+                                    minWidth: "3px",
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Support / Resistance Levels */}
+                      <div className="small">
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-secondary">
+                            Nearest Support (S1)
+                          </span>
+                          <span className="fw-bold text-success">
+                            {scannerData.nearest_support
+                              ? `₹${scannerData.nearest_support.toFixed(2)}`
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-secondary">
+                            Nearest Resistance (R1)
+                          </span>
+                          <span className="fw-bold text-danger">
+                            {scannerData.nearest_resistance
+                              ? `₹${scannerData.nearest_resistance.toFixed(2)}`
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
