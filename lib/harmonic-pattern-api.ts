@@ -4,8 +4,7 @@ const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 
 export const HARMONIC_SUPPORTED_TIMEFRAMES = [
-  { id: "all", label: "All Timeframes (1m → 1M)" },
-  { id: "1m", label: "1 Minute (1m)" },
+  { id: "all", label: "All Timeframes (3m → 1M)" },
   { id: "3m", label: "3 Minutes (3m)" },
   { id: "5m", label: "5 Minutes (5m)" },
   { id: "15m", label: "15 Minutes (15m)" },

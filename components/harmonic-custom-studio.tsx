@@ -7,7 +7,6 @@ import {
   createHarmonicPaperTrade,
   CustomWaveEvaluationResponse,
   CustomSymbolAnalysisResponse,
-  PatternMatch,
 } from "@/lib/harmonic-pattern-api";
 
 interface HarmonicCustomStudioProps {
@@ -16,18 +15,60 @@ interface HarmonicCustomStudioProps {
   onOpenPredictiveModal?: (prediction: any) => void;
 }
 
-const PRESET_SYMBOLS = [
+interface InstrumentOption {
+  label: string;
+  name: string;
+  instrument_key: string;
+  kind: "index" | "stock" | "commodity";
+}
+
+const DEFAULT_CATALOG: InstrumentOption[] = [
+  // Major Indices
+  { label: "NIFTY 50", name: "NIFTY 50 Index", instrument_key: "NSE_INDEX|Nifty 50", kind: "index" },
+  { label: "BANKNIFTY", name: "Nifty Bank Index", instrument_key: "NSE_INDEX|Nifty Bank", kind: "index" },
+  { label: "FINNIFTY", name: "Nifty Financial Services", instrument_key: "NSE_INDEX|Nifty Fin Service", kind: "index" },
+  { label: "MIDCPNIFTY", name: "Nifty Midcap Select", instrument_key: "NSE_INDEX|NIFTY MID SELECT", kind: "index" },
+
+  // Top Stocks
+  { label: "VEDL", name: "Vedanta Limited", instrument_key: "NSE_EQ|INE205A01025", kind: "stock" },
+  { label: "TATAMOTORS", name: "Tata Motors Limited", instrument_key: "NSE_EQ|INE155A01022", kind: "stock" },
+  { label: "RELIANCE", name: "Reliance Industries Ltd", instrument_key: "NSE_EQ|INE002A01018", kind: "stock" },
+  { label: "HDFCBANK", name: "HDFC Bank Limited", instrument_key: "NSE_EQ|INE040A01034", kind: "stock" },
+  { label: "ICICIBANK", name: "ICICI Bank Limited", instrument_key: "NSE_EQ|INE090A01021", kind: "stock" },
+  { label: "INFY", name: "Infosys Limited", instrument_key: "NSE_EQ|INE009A01021", kind: "stock" },
+  { label: "TCS", name: "Tata Consultancy Services", instrument_key: "NSE_EQ|INE467B01029", kind: "stock" },
+  { label: "SBIN", name: "State Bank of India", instrument_key: "NSE_EQ|INE062A01020", kind: "stock" },
+  { label: "BHARTIARTL", name: "Bharti Airtel Limited", instrument_key: "NSE_EQ|INE397D01024", kind: "stock" },
+  { label: "ITC", name: "ITC Limited", instrument_key: "NSE_EQ|INE154A01025", kind: "stock" },
+  { label: "LT", name: "Larsen & Toubro Ltd", instrument_key: "NSE_EQ|INE018A01030", kind: "stock" },
+  { label: "AXISBANK", name: "Axis Bank Limited", instrument_key: "NSE_EQ|INE238A01034", kind: "stock" },
+  { label: "KOTAKBANK", name: "Kotak Mahindra Bank", instrument_key: "NSE_EQ|INE237A01028", kind: "stock" },
+  { label: "BAJFINANCE", name: "Bajaj Finance Limited", instrument_key: "NSE_EQ|INE296A01024", kind: "stock" },
+  { label: "MARUTI", name: "Maruti Suzuki India", instrument_key: "NSE_EQ|INE585B01010", kind: "stock" },
+  { label: "TATASTEEL", name: "Tata Steel Limited", instrument_key: "NSE_EQ|INE081A01020", kind: "stock" },
+  { label: "HINDALCO", name: "Hindalco Industries", instrument_key: "NSE_EQ|INE038A01020", kind: "stock" },
+  { label: "JITHAL", name: "Jindal Stainless", instrument_key: "NSE_EQ|INE220G01021", kind: "stock" },
+  { label: "ADANIENT", name: "Adani Enterprises", instrument_key: "NSE_EQ|INE423A01024", kind: "stock" },
+  { label: "ADANIPORTS", name: "Adani Ports & SEZ", instrument_key: "NSE_EQ|INE742F01042", kind: "stock" },
+
+  // MCX Commodities
+  { label: "GOLD", name: "MCX Gold Futures", instrument_key: "MCX_FO|GOLD", kind: "commodity" },
+  { label: "SILVER", name: "MCX Silver Futures", instrument_key: "MCX_FO|SILVER", kind: "commodity" },
+  { label: "CRUDEOIL", name: "MCX Crude Oil", instrument_key: "MCX_FO|CRUDEOIL", kind: "commodity" },
+];
+
+const PRESET_POPULAR = [
   { label: "VEDL", name: "Vedanta Ltd" },
   { label: "TATAMOTORS", name: "Tata Motors Ltd" },
-  { label: "RELIANCE", name: "Reliance Industries" },
-  { label: "HDFCBANK", name: "HDFC Bank Ltd" },
-  { label: "NIFTY 50", name: "NIFTY 50 Index" },
-  { label: "BANKNIFTY", name: "Nifty Bank Index" },
+  { label: "RELIANCE", name: "Reliance Ind" },
+  { label: "HDFCBANK", name: "HDFC Bank" },
+  { label: "NIFTY 50", name: "NIFTY 50" },
+  { label: "BANKNIFTY", name: "Nifty Bank" },
   { label: "GOLD", name: "MCX Gold" },
 ];
 
+// Harmonic timeframe standards (1m removed as it contains excessive noise)
 const TIMEFRAMES = [
-  "1m",
   "3m",
   "5m",
   "15m",
@@ -49,8 +90,71 @@ export function HarmonicCustomStudio({
     "sandbox"
   );
 
+  // --- Instrument Catalog State ---
+  const [catalog, setCatalog] = useState<InstrumentOption[]>(DEFAULT_CATALOG);
+  const [symbolSearchFilter, setSymbolSearchFilter] = useState("");
+
+  // Load backend catalog if available
+  useEffect(() => {
+    fetch("/api/v1/instruments/catalog")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && (data.stocks || data.indices)) {
+          const combined: InstrumentOption[] = [
+            ...(data.indices || []).map((i: any) => ({
+              label: i.label || i.symbol || "INDEX",
+              name: i.label || i.symbol || "Index",
+              instrument_key: i.instrument_key,
+              kind: "index" as const,
+            })),
+            ...(data.stocks || []).map((s: any) => ({
+              label: s.label || s.trading_symbol || s.symbol || "STOCK",
+              name: s.label || s.trading_symbol || "Stock",
+              instrument_key: s.instrument_key,
+              kind: "stock" as const,
+            })),
+            ...(data.commodities || []).map((c: any) => ({
+              label: c.label || c.symbol || "COMMODITY",
+              name: c.label || c.symbol || "Commodity",
+              instrument_key: c.instrument_key,
+              kind: "commodity" as const,
+            })),
+          ];
+          if (combined.length > 0) {
+            setCatalog(combined);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback to default catalog seamlessly
+      });
+  }, []);
+
+  // Filtered catalog options
+  const filteredCatalog = useMemo(() => {
+    if (!symbolSearchFilter.trim()) return catalog;
+    const q = symbolSearchFilter.toLowerCase();
+    return catalog.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        item.name.toLowerCase().includes(q) ||
+        item.instrument_key.toLowerCase().includes(q)
+    );
+  }, [catalog, symbolSearchFilter]);
+
+  // Grouped options for select box
+  const catalogGroups = useMemo(() => {
+    return {
+      indices: filteredCatalog.filter((i) => i.kind === "index"),
+      stocks: filteredCatalog.filter((i) => i.kind === "stock"),
+      commodities: filteredCatalog.filter((i) => i.kind === "commodity"),
+    };
+  }, [filteredCatalog]);
+
   // --- Mode A: Custom Symbol Scanner State ---
-  const [searchSymbol, setSearchSymbol] = useState("VEDL");
+  const [selectedInstrumentKey, setSelectedInstrumentKey] = useState(
+    "NSE_EQ|INE205A01025" // VEDL default
+  );
   const [scannerTf, setScannerTf] = useState("1d");
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerData, setScannerData] =
@@ -65,6 +169,7 @@ export function HarmonicCustomStudio({
   const [dPrice, setDPrice] = useState<string>("");
   const [cmpPrice, setCmpPrice] = useState<number>(288.0);
   const [sandboxSymbol, setSandboxSymbol] = useState("VEDL");
+  const [sandboxInstKey, setSandboxInstKey] = useState("NSE_EQ|INE205A01025");
   const [sandboxTf, setSandboxTf] = useState("1d");
   const [sandboxDirection, setSandboxDirection] = useState<
     "AUTO" | "BULLISH" | "BEARISH"
@@ -91,6 +196,7 @@ export function HarmonicCustomStudio({
         d_price: parsedD && !isNaN(parsedD) ? parsedD : null,
         current_price: Number(cmpPrice),
         symbol_label: sandboxSymbol,
+        instrument_key: sandboxInstKey,
         timeframe: sandboxTf,
         direction: sandboxDirection,
       });
@@ -111,6 +217,7 @@ export function HarmonicCustomStudio({
   const handleLoadPreset = (type: string) => {
     if (type === "vedl_bat") {
       setSandboxSymbol("VEDL");
+      setSandboxInstKey("NSE_EQ|INE205A01025");
       setSandboxTf("1d");
       setXPrice(358.0);
       setAPrice(251.0);
@@ -121,21 +228,23 @@ export function HarmonicCustomStudio({
       setSandboxDirection("BULLISH");
     } else if (type === "nifty_gartley") {
       setSandboxSymbol("NIFTY 50");
+      setSandboxInstKey("NSE_INDEX|Nifty 50");
       setSandboxTf("15m");
       setXPrice(24200.0);
       setAPrice(24800.0);
-      setBPrice(24429.0); // 0.618 ret
-      setCPrice(24650.0); // 0.58 ret
+      setBPrice(24429.0);
+      setCPrice(24650.0);
       setDPrice("");
       setCmpPrice(24620.0);
       setSandboxDirection("BULLISH");
     } else if (type === "butterfly_expansion") {
       setSandboxSymbol("BANKNIFTY");
+      setSandboxInstKey("NSE_INDEX|Nifty Bank");
       setSandboxTf("1h");
       setXPrice(50000.0);
       setAPrice(48500.0);
-      setBPrice(49679.0); // 0.786 ret
-      setCPrice(48900.0); // 0.618 ret
+      setBPrice(49679.0);
+      setCPrice(48900.0);
       setDPrice("");
       setCmpPrice(49100.0);
       setSandboxDirection("BEARISH");
@@ -143,17 +252,17 @@ export function HarmonicCustomStudio({
   };
 
   // Mode A: Fetch custom symbol analysis
-  const handleAnalyzeSymbol = async (symToAnalyze?: string) => {
-    const targetSym = symToAnalyze || searchSymbol;
-    if (!targetSym.trim()) return;
+  const handleAnalyzeSymbol = async (instKeyToAnalyze?: string) => {
+    const targetKey = instKeyToAnalyze || selectedInstrumentKey;
+    if (!targetKey) return;
 
     setScannerLoading(true);
     setScannerError(null);
     try {
-      const data = await fetchCustomHarmonicAnalysis(targetSym, scannerTf);
+      const data = await fetchCustomHarmonicAnalysis(targetKey, scannerTf);
       setScannerData(data);
     } catch (err: any) {
-      setScannerError(err?.message || `Failed to analyze ${targetSym}`);
+      setScannerError(err?.message || `Failed to analyze ${targetKey}`);
     } finally {
       setScannerLoading(false);
     }
@@ -168,7 +277,7 @@ export function HarmonicCustomStudio({
       const res = await createHarmonicPaperTrade({
         pattern_id: `HPT-CUSTOM-${sandboxSymbol}-${Date.now().toString(36).toUpperCase()}`,
         symbol_label: sandboxSymbol,
-        instrument_key: sandboxResult.instrument_key,
+        instrument_key: sandboxInstKey || sandboxResult.instrument_key,
         timeframe: sandboxTf,
         pattern_name: match.pattern_name,
         direction: match.direction,
@@ -214,8 +323,8 @@ export function HarmonicCustomStudio({
             </span>
           </div>
           <p className="text-secondary small mb-0 mt-1">
-            Test any custom stock on-demand or interactively simulate Fibonacci
-            wave coordinates (X-A-B-C → D) with instant rule validation.
+            Analyze any custom stock from the catalog or interactively simulate
+            Fibonacci coordinates (X-A-B-C → D) with instant rule validation.
           </p>
         </div>
 
@@ -291,18 +400,62 @@ export function HarmonicCustomStudio({
               </span>
             </div>
 
-            {/* Input Form */}
+            {/* Input Form with Dropdown Select for Symbol */}
             <div className="row g-3 mb-4">
-              <div className="col-12 col-md-2">
+              <div className="col-12 col-md-4">
                 <label className="form-label small text-secondary fw-semibold">
-                  Symbol
+                  Select Symbol from Dropdown
                 </label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm fw-bold uppercase"
-                  value={sandboxSymbol}
-                  onChange={(e) => setSandboxSymbol(e.target.value.toUpperCase())}
-                />
+                <select
+                  className="form-select form-select-sm fw-bold border-secondary"
+                  value={sandboxInstKey}
+                  onChange={(e) => {
+                    const chosen = catalog.find(
+                      (item) => item.instrument_key === e.target.value
+                    );
+                    if (chosen) {
+                      setSandboxInstKey(chosen.instrument_key);
+                      setSandboxSymbol(chosen.label);
+                    }
+                  }}
+                >
+                  {catalogGroups.indices.length > 0 && (
+                    <optgroup label="📈 Major Indices">
+                      {catalogGroups.indices.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {catalogGroups.stocks.length > 0 && (
+                    <optgroup label="🏛️ Top Equities & F&O Stocks">
+                      {catalogGroups.stocks.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {catalogGroups.commodities.length > 0 && (
+                    <optgroup label="🌾 MCX Commodities">
+                      {catalogGroups.commodities.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
               </div>
 
               <div className="col-12 col-md-2">
@@ -322,6 +475,37 @@ export function HarmonicCustomStudio({
                 </select>
               </div>
 
+              <div className="col-6 col-md-3">
+                <label className="form-label small text-success fw-bold">
+                  Current Market Price (CMP)
+                </label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="form-control form-control-sm fw-bold border-success text-success"
+                  value={cmpPrice}
+                  onChange={(e) => setCmpPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="col-6 col-md-3">
+                <label className="form-label small text-secondary fw-semibold">
+                  Direction Mode
+                </label>
+                <select
+                  className="form-select form-select-sm"
+                  value={sandboxDirection}
+                  onChange={(e: any) => setSandboxDirection(e.target.value)}
+                >
+                  <option value="AUTO">Auto Detect</option>
+                  <option value="BULLISH">Bullish Setup</option>
+                  <option value="BEARISH">Bearish Setup</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Coordinates Row */}
+            <div className="row g-3 align-items-end mb-4">
               <div className="col-6 col-md-2">
                 <label className="form-label small text-primary fw-bold">
                   X Price
@@ -373,10 +557,8 @@ export function HarmonicCustomStudio({
                   onChange={(e) => setCPrice(parseFloat(e.target.value) || 0)}
                 />
               </div>
-            </div>
 
-            <div className="row g-3 align-items-end mb-4">
-              <div className="col-6 col-md-3">
+              <div className="col-6 col-md-2">
                 <label className="form-label small text-secondary fw-semibold">
                   Optional D (Leave blank to predict)
                 </label>
@@ -390,35 +572,7 @@ export function HarmonicCustomStudio({
                 />
               </div>
 
-              <div className="col-6 col-md-3">
-                <label className="form-label small text-success fw-bold">
-                  Current Market Price (CMP)
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  className="form-control form-control-sm fw-bold border-success text-success"
-                  value={cmpPrice}
-                  onChange={(e) => setCmpPrice(parseFloat(e.target.value) || 0)}
-                />
-              </div>
-
-              <div className="col-6 col-md-3">
-                <label className="form-label small text-secondary fw-semibold">
-                  Direction Override
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={sandboxDirection}
-                  onChange={(e: any) => setSandboxDirection(e.target.value)}
-                >
-                  <option value="AUTO">Auto Detect</option>
-                  <option value="BULLISH">Bullish Setup</option>
-                  <option value="BEARISH">Bearish Setup</option>
-                </select>
-              </div>
-
-              <div className="col-6 col-md-3">
+              <div className="col-6 col-md-2">
                 <button
                   className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
                   onClick={handleEvaluateSandbox}
@@ -429,7 +583,7 @@ export function HarmonicCustomStudio({
                   ) : (
                     <i className="bi bi-cpu" />
                   )}
-                  <span>Calculate & Validate Wave</span>
+                  <span>Calculate Wave</span>
                 </button>
               </div>
             </div>
@@ -716,79 +870,128 @@ export function HarmonicCustomStudio({
         {/* ========================================================================= */}
         {studioMode === "symbol_scanner" && (
           <div>
-            {/* Search and Timeframe Toolbar */}
+            {/* Search Filter & Dropdown Toolbar */}
             <div className="row g-3 align-items-end mb-4">
-              <div className="col-12 col-md-5">
+              <div className="col-12 col-md-3">
                 <label className="form-label small text-secondary fw-semibold">
-                  Search Any Stock / Index / Commodity
+                  🔍 Filter / Search List
                 </label>
-                <div className="input-group">
-                  <span className="input-group-text bg-white">
-                    <i className="bi bi-search text-muted" />
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control fw-bold uppercase"
-                    placeholder="e.g. VEDL, TATAMOTORS, RELIANCE, NIFTY 50"
-                    value={searchSymbol}
-                    onChange={(e) => setSearchSymbol(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === "Enter" && handleAnalyzeSymbol()}
-                  />
-                  <button
-                    className="btn btn-primary fw-bold px-4"
-                    onClick={() => handleAnalyzeSymbol()}
-                    disabled={scannerLoading}
-                  >
-                    {scannerLoading ? (
-                      <span className="spinner-border spinner-border-sm" />
-                    ) : (
-                      "Analyze"
-                    )}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Type to filter e.g. ved, tata, nif..."
+                  value={symbolSearchFilter}
+                  onChange={(e) => setSymbolSearchFilter(e.target.value)}
+                />
               </div>
 
-              <div className="col-12 col-md-7">
+              <div className="col-12 col-md-4">
+                <label className="form-label small text-secondary fw-semibold">
+                  Select Stock or Index (Dropdown)
+                </label>
+                <select
+                  className="form-select form-select-sm fw-bold border-primary"
+                  value={selectedInstrumentKey}
+                  onChange={(e) => setSelectedInstrumentKey(e.target.value)}
+                >
+                  {catalogGroups.indices.length > 0 && (
+                    <optgroup label="📈 Major Indices">
+                      {catalogGroups.indices.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {catalogGroups.stocks.length > 0 && (
+                    <optgroup label="🏛️ Top Equities & F&O Stocks">
+                      {catalogGroups.stocks.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {catalogGroups.commodities.length > 0 && (
+                    <optgroup label="🌾 MCX Commodities">
+                      {catalogGroups.commodities.map((item) => (
+                        <option
+                          key={item.instrument_key}
+                          value={item.instrument_key}
+                        >
+                          {item.label} — {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
                 <label className="form-label small text-secondary fw-semibold">
                   Select Timeframe
                 </label>
-                <div className="d-flex flex-wrap gap-1">
+                <select
+                  className="form-select form-select-sm fw-semibold"
+                  value={scannerTf}
+                  onChange={(e) => setScannerTf(e.target.value)}
+                >
                   {TIMEFRAMES.map((tf) => (
-                    <button
-                      key={tf}
-                      className={`btn btn-sm px-2 py-1 ${
-                        scannerTf === tf
-                          ? "btn-primary fw-bold"
-                          : "btn-outline-secondary"
-                      }`}
-                      onClick={() => {
-                        setScannerTf(tf);
-                      }}
-                    >
-                      {tf}
-                    </button>
+                    <option key={tf} value={tf}>
+                      {tf} Timeframe
+                    </option>
                   ))}
-                </div>
+                </select>
+              </div>
+
+              <div className="col-12 col-md-2">
+                <button
+                  className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
+                  onClick={() => handleAnalyzeSymbol()}
+                  disabled={scannerLoading}
+                >
+                  {scannerLoading ? (
+                    <span className="spinner-border spinner-border-sm" />
+                  ) : (
+                    <i className="bi bi-graph-up-arrow" />
+                  )}
+                  <span>Analyze Stock</span>
+                </button>
               </div>
             </div>
 
             {/* Quick Popular Presets */}
             <div className="d-flex flex-wrap gap-2 align-items-center mb-4">
               <span className="small text-secondary fw-semibold">
-                Popular Symbols:
+                Quick Selection:
               </span>
-              {PRESET_SYMBOLS.map((s) => (
-                <button
-                  key={s.label}
-                  className="btn btn-sm btn-light border text-dark fw-semibold"
-                  onClick={() => {
-                    setSearchSymbol(s.label);
-                    handleAnalyzeSymbol(s.label);
-                  }}
-                >
-                  {s.label}
-                </button>
-              ))}
+              {PRESET_POPULAR.map((s) => {
+                const matched = catalog.find((c) => c.label === s.label);
+                return (
+                  <button
+                    key={s.label}
+                    className={`btn btn-sm ${
+                      selectedInstrumentKey === matched?.instrument_key
+                        ? "btn-primary fw-bold"
+                        : "btn-light border text-dark"
+                    }`}
+                    onClick={() => {
+                      if (matched) {
+                        setSelectedInstrumentKey(matched.instrument_key);
+                        handleAnalyzeSymbol(matched.instrument_key);
+                      }
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
             </div>
 
             {scannerError && (
