@@ -7,6 +7,7 @@ import {
   evaluateHarmonicSandboxWave,
   fetchCustomHarmonicAnalysis,
 } from "@/lib/harmonic-pattern-api";
+import { HarmonicCandleWaveChart } from "@/components/harmonic-candle-wave-chart";
 import { useEffect, useMemo, useState } from "react";
 
 interface HarmonicCustomStudioProps {
@@ -325,6 +326,16 @@ export function HarmonicCustomStudio({
   const [guideActiveTab, setGuideActiveTab] = useState<
     "cheatsheet" | "why_harmonics" | "patterns_detail" | "playbook"
   >("cheatsheet");
+  const [sandboxCandles, setSandboxCandles] = useState<
+    Array<{
+      time: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume?: number;
+    }>
+  >([]);
 
   // Auto-fetch live market pivots and auto-fill coordinates dynamically
   const handleAutoFetchLivePivots = async (
@@ -340,6 +351,9 @@ export function HarmonicCustomStudio({
       if (data && data.current_price) {
         const liveCmp = Number(data.current_price.toFixed(2));
         setCmpPrice(liveCmp);
+        if (data.candles && data.candles.length > 0) {
+          setSandboxCandles(data.candles);
+        }
 
         let newX = xPrice;
         let newA = aPrice;
@@ -708,6 +722,22 @@ export function HarmonicCustomStudio({
         ? (Math.abs(dVal - xPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
         : "—";
 
+    // Calculate Live LTP / CMP coordinates and progress along C -> D path
+    const liveCmp = cmpPrice > 0 ? cmpPrice : cPrice;
+    const ptCmp = {
+      x: 0,
+      y: calcY(liveCmp),
+      price: liveCmp,
+    };
+
+    // Calculate progression between C and D
+    const cdSpread = Math.abs(dVal - cPrice) || 1.0;
+    const progressToD = Math.min(
+      1.0,
+      Math.max(0.0, Math.abs(liveCmp - cPrice) / cdSpread)
+    );
+    ptCmp.x = padX + plotW * (0.75 + 0.25 * progressToD);
+
     return {
       svgWidth,
       svgHeight,
@@ -716,6 +746,7 @@ export function HarmonicCustomStudio({
       ptB,
       ptC,
       ptD,
+      ptCmp,
       minP,
       maxP,
       midP: (minP + maxP) / 2,
@@ -727,7 +758,7 @@ export function HarmonicCustomStudio({
       xd_xa,
       isProjectedD: dPrice === "",
     };
-  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice, sandboxResult]);
 
   return (
     <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
@@ -1956,6 +1987,40 @@ export function HarmonicCustomStudio({
                             >
                               D ({waveSvgLayout.isProjectedD ? "PRZ ~ " : ""}₹{waveSvgLayout.ptD.price.toFixed(1)})
                             </text>
+
+                            {/* 🟡 Live Current LTP Yellow Line & Pulsing Dot Marker */}
+                            {cmpPrice > 0 && waveSvgLayout.ptCmp && (
+                              <g>
+                                {/* Horizontal Yellow Dashed Line at CMP */}
+                                <line
+                                  x1="30"
+                                  y1={waveSvgLayout.ptCmp.y}
+                                  x2={waveSvgLayout.svgWidth - 30}
+                                  y2={waveSvgLayout.ptCmp.y}
+                                  stroke="#ffc107"
+                                  strokeDasharray="4,4"
+                                  strokeWidth="1.5"
+                                  opacity="0.85"
+                                />
+
+                                {/* Pulsing Glowing Yellow Dot for Current Live Position */}
+                                <g transform={`translate(${waveSvgLayout.ptCmp.x}, ${waveSvgLayout.ptCmp.y})`}>
+                                  <circle r="11" fill="rgba(255, 193, 7, 0.35)">
+                                    <animate attributeName="r" values="6;13;6" dur="1.8s" repeatCount="indefinite" />
+                                    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite" />
+                                  </circle>
+                                  <circle r="5.5" fill="#ffc107" stroke="#ffffff" strokeWidth="2" />
+
+                                  {/* Floating Yellow LTP Pill */}
+                                  <g transform="translate(0, -16)">
+                                    <rect x="-42" y="-9" width="84" height="17" rx="3.5" fill="#ffc107" stroke="#ffffff" strokeWidth="1" />
+                                    <text textAnchor="middle" y="3.5" fontSize="9.5" fontWeight="bold" fill="#000000">
+                                      🟡 LTP ₹{waveSvgLayout.ptCmp.price.toFixed(1)}
+                                    </text>
+                                  </g>
+                                </g>
+                              </g>
+                            )}
                           </svg>
                         ) : (
                           <div className="text-muted small py-3">
@@ -2132,6 +2197,23 @@ export function HarmonicCustomStudio({
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Full-Width Candlestick & Harmonic Pattern Overlay Chart */}
+                <div className="col-12 mt-4">
+                  <HarmonicCandleWaveChart
+                    candles={sandboxCandles}
+                    pivotsMeta={pivotsMeta}
+                    xPrice={xPrice}
+                    aPrice={aPrice}
+                    bPrice={bPrice}
+                    cPrice={cPrice}
+                    dPrice={dPrice}
+                    bestMatch={sandboxResult.best_match}
+                    cmpPrice={cmpPrice}
+                    symbol={sandboxSymbol}
+                    timeframe={sandboxTf}
+                  />
                 </div>
               </div>
             )}
