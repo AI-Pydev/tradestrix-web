@@ -22,6 +22,13 @@ interface InstrumentOption {
   kind: "index" | "stock" | "commodity";
 }
 
+interface PivotPointMeta {
+  price: number;
+  time?: string;
+  type?: string;
+  isPredicted?: boolean;
+}
+
 const DEFAULT_CATALOG: InstrumentOption[] = [
   // Major Indices
   { label: "NIFTY 50", name: "NIFTY 50 Index", instrument_key: "NSE_INDEX|Nifty 50", kind: "index" },
@@ -32,13 +39,13 @@ const DEFAULT_CATALOG: InstrumentOption[] = [
   // Top Stocks
   { label: "VEDL", name: "Vedanta Limited", instrument_key: "NSE_EQ|INE205A01025", kind: "stock" },
   { label: "TATAMOTORS", name: "Tata Motors Limited", instrument_key: "NSE_EQ|INE155A01022", kind: "stock" },
+  { label: "BHARTIARTL", name: "Bharti Airtel Limited", instrument_key: "NSE_EQ|INE397D01024", kind: "stock" },
   { label: "RELIANCE", name: "Reliance Industries Ltd", instrument_key: "NSE_EQ|INE002A01018", kind: "stock" },
   { label: "HDFCBANK", name: "HDFC Bank Limited", instrument_key: "NSE_EQ|INE040A01034", kind: "stock" },
   { label: "ICICIBANK", name: "ICICI Bank Limited", instrument_key: "NSE_EQ|INE090A01021", kind: "stock" },
   { label: "INFY", name: "Infosys Limited", instrument_key: "NSE_EQ|INE009A01021", kind: "stock" },
   { label: "TCS", name: "Tata Consultancy Services", instrument_key: "NSE_EQ|INE467B01029", kind: "stock" },
   { label: "SBIN", name: "State Bank of India", instrument_key: "NSE_EQ|INE062A01020", kind: "stock" },
-  { label: "BHARTIARTL", name: "Bharti Airtel Limited", instrument_key: "NSE_EQ|INE397D01024", kind: "stock" },
   { label: "ITC", name: "ITC Limited", instrument_key: "NSE_EQ|INE154A01025", kind: "stock" },
   { label: "LT", name: "Larsen & Toubro Ltd", instrument_key: "NSE_EQ|INE018A01030", kind: "stock" },
   { label: "AXISBANK", name: "Axis Bank Limited", instrument_key: "NSE_EQ|INE238A01034", kind: "stock" },
@@ -47,7 +54,6 @@ const DEFAULT_CATALOG: InstrumentOption[] = [
   { label: "MARUTI", name: "Maruti Suzuki India", instrument_key: "NSE_EQ|INE585B01010", kind: "stock" },
   { label: "TATASTEEL", name: "Tata Steel Limited", instrument_key: "NSE_EQ|INE081A01020", kind: "stock" },
   { label: "HINDALCO", name: "Hindalco Industries", instrument_key: "NSE_EQ|INE038A01020", kind: "stock" },
-  { label: "JITHAL", name: "Jindal Stainless", instrument_key: "NSE_EQ|INE220G01021", kind: "stock" },
   { label: "ADANIENT", name: "Adani Enterprises", instrument_key: "NSE_EQ|INE423A01024", kind: "stock" },
   { label: "ADANIPORTS", name: "Adani Ports & SEZ", instrument_key: "NSE_EQ|INE742F01042", kind: "stock" },
 
@@ -59,12 +65,12 @@ const DEFAULT_CATALOG: InstrumentOption[] = [
 
 const PRESET_POPULAR = [
   { label: "VEDL", name: "Vedanta Ltd" },
+  { label: "BHARTIARTL", name: "Bharti Airtel" },
   { label: "TATAMOTORS", name: "Tata Motors Ltd" },
   { label: "RELIANCE", name: "Reliance Ind" },
   { label: "HDFCBANK", name: "HDFC Bank" },
   { label: "NIFTY 50", name: "NIFTY 50" },
   { label: "BANKNIFTY", name: "Nifty Bank" },
-  { label: "GOLD", name: "MCX Gold" },
 ];
 
 // Harmonic timeframe standards (1m removed to eliminate high-frequency noise)
@@ -175,6 +181,15 @@ export function HarmonicCustomStudio({
     "AUTO" | "BULLISH" | "BEARISH"
   >("AUTO");
 
+  // Detailed pivot metadata for X, A, B, C, D
+  const [pivotsMeta, setPivotsMeta] = useState<{
+    x?: PivotPointMeta;
+    a?: PivotPointMeta;
+    b?: PivotPointMeta;
+    c?: PivotPointMeta;
+    d?: PivotPointMeta;
+  }>({});
+
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const [sandboxResult, setSandboxResult] =
     useState<CustomWaveEvaluationResponse | null>(null);
@@ -205,6 +220,12 @@ export function HarmonicCustomStudio({
         let newD = "";
         let newDir: "AUTO" | "BULLISH" | "BEARISH" = "AUTO";
 
+        let xMeta: PivotPointMeta = { price: newX };
+        let aMeta: PivotPointMeta = { price: newA };
+        let bMeta: PivotPointMeta = { price: newB };
+        let cMeta: PivotPointMeta = { price: newC };
+        let dMeta: PivotPointMeta | undefined = undefined;
+
         if (data.predictions && data.predictions.length > 0) {
           const p = data.predictions[0];
           newX = Number(p.x.price.toFixed(2));
@@ -212,7 +233,17 @@ export function HarmonicCustomStudio({
           newB = Number(p.b.price.toFixed(2));
           newC = Number(p.c.price.toFixed(2));
           newD = "";
-          newDir = p.direction === "BULLISH" ? "BULLISH" : "BEARISH";
+          newDir = "AUTO"; // default auto detect wave
+
+          xMeta = { price: newX, time: p.x.time, type: "Swing Anchor" };
+          aMeta = { price: newA, time: p.a.time, type: "Leg 1 Peak/Trough" };
+          bMeta = { price: newB, time: p.b.time, type: "Retracement Pivot" };
+          cMeta = { price: newC, time: p.c.time, type: "Pullback Pivot" };
+          dMeta = {
+            price: Number(p.predicted_d_mid.toFixed(2)),
+            type: "Predicted PRZ Target",
+            isPredicted: true,
+          };
         } else if (data.patterns && data.patterns.length > 0) {
           const pat = data.patterns[0];
           newX = Number(pat.x.price.toFixed(2));
@@ -220,7 +251,20 @@ export function HarmonicCustomStudio({
           newB = Number(pat.b.price.toFixed(2));
           newC = Number(pat.c.price.toFixed(2));
           newD = pat.d ? String(Number(pat.d.price.toFixed(2))) : "";
-          newDir = pat.direction === "BULLISH" ? "BULLISH" : "BEARISH";
+          newDir = "AUTO";
+
+          xMeta = { price: newX, time: pat.x.time, type: "Swing Anchor" };
+          aMeta = { price: newA, time: pat.a.time, type: "Leg 1 Peak/Trough" };
+          bMeta = { price: newB, time: pat.b.time, type: "Retracement Pivot" };
+          cMeta = { price: newC, time: pat.c.time, type: "Pullback Pivot" };
+          if (pat.d) {
+            dMeta = {
+              price: Number(pat.d.price.toFixed(2)),
+              time: pat.d.time,
+              type: "Completed PRZ Reversal",
+              isPredicted: false,
+            };
+          }
         } else if (data.pivots && data.pivots.length >= 4) {
           // Take 4 most recent ZigZag pivots
           const recent = data.pivots.slice(-4);
@@ -229,6 +273,12 @@ export function HarmonicCustomStudio({
           newB = Number(recent[2].price.toFixed(2));
           newC = Number(recent[3].price.toFixed(2));
           newD = "";
+          newDir = "AUTO";
+
+          xMeta = { price: newX, time: recent[0].time, type: recent[0].type || "Anchor" };
+          aMeta = { price: newA, time: recent[1].time, type: recent[1].type || "Leg 1" };
+          bMeta = { price: newB, time: recent[2].time, type: recent[2].type || "Leg 2" };
+          cMeta = { price: newC, time: recent[3].time, type: recent[3].type || "Leg 3" };
         }
 
         setXPrice(newX);
@@ -237,6 +287,7 @@ export function HarmonicCustomStudio({
         setCPrice(newC);
         setDPrice(newD);
         setSandboxDirection(newDir);
+        setPivotsMeta({ x: xMeta, a: aMeta, b: bMeta, c: cMeta, d: dMeta });
         setIsLiveSynced(true);
         setLiveSyncTime(new Date().toLocaleTimeString());
 
@@ -310,7 +361,13 @@ export function HarmonicCustomStudio({
       setCPrice(260.0);
       setDPrice("");
       setCmpPrice(288.0);
-      setSandboxDirection("BULLISH");
+      setSandboxDirection("AUTO");
+      setPivotsMeta({
+        x: { price: 358.0, type: "Swing High" },
+        a: { price: 251.0, type: "Swing Low" },
+        b: { price: 287.0, type: "Swing High" },
+        c: { price: 260.0, type: "Swing Low" },
+      });
     } else if (type === "nifty_gartley") {
       setSandboxSymbol("NIFTY 50");
       setSandboxInstKey("NSE_INDEX|Nifty 50");
@@ -321,7 +378,13 @@ export function HarmonicCustomStudio({
       setCPrice(24650.0);
       setDPrice("");
       setCmpPrice(24620.0);
-      setSandboxDirection("BULLISH");
+      setSandboxDirection("AUTO");
+      setPivotsMeta({
+        x: { price: 24200.0, type: "Swing Low" },
+        a: { price: 24800.0, type: "Swing High" },
+        b: { price: 24429.0, type: "Swing Low" },
+        c: { price: 24650.0, type: "Swing High" },
+      });
     } else if (type === "butterfly_expansion") {
       setSandboxSymbol("BANKNIFTY");
       setSandboxInstKey("NSE_INDEX|Nifty Bank");
@@ -332,7 +395,13 @@ export function HarmonicCustomStudio({
       setCPrice(48900.0);
       setDPrice("");
       setCmpPrice(49100.0);
-      setSandboxDirection("BEARISH");
+      setSandboxDirection("AUTO");
+      setPivotsMeta({
+        x: { price: 50000.0, type: "Swing High" },
+        a: { price: 48500.0, type: "Swing Low" },
+        b: { price: 49679.0, type: "Swing High" },
+        c: { price: 48900.0, type: "Swing Low" },
+      });
     }
   };
 
@@ -408,7 +477,7 @@ export function HarmonicCustomStudio({
             </span>
           </div>
           <p className="text-secondary small mb-0 mt-1">
-            <strong>Auto-calculates prices from live market candles</strong> on symbol selection, with full freedom to interactively simulate custom Fibonacci coordinates (X-A-B-C → D).
+            <strong>Auto-detects swing pivots from live market candles</strong> on symbol selection, populates verified X-A-B-C coordinates, and calculates harmonic PRZ targets.
           </p>
         </div>
 
@@ -480,7 +549,12 @@ export function HarmonicCustomStudio({
               </div>
 
               <div className="d-flex align-items-center gap-2">
-                {isLiveSynced ? (
+                {sandboxLoading ? (
+                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle small px-2 py-1 d-flex align-items-center gap-1">
+                    <span className="spinner-border spinner-border-sm" style={{ width: "12px", height: "12px" }} />
+                    Auto-Detecting Live Pivots...
+                  </span>
+                ) : isLiveSynced ? (
                   <span className="badge bg-success-subtle text-success border border-success-subtle small px-2 py-1">
                     🟢 Live Market Coordinates Synced ({liveSyncTime})
                   </span>
@@ -513,12 +587,13 @@ export function HarmonicCustomStudio({
                 <label className="form-label small text-primary fw-bold d-flex justify-content-between">
                   <span>1. Select Stock / Index</span>
                   <span className="text-muted fw-normal" style={{ fontSize: "11px" }}>
-                    Auto-updates prices
+                    Auto-detects live pivots
                   </span>
                 </label>
                 <select
                   className="form-select form-select-sm fw-bold border-primary shadow-sm"
                   value={sandboxInstKey}
+                  disabled={sandboxLoading}
                   onChange={(e) => {
                     const chosen = catalog.find(
                       (item) => item.instrument_key === e.target.value
@@ -581,6 +656,7 @@ export function HarmonicCustomStudio({
                 <select
                   className="form-select form-select-sm fw-semibold"
                   value={sandboxTf}
+                  disabled={sandboxLoading}
                   onChange={(e) => {
                     const newTf = e.target.value;
                     setSandboxTf(newTf);
@@ -618,7 +694,7 @@ export function HarmonicCustomStudio({
 
               <div className="col-6 col-md-3">
                 <label className="form-label small text-secondary fw-semibold">
-                  Direction Mode
+                  Direction Mode (Default: Auto)
                 </label>
                 <select
                   className="form-select form-select-sm"
@@ -635,7 +711,7 @@ export function HarmonicCustomStudio({
             </div>
 
             {/* Coordinates Row (Auto-filled from live market, freely editable for custom analysis) */}
-            <div className="row g-3 align-items-end mb-4">
+            <div className="row g-3 align-items-end mb-3">
               <div className="col-6 col-md-2">
                 <label className="form-label small text-primary fw-bold d-flex justify-content-between">
                   <span>Point X (₹)</span>
@@ -651,6 +727,11 @@ export function HarmonicCustomStudio({
                     setXPrice(parseFloat(e.target.value) || 0);
                   }}
                 />
+                {pivotsMeta.x && (
+                  <div className="text-muted small mt-1 text-truncate" style={{ fontSize: "11px" }}>
+                    {pivotsMeta.x.type || "Anchor"} {pivotsMeta.x.time ? `• ${pivotsMeta.x.time.slice(5, 16)}` : ""}
+                  </div>
+                )}
               </div>
 
               <div className="col-6 col-md-2">
@@ -668,6 +749,11 @@ export function HarmonicCustomStudio({
                     setAPrice(parseFloat(e.target.value) || 0);
                   }}
                 />
+                {pivotsMeta.a && (
+                  <div className="text-muted small mt-1 text-truncate" style={{ fontSize: "11px" }}>
+                    {pivotsMeta.a.type || "Leg 1"} {pivotsMeta.a.time ? `• ${pivotsMeta.a.time.slice(5, 16)}` : ""}
+                  </div>
+                )}
               </div>
 
               <div className="col-6 col-md-2">
@@ -685,6 +771,11 @@ export function HarmonicCustomStudio({
                     setBPrice(parseFloat(e.target.value) || 0);
                   }}
                 />
+                {pivotsMeta.b && (
+                  <div className="text-muted small mt-1 text-truncate" style={{ fontSize: "11px" }}>
+                    {pivotsMeta.b.type || "Retracement"} {pivotsMeta.b.time ? `• ${pivotsMeta.b.time.slice(5, 16)}` : ""}
+                  </div>
+                )}
               </div>
 
               <div className="col-6 col-md-2">
@@ -702,6 +793,11 @@ export function HarmonicCustomStudio({
                     setCPrice(parseFloat(e.target.value) || 0);
                   }}
                 />
+                {pivotsMeta.c && (
+                  <div className="text-muted small mt-1 text-truncate" style={{ fontSize: "11px" }}>
+                    {pivotsMeta.c.type || "Pullback"} {pivotsMeta.c.time ? `• ${pivotsMeta.c.time.slice(5, 16)}` : ""}
+                  </div>
+                )}
               </div>
 
               <div className="col-6 col-md-2">
@@ -719,6 +815,11 @@ export function HarmonicCustomStudio({
                     setDPrice(e.target.value);
                   }}
                 />
+                {pivotsMeta.d && (
+                  <div className="text-success small mt-1 text-truncate" style={{ fontSize: "11px" }}>
+                    {pivotsMeta.d.type || "PRZ"} ≈ ₹{pivotsMeta.d.price.toFixed(2)}
+                  </div>
+                )}
               </div>
 
               <div className="col-6 col-md-2">
@@ -734,6 +835,63 @@ export function HarmonicCustomStudio({
                   )}
                   <span>Calculate Wave</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Live Coordinates Summary Card */}
+            <div className="card border rounded-3 bg-light p-3 mb-4 shadow-sm">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <span className="small fw-bold text-dark text-uppercase">
+                  📍 Verified Wave Coordinates & Fibonacci Ratios ({sandboxSymbol} • {sandboxTf})
+                </span>
+                <span className="badge bg-secondary-subtle text-secondary small">
+                  Auto-Calculated
+                </span>
+              </div>
+              <div className="row g-2 text-center small font-monospace">
+                <div className="col-6 col-md">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-secondary fw-bold">Point X</div>
+                    <div className="fs-6 fw-bold text-primary">₹{xPrice.toFixed(2)}</div>
+                    <div className="text-muted" style={{ fontSize: "10px" }}>Anchor</div>
+                  </div>
+                </div>
+                <div className="col-6 col-md">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-secondary fw-bold">Point A</div>
+                    <div className="fs-6 fw-bold text-primary">₹{aPrice.toFixed(2)}</div>
+                    <div className="text-muted" style={{ fontSize: "10px" }}>1st Leg</div>
+                  </div>
+                </div>
+                <div className="col-6 col-md">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-secondary fw-bold">Point B</div>
+                    <div className="fs-6 fw-bold text-primary">₹{bPrice.toFixed(2)}</div>
+                    <div className="text-muted" style={{ fontSize: "10px" }}>
+                      AB/XA: {Math.abs(aPrice - xPrice) > 0 ? (Math.abs(bPrice - aPrice) / Math.abs(aPrice - xPrice)).toFixed(3) : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-6 col-md">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-secondary fw-bold">Point C</div>
+                    <div className="fs-6 fw-bold text-primary">₹{cPrice.toFixed(2)}</div>
+                    <div className="text-muted" style={{ fontSize: "10px" }}>
+                      BC/AB: {Math.abs(bPrice - aPrice) > 0 ? (Math.abs(cPrice - bPrice) / Math.abs(bPrice - aPrice)).toFixed(3) : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-6 col-md">
+                  <div className="p-2 bg-white rounded border border-success">
+                    <div className="text-success fw-bold">Point D (PRZ)</div>
+                    <div className="fs-6 fw-bold text-success">
+                      {dPrice !== "" ? `₹${parseFloat(dPrice).toFixed(2)}` : sandboxResult?.best_match ? `₹${sandboxResult.best_match.predicted_d_mid.toFixed(2)}` : "—"}
+                    </div>
+                    <div className="text-muted" style={{ fontSize: "10px" }}>
+                      {dPrice !== "" ? "Completed" : "Projected PRZ"}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -854,19 +1012,19 @@ export function HarmonicCustomStudio({
                           {/* Points */}
                           <circle cx="30" cy="20" r="5" fill="#0d6efd" />
                           <text x="25" y="15" fontSize="10" fontWeight="bold">
-                            X ({xPrice})
+                            X ({xPrice.toFixed(1)})
                           </text>
                           <circle cx="110" cy="100" r="5" fill="#0d6efd" />
                           <text x="105" y="115" fontSize="10" fontWeight="bold">
-                            A ({aPrice})
+                            A ({aPrice.toFixed(1)})
                           </text>
                           <circle cx="190" cy="45" r="5" fill="#0d6efd" />
                           <text x="185" y="38" fontSize="10" fontWeight="bold">
-                            B ({bPrice})
+                            B ({bPrice.toFixed(1)})
                           </text>
                           <circle cx="270" cy="90" r="5" fill="#0d6efd" />
                           <text x="265" y="105" fontSize="10" fontWeight="bold">
-                            C ({cPrice})
+                            C ({cPrice.toFixed(1)})
                           </text>
                           <circle cx="370" cy="15" r="6" fill="#198754" />
                           <text
@@ -1028,7 +1186,7 @@ export function HarmonicCustomStudio({
                 <input
                   type="text"
                   className="form-control form-control-sm"
-                  placeholder="Type to filter e.g. ved, tata, nif..."
+                  placeholder="Type to filter e.g. ved, tata, nif, bharti..."
                   value={symbolSearchFilter}
                   onChange={(e) => setSymbolSearchFilter(e.target.value)}
                 />
