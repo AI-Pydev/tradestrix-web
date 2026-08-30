@@ -785,6 +785,8 @@ export interface CustomWaveEvaluationResponse {
     AB_XA: number;
     BC_AB: number;
     BC_XA: number;
+    AC_XA?: number;
+    AC_AB?: number;
     CD_BC: number | null;
     XD_XA: number | null;
   };

@@ -620,6 +620,10 @@ export function HarmonicCustomStudio({
     const bcPct = bPrice > 0 ? (bcDist / bPrice) * 100 : 0;
     const bc_ab = abDist > 0 ? bcDist / abDist : 0;
 
+    const acDist = Math.abs(cPrice - aPrice);
+    const acPct = aPrice > 0 ? (acDist / aPrice) * 100 : 0;
+    const ac_xa = xaDist > 0 ? acDist / xaDist : 0;
+
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
@@ -636,6 +640,7 @@ export function HarmonicCustomStudio({
       xa: { points: xaDist, pct: xaPct, from: xPrice, to: aPrice },
       ab: { points: abDist, pct: abPct, ratio: ab_xa, from: aPrice, to: bPrice },
       bc: { points: bcDist, pct: bcPct, ratio: bc_ab, from: bPrice, to: cPrice },
+      ac: { points: acDist, pct: acPct, ratio: ac_xa, from: aPrice, to: cPrice },
       cd: { points: cdDist, pct: cdPct, ratio: cd_bc, from: cPrice, to: dVal },
       xd: { points: xdDist, pct: xdPct, ratio: xd_xa, from: xPrice, to: dVal },
     };
@@ -721,6 +726,10 @@ export function HarmonicCustomStudio({
       Math.abs(aPrice - xPrice) > 0
         ? (Math.abs(dVal - xPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
         : "—";
+    const ac_xa =
+      Math.abs(aPrice - xPrice) > 0
+        ? (Math.abs(cPrice - aPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
+        : "—";
 
     // Calculate Live LTP / CMP coordinates and progress along C -> D path
     const liveCmp = cmpPrice > 0 ? cmpPrice : cPrice;
@@ -754,6 +763,7 @@ export function HarmonicCustomStudio({
       offsetMap,
       ab_xa,
       bc_ab,
+      ac_xa,
       cd_bc,
       xd_xa,
       isProjectedD: dPrice === "",
@@ -1601,6 +1611,41 @@ export function HarmonicCustomStudio({
                       </td>
                     </tr>
 
+                    {/* Leg AC */}
+                    <tr>
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-warning text-dark me-1">AC</span> A → C Diagonal
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.ac.from.toFixed(2)} → ₹{legCalculations.ac.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-warning-emphasis font-monospace">
+                        ₹{legCalculations.ac.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.ac.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-bold text-dark font-monospace">
+                        {legCalculations.ac.ratio.toFixed(3)} (AC/XA)
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {sandboxResult?.best_match ? (
+                          sandboxResult.best_match.pattern_name.includes("CYPHER")
+                            ? "1.272 – 1.414 (Cypher Rule)"
+                            : sandboxResult.best_match.pattern_name.includes("SHARK")
+                            ? "1.130 – 1.618 (Shark Rule)"
+                            : "0.618 – 1.618 (Swing Extension)"
+                        ) : (
+                          "0.618 – 1.618"
+                        )}
+                      </td>
+                      <td>
+                        <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                          MEASURED
+                        </span>
+                      </td>
+                    </tr>
+
                     {/* Leg CD */}
                     <tr>
                       <td className="fw-bold text-dark">
@@ -1903,6 +1948,14 @@ export function HarmonicCustomStudio({
                               <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke="#6c757d" strokeWidth="1" />
                               <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill="#495057">
                                 {waveSvgLayout.bc_ab}
+                              </text>
+                            </g>
+
+                            {/* AC Diagonal Ratio Badge */}
+                            <g transform={`translate(${(waveSvgLayout.ptA.x + waveSvgLayout.ptC.x) / 2}, ${(waveSvgLayout.ptA.y + waveSvgLayout.ptC.y) / 2 + 10})`}>
+                              <rect x="-38" y="-8" width="76" height="16" rx="3.5" fill="#fff9db" stroke="#ffc107" strokeWidth="1" />
+                              <text textAnchor="middle" y="3.5" fontSize="9" fontWeight="bold" fill="#795548">
+                                AC: {waveSvgLayout.ac_xa}
                               </text>
                             </g>
 
