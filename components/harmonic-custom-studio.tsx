@@ -29,6 +29,130 @@ interface PivotPointMeta {
   isPredicted?: boolean;
 }
 
+interface HarmonicPatternCheatsheet {
+  name: string;
+  bRetracement: string; // AB/XA
+  bIdeal: string;
+  cPullback: string; // BC/AB
+  cIdeal: string;
+  dProjection: string; // CD/BC
+  dIdeal: string;
+  dRetracement: string; // XD/XA
+  dRetracementIdeal: string;
+  keyRule: string;
+}
+
+const HARMONIC_STANDARDS_CHEATSHEET: HarmonicPatternCheatsheet[] = [
+  {
+    name: "Gartley (222)",
+    bRetracement: "0.618 (0.59 – 0.64)",
+    bIdeal: "0.618",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "1.130 – 1.618",
+    dIdeal: "1.272",
+    dRetracement: "0.786",
+    dRetracementIdeal: "0.786",
+    keyRule: "Strict 0.618 B-point retracement and strict 0.786 D-point PRZ completion.",
+  },
+  {
+    name: "Bat",
+    bRetracement: "0.382 – 0.500",
+    bIdeal: "0.382 / 0.500",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "1.618 – 2.618",
+    dIdeal: "2.000",
+    dRetracement: "0.886",
+    dRetracementIdeal: "0.886",
+    keyRule: "Shallow B-point (≤0.50) with deep, precise 0.886 D-point retracement.",
+  },
+  {
+    name: "Alternate Bat",
+    bRetracement: "0.382",
+    bIdeal: "0.382",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "2.000 – 3.618",
+    dIdeal: "2.618",
+    dRetracement: "1.130",
+    dRetracementIdeal: "1.130",
+    keyRule: "Strict 0.382 B-point with 1.130 D extension surpassing Point X.",
+  },
+  {
+    name: "Butterfly",
+    bRetracement: "0.786",
+    bIdeal: "0.786",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "1.618 – 2.618",
+    dIdeal: "2.000",
+    dRetracement: "1.272 – 1.618",
+    dRetracementIdeal: "1.272",
+    keyRule: "Deep 0.786 B-point with mandatory 1.272-1.618 D extension beyond X.",
+  },
+  {
+    name: "Crab",
+    bRetracement: "0.382 – 0.618",
+    bIdeal: "0.618",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "2.240 – 3.618",
+    dIdeal: "2.618 / 3.140",
+    dRetracement: "1.618",
+    dRetracementIdeal: "1.618",
+    keyRule: "Extreme 1.618 XA extension with sharp 2.24-3.618 CD projection.",
+  },
+  {
+    name: "Deep Crab",
+    bRetracement: "0.886",
+    bIdeal: "0.886",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "2.240 – 3.618",
+    dIdeal: "2.618",
+    dRetracement: "1.618",
+    dRetracementIdeal: "1.618",
+    keyRule: "Deep 0.886 B-point with extreme 1.618 D extension.",
+  },
+  {
+    name: "Shark",
+    bRetracement: "0.500 – 0.886",
+    bIdeal: "0.618",
+    cPullback: "1.130 – 1.618",
+    cIdeal: "1.272",
+    dProjection: "1.618 – 2.240",
+    dIdeal: "2.000",
+    dRetracement: "0.886 – 1.130",
+    dRetracementIdeal: "1.000",
+    keyRule: "C point extends beyond A (1.13-1.618) with 0.886-1.13 D point.",
+  },
+  {
+    name: "Cypher",
+    bRetracement: "0.382 – 0.618",
+    bIdeal: "0.500",
+    cPullback: "1.272 – 2.000",
+    cIdeal: "1.414",
+    dProjection: "1.272 – 2.000",
+    dIdeal: "1.618",
+    dRetracement: "0.786 (of XC)",
+    dRetracementIdeal: "0.786",
+    keyRule: "C extends beyond A (1.272-1.414 of XA) with D touching 0.786 of XC.",
+  },
+  {
+    name: "AB=CD",
+    bRetracement: "0.382 – 0.886",
+    bIdeal: "0.618",
+    cPullback: "0.382 – 0.886",
+    cIdeal: "0.618",
+    dProjection: "1.130 – 2.618",
+    dIdeal: "1.618",
+    dRetracement: "CD = 1.0 * AB",
+    dRetracementIdeal: "1.000",
+    keyRule: "Equal leg length (|CD| = |AB|) and proportional time symmetry.",
+  },
+];
+
 const DEFAULT_CATALOG: InstrumentOption[] = [
   // Major Indices
   { label: "NIFTY 50", name: "NIFTY 50 Index", instrument_key: "NSE_INDEX|Nifty 50", kind: "index" },
@@ -197,6 +321,7 @@ export function HarmonicCustomStudio({
   const [paperTradeMsg, setPaperTradeMsg] = useState<string | null>(null);
   const [isLiveSynced, setIsLiveSynced] = useState(false);
   const [liveSyncTime, setLiveSyncTime] = useState<string | null>(null);
+  const [showCheatsheet, setShowCheatsheet] = useState(false);
 
   // Auto-fetch live market pivots and auto-fill coordinates dynamically
   const handleAutoFetchLivePivots = async (
@@ -465,6 +590,40 @@ export function HarmonicCustomStudio({
     }
   };
 
+  // Calculated leg distances in points and percentages
+  const legCalculations = useMemo(() => {
+    const xaDist = Math.abs(aPrice - xPrice);
+    const xaPct = xPrice > 0 ? (xaDist / xPrice) * 100 : 0;
+
+    const abDist = Math.abs(bPrice - aPrice);
+    const abPct = aPrice > 0 ? (abDist / aPrice) * 100 : 0;
+    const ab_xa = xaDist > 0 ? abDist / xaDist : 0;
+
+    const bcDist = Math.abs(cPrice - bPrice);
+    const bcPct = bPrice > 0 ? (bcDist / bPrice) * 100 : 0;
+    const bc_ab = abDist > 0 ? bcDist / abDist : 0;
+
+    const dVal =
+      dPrice !== ""
+        ? parseFloat(dPrice)
+        : sandboxResult?.best_match?.predicted_d_mid || 0;
+    const cdDist = dVal > 0 ? Math.abs(dVal - cPrice) : 0;
+    const cdPct = cPrice > 0 ? (cdDist / cPrice) * 100 : 0;
+    const cd_bc = bcDist > 0 ? cdDist / bcDist : 0;
+
+    const xdDist = dVal > 0 ? Math.abs(dVal - xPrice) : 0;
+    const xdPct = xPrice > 0 ? (xdDist / xPrice) * 100 : 0;
+    const xd_xa = xaDist > 0 ? xdDist / xaDist : 0;
+
+    return {
+      xa: { points: xaDist, pct: xaPct, from: xPrice, to: aPrice },
+      ab: { points: abDist, pct: abPct, ratio: ab_xa, from: aPrice, to: bPrice },
+      bc: { points: bcDist, pct: bcPct, ratio: bc_ab, from: bPrice, to: cPrice },
+      cd: { points: cdDist, pct: cdPct, ratio: cd_bc, from: cPrice, to: dVal },
+      xd: { points: xdDist, pct: xdPct, ratio: xd_xa, from: xPrice, to: dVal },
+    };
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
+
   return (
     <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
       {/* Top Header & Mode Toggle */}
@@ -477,37 +636,123 @@ export function HarmonicCustomStudio({
             </span>
           </div>
           <p className="text-secondary small mb-0 mt-1">
-            <strong>Auto-detects swing pivots from live market candles</strong> on symbol selection, populates verified X-A-B-C coordinates, and calculates harmonic PRZ targets.
+            <strong>Auto-detects swing pivots from live market candles</strong> on symbol selection, calculates Fibonacci leg distances, and validates against canonical harmonic pattern standards.
           </p>
         </div>
 
-        <div className="btn-group p-1 bg-white bg-opacity-10 rounded-3" role="group">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           <button
             type="button"
-            className={`btn btn-sm px-3 ${
-              studioMode === "sandbox"
-                ? "btn-primary shadow-sm fw-bold"
-                : "btn-outline-light text-white"
-            }`}
-            onClick={() => setStudioMode("sandbox")}
+            className="btn btn-sm btn-outline-warning fw-semibold shadow-sm d-flex align-items-center gap-1"
+            onClick={() => setShowCheatsheet(!showCheatsheet)}
           >
-            <i className="bi bi-sliders me-1" /> 🎛️ Interactive Sandbox & Wave Calculator
+            <i className="bi bi-journal-bookmark me-1" />
+            <span>{showCheatsheet ? "Hide Standards Guide" : "📚 Pattern Standards Guide"}</span>
           </button>
-          <button
-            type="button"
-            className={`btn btn-sm px-3 ${
-              studioMode === "symbol_scanner"
-                ? "btn-primary shadow-sm fw-bold"
-                : "btn-outline-light text-white"
-            }`}
-            onClick={() => setStudioMode("symbol_scanner")}
-          >
-            <i className="bi bi-search me-1" /> 🔍 Any Symbol Scanner & Chart
-          </button>
+
+          <div className="btn-group p-1 bg-white bg-opacity-10 rounded-3" role="group">
+            <button
+              type="button"
+              className={`btn btn-sm px-3 ${
+                studioMode === "sandbox"
+                  ? "btn-primary shadow-sm fw-bold"
+                  : "btn-outline-light text-white"
+              }`}
+              onClick={() => setStudioMode("sandbox")}
+            >
+              <i className="bi bi-sliders me-1" /> 🎛️ Sandbox & Fibonacci Distance
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm px-3 ${
+                studioMode === "symbol_scanner"
+                  ? "btn-primary shadow-sm fw-bold"
+                  : "btn-outline-light text-white"
+              }`}
+              onClick={() => setStudioMode("symbol_scanner")}
+            >
+              <i className="bi bi-search me-1" /> 🔍 Scanner & Chart
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="card-body p-3 p-md-4">
+        {/* ========================================================================= */}
+        {/* EXPANDABLE CANONICAL HARMONIC STANDARDS REFERENCE CHEATSHEET             */}
+        {/* ========================================================================= */}
+        {showCheatsheet && (
+          <div className="card border-primary border-opacity-25 rounded-4 shadow-sm bg-light mb-4 overflow-hidden">
+            <div className="card-header bg-primary text-white py-2 px-3 d-flex justify-content-between align-items-center">
+              <span className="fw-bold small">
+                📚 Canonical Harmonic Pattern Fibonacci Standards (Scott Carney Rules)
+              </span>
+              <button
+                type="button"
+                className="btn-close btn-close-white btn-sm"
+                onClick={() => setShowCheatsheet(false)}
+              />
+            </div>
+            <div className="card-body p-3">
+              <div className="table-responsive">
+                <table className="table table-sm table-bordered bg-white small mb-0">
+                  <thead className="table-dark text-center">
+                    <tr>
+                      <th>Pattern Name</th>
+                      <th>B Point (AB/XA)</th>
+                      <th>C Point (BC/AB)</th>
+                      <th>D Projection (CD/BC)</th>
+                      <th>D Retracement (XD/XA)</th>
+                      <th>Canonical Invalidation Rule</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {HARMONIC_STANDARDS_CHEATSHEET.map((pat) => {
+                      const isCurrentMatched =
+                        sandboxResult?.best_match?.pattern_name
+                          .toUpperCase()
+                          .includes(pat.name.toUpperCase().split(" ")[0]);
+                      return (
+                        <tr
+                          key={pat.name}
+                          className={isCurrentMatched ? "table-success fw-bold" : ""}
+                        >
+                          <td className="fw-bold text-nowrap">
+                            {isCurrentMatched && "🎯 "}
+                            {pat.name}
+                          </td>
+                          <td className="font-monospace text-center">
+                            {pat.bRetracement}{" "}
+                            <span className="text-muted" style={{ fontSize: "10px" }}>
+                              (ideal: {pat.bIdeal})
+                            </span>
+                          </td>
+                          <td className="font-monospace text-center">
+                            {pat.cPullback}{" "}
+                            <span className="text-muted" style={{ fontSize: "10px" }}>
+                              (ideal: {pat.cIdeal})
+                            </span>
+                          </td>
+                          <td className="font-monospace text-center">
+                            {pat.dProjection}{" "}
+                            <span className="text-muted" style={{ fontSize: "10px" }}>
+                              (ideal: {pat.dIdeal})
+                            </span>
+                          </td>
+                          <td className="font-monospace text-center text-primary fw-bold">
+                            {pat.dRetracement}
+                          </td>
+                          <td className="small text-secondary">{pat.keyRule}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ========================================================================= */}
         {/* MODE B: INTERACTIVE FIBONACCI SANDBOX & WAVE SIMULATOR                    */}
         {/* ========================================================================= */}
@@ -838,60 +1083,210 @@ export function HarmonicCustomStudio({
               </div>
             </div>
 
-            {/* Live Coordinates Summary Card */}
-            <div className="card border rounded-3 bg-light p-3 mb-4 shadow-sm">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <span className="small fw-bold text-dark text-uppercase">
-                  📍 Verified Wave Coordinates & Fibonacci Ratios ({sandboxSymbol} • {sandboxTf})
-                </span>
-                <span className="badge bg-secondary-subtle text-secondary small">
-                  Auto-Calculated
+            {/* ========================================================================= */}
+            {/* COMPREHENSIVE FIBONACCI LEG DISTANCES & POINTS MEASUREMENT TABLE         */}
+            {/* ========================================================================= */}
+            <div className="card border rounded-4 bg-light p-3 mb-4 shadow-sm">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fs-5">📐</span>
+                  <div>
+                    <h6 className="fw-bold text-dark mb-0">
+                      Fibonacci Leg Distances & Standard Ratio Benchmarks ({sandboxSymbol} • {sandboxTf})
+                    </h6>
+                    <span className="text-secondary small">
+                      Points moved, percentage travel, measured ratio vs canonical harmonic target
+                    </span>
+                  </div>
+                </div>
+
+                <span className="badge bg-primary text-white px-3 py-1 font-monospace">
+                  CMP: ₹{cmpPrice.toFixed(2)}
                 </span>
               </div>
-              <div className="row g-2 text-center small font-monospace">
-                <div className="col-6 col-md">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-secondary fw-bold">Point X</div>
-                    <div className="fs-6 fw-bold text-primary">₹{xPrice.toFixed(2)}</div>
-                    <div className="text-muted" style={{ fontSize: "10px" }}>Anchor</div>
-                  </div>
-                </div>
-                <div className="col-6 col-md">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-secondary fw-bold">Point A</div>
-                    <div className="fs-6 fw-bold text-primary">₹{aPrice.toFixed(2)}</div>
-                    <div className="text-muted" style={{ fontSize: "10px" }}>1st Leg</div>
-                  </div>
-                </div>
-                <div className="col-6 col-md">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-secondary fw-bold">Point B</div>
-                    <div className="fs-6 fw-bold text-primary">₹{bPrice.toFixed(2)}</div>
-                    <div className="text-muted" style={{ fontSize: "10px" }}>
-                      AB/XA: {Math.abs(aPrice - xPrice) > 0 ? (Math.abs(bPrice - aPrice) / Math.abs(aPrice - xPrice)).toFixed(3) : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="col-6 col-md">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-secondary fw-bold">Point C</div>
-                    <div className="fs-6 fw-bold text-primary">₹{cPrice.toFixed(2)}</div>
-                    <div className="text-muted" style={{ fontSize: "10px" }}>
-                      BC/AB: {Math.abs(bPrice - aPrice) > 0 ? (Math.abs(cPrice - bPrice) / Math.abs(bPrice - aPrice)).toFixed(3) : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="col-6 col-md">
-                  <div className="p-2 bg-white rounded border border-success">
-                    <div className="text-success fw-bold">Point D (PRZ)</div>
-                    <div className="fs-6 fw-bold text-success">
-                      {dPrice !== "" ? `₹${parseFloat(dPrice).toFixed(2)}` : sandboxResult?.best_match ? `₹${sandboxResult.best_match.predicted_d_mid.toFixed(2)}` : "—"}
-                    </div>
-                    <div className="text-muted" style={{ fontSize: "10px" }}>
-                      {dPrice !== "" ? "Completed" : "Projected PRZ"}
-                    </div>
-                  </div>
-                </div>
+
+              <div className="table-responsive">
+                <table className="table table-sm table-bordered bg-white small mb-0 align-middle">
+                  <thead className="table-light">
+                    <tr className="text-secondary">
+                      <th>Harmonic Leg</th>
+                      <th>Wave Trajectory</th>
+                      <th>Distance in Points (₹)</th>
+                      <th>Price Distance %</th>
+                      <th>Measured Ratio</th>
+                      <th>Standard Target (Canonical)</th>
+                      <th>Compliance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Leg XA */}
+                    <tr>
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-primary text-white me-1">XA</span> Base Anchor Leg
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.xa.from.toFixed(2)} → ₹{legCalculations.xa.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-primary font-monospace">
+                        ₹{legCalculations.xa.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.xa.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-semibold font-monospace">1.000 (Base)</td>
+                      <td className="text-muted font-monospace">Reference Leg</td>
+                      <td>
+                        <span className="badge bg-success-subtle text-success">ANCHOR</span>
+                      </td>
+                    </tr>
+
+                    {/* Leg AB */}
+                    <tr>
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-info text-white me-1">AB</span> 1st Retracement
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.ab.from.toFixed(2)} → ₹{legCalculations.ab.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-info font-monospace">
+                        ₹{legCalculations.ab.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.ab.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-bold text-dark font-monospace">
+                        {legCalculations.ab.ratio.toFixed(3)} (AB/XA)
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {sandboxResult?.best_match?.ratios?.AB_XA ? (
+                          `${sandboxResult.best_match.ratios.AB_XA.min.toFixed(3)} – ${sandboxResult.best_match.ratios.AB_XA.max.toFixed(3)} (Ideal: ${sandboxResult.best_match.ratios.AB_XA.ideal.toFixed(3)})`
+                        ) : (
+                          "0.382 – 0.618"
+                        )}
+                      </td>
+                      <td>
+                        {sandboxResult?.best_match?.ratios?.AB_XA ? (
+                          <span className={`badge ${getBadgeClass(sandboxResult.best_match.ratios.AB_XA.status)}`}>
+                            {sandboxResult.best_match.ratios.AB_XA.status}
+                          </span>
+                        ) : (
+                          <span className="badge bg-secondary">MEASURED</span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Leg BC */}
+                    <tr>
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-secondary text-white me-1">BC</span> Pullback Leg
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.bc.from.toFixed(2)} → ₹{legCalculations.bc.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-dark font-monospace">
+                        ₹{legCalculations.bc.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.bc.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-bold text-dark font-monospace">
+                        {legCalculations.bc.ratio.toFixed(3)} (BC/AB)
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {sandboxResult?.best_match?.ratios?.BC_AB ? (
+                          `${sandboxResult.best_match.ratios.BC_AB.min.toFixed(3)} – ${sandboxResult.best_match.ratios.BC_AB.max.toFixed(3)} (Ideal: ${sandboxResult.best_match.ratios.BC_AB.ideal.toFixed(3)})`
+                        ) : (
+                          "0.382 – 0.886"
+                        )}
+                      </td>
+                      <td>
+                        {sandboxResult?.best_match?.ratios?.BC_AB ? (
+                          <span className={`badge ${getBadgeClass(sandboxResult.best_match.ratios.BC_AB.status)}`}>
+                            {sandboxResult.best_match.ratios.BC_AB.status}
+                          </span>
+                        ) : (
+                          <span className="badge bg-secondary">MEASURED</span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Leg CD */}
+                    <tr>
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-success text-white me-1">CD</span> Projection to D
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.cd.from.toFixed(2)} → ₹{legCalculations.cd.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-success font-monospace">
+                        ₹{legCalculations.cd.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.cd.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-bold text-success font-monospace">
+                        {legCalculations.cd.ratio.toFixed(3)} (CD/BC)
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {sandboxResult?.best_match ? (
+                          sandboxResult.best_match.pattern_name.includes("BAT")
+                            ? "1.618 – 2.618 (Ideal: 2.000)"
+                            : sandboxResult.best_match.pattern_name.includes("GARTLEY")
+                            ? "1.130 – 1.618 (Ideal: 1.272)"
+                            : sandboxResult.best_match.pattern_name.includes("CRAB")
+                            ? "2.240 – 3.618 (Ideal: 2.618)"
+                            : "1.272 – 2.618"
+                        ) : (
+                          "1.272 – 2.618"
+                        )}
+                      </td>
+                      <td>
+                        <span className="badge bg-success-subtle text-success border border-success-subtle">
+                          {dPrice !== "" ? "COMPLETED" : "PROJECTED PRZ"}
+                        </span>
+                      </td>
+                    </tr>
+
+                    {/* Overall XD Net Displacement */}
+                    <tr className="table-light">
+                      <td className="fw-bold text-dark">
+                        <span className="badge bg-dark text-white me-1">XD</span> Net Invalidation / PRZ
+                      </td>
+                      <td className="font-monospace">
+                        ₹{legCalculations.xd.from.toFixed(2)} → ₹{legCalculations.xd.to.toFixed(2)}
+                      </td>
+                      <td className="fw-bold text-dark font-monospace">
+                        ₹{legCalculations.xd.points.toFixed(2)}
+                      </td>
+                      <td className="text-secondary font-monospace">
+                        {legCalculations.xd.pct.toFixed(2)}%
+                      </td>
+                      <td className="fw-bold text-primary font-monospace">
+                        {legCalculations.xd.ratio.toFixed(3)} (XD/XA)
+                      </td>
+                      <td className="text-primary fw-semibold font-monospace">
+                        {sandboxResult?.best_match ? (
+                          sandboxResult.best_match.pattern_name.includes("BAT")
+                            ? "0.886 (Bat Rule)"
+                            : sandboxResult.best_match.pattern_name.includes("GARTLEY")
+                            ? "0.786 (Gartley Rule)"
+                            : sandboxResult.best_match.pattern_name.includes("BUTTERFLY")
+                            ? "1.272 – 1.618 (Butterfly Rule)"
+                            : sandboxResult.best_match.pattern_name.includes("CRAB")
+                            ? "1.618 (Crab Rule)"
+                            : "0.786 – 1.618"
+                        ) : (
+                          "0.786 – 1.618"
+                        )}
+                      </td>
+                      <td>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                          TARGET PRZ
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
