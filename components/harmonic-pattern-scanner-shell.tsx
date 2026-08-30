@@ -1,30 +1,30 @@
 "use client";
 
-import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
 import { HarmonicCustomStudio } from "@/components/harmonic-custom-studio";
+import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
 import {
-  HARMONIC_SUPPORTED_TIMEFRAMES,
-  HarmonicAutoTradeSettings,
-  HarmonicPaperTrade,
-  HarmonicPaperTradeSummary,
-  HarmonicPatternScanItem,
-  HarmonicVisualChartResponse,
-  MTFConfluenceReport,
-  PredictiveDProjection,
-  closeHarmonicPaperTrade,
-  createHarmonicPaperTrade,
-  fetchEmergingHarmonicPatterns,
-  fetchHarmonicAutoTradeSettings,
-  fetchHarmonicPaperTrades,
-  fetchHarmonicPatternScan,
-  fetchHarmonicVisualChart,
-  fetchMTFConfluence,
-  fetchMTFUniverseConfluence,
-  fetchPersistentDBHarmonicPatterns,
-  runHarmonicAutoEntryNow,
-  syncHarmonicPaperTrades,
-  triggerHarmonicAutoScanCycle,
-  updateHarmonicAutoTradeSettings,
+    HARMONIC_SUPPORTED_TIMEFRAMES,
+    HarmonicAutoTradeSettings,
+    HarmonicPaperTrade,
+    HarmonicPaperTradeSummary,
+    HarmonicPatternScanItem,
+    HarmonicVisualChartResponse,
+    MTFConfluenceReport,
+    PredictiveDProjection,
+    closeHarmonicPaperTrade,
+    createHarmonicPaperTrade,
+    fetchEmergingHarmonicPatterns,
+    fetchHarmonicAutoTradeSettings,
+    fetchHarmonicPaperTrades,
+    fetchHarmonicPatternScan,
+    fetchHarmonicVisualChart,
+    fetchMTFConfluence,
+    fetchMTFUniverseConfluence,
+    fetchPersistentDBHarmonicPatterns,
+    runHarmonicAutoEntryNow,
+    syncHarmonicPaperTrades,
+    triggerHarmonicAutoScanCycle,
+    updateHarmonicAutoTradeSettings,
 } from "@/lib/harmonic-pattern-api";
 import { useEffect, useMemo, useState } from "react";
 
