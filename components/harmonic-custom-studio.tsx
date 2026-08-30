@@ -649,14 +649,33 @@ export function HarmonicCustomStudio({
     };
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
 
+  // Resolved Pattern Direction (Bullish vs Bearish)
+  const resolvedIsBullish = useMemo(() => {
+    if (sandboxDirection === "BULLISH") return true;
+    if (sandboxDirection === "BEARISH") return false;
+    // AUTO mode:
+    if (sandboxResult?.best_match?.direction) {
+      return sandboxResult.best_match.direction.toUpperCase() === "BULLISH";
+    }
+    // Geometric fallbacks:
+    // In classical Harmonic patterns:
+    // If aPrice < xPrice: initial leg XA is down, Point D is a swing high (Bearish setup, Sell PRZ).
+    // If aPrice > xPrice: initial leg XA is up, Point D is a swing low (Bullish setup, Buy PRZ).
+    return aPrice > xPrice;
+  }, [sandboxDirection, sandboxResult, aPrice, xPrice]);
+
   // Mathematical coordinate layout for the dynamic Geometric Wave SVG
   const waveSvgLayout = useMemo(() => {
+    const isBullish = resolvedIsBullish;
+
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
         : sandboxResult?.best_match?.predicted_d_mid ||
           sandboxResult?.best_match?.target_3 ||
-          cPrice;
+          (isBullish
+            ? cPrice - Math.abs(aPrice - bPrice) * 1.272
+            : cPrice + Math.abs(bPrice - aPrice) * 1.272);
 
     const validPrices = [xPrice, aPrice, bPrice, cPrice, dVal].filter(
       (p) => !isNaN(p) && p > 0
@@ -687,8 +706,6 @@ export function HarmonicCustomStudio({
     const ptB = { x: padX + plotW * 0.50, y: calcY(bPrice), price: bPrice, label: "B" };
     const ptC = { x: padX + plotW * 0.75, y: calcY(cPrice), price: cPrice, label: "C" };
     const ptD = { x: padX + plotW * 1.00, y: calcY(dVal), price: dVal, label: "D" };
-
-    const isBullish = sandboxResult?.best_match?.direction === "BULLISH";
 
     // Text position offsets (peak = text above, valley = text below)
     const getYOffset = (curr: number, prev?: number, next?: number) => {
@@ -757,13 +774,14 @@ export function HarmonicCustomStudio({
     const pctFromC = cPrice > 0 ? (ptsFromC / cPrice) * 100 : 0;
 
     // Stage 1 Forming Stage Targets (Direction: Moving along C -> D Leg towards PRZ)
-    const isBullishReversal = isBullish; // If Bullish pattern, D is low so C -> D is moving DOWN
-    const formingAction = isBullishReversal ? "SHORT / PUT" : "LONG / CALL";
-    const formingDirectionBadge = isBullishReversal ? "BEARISH C→D SCALP" : "BULLISH C→D SCALP";
+    // If Bullish pattern (D is low), C -> D is moving DOWN (Short scalp)
+    // If Bearish pattern (D is high), C -> D is moving UP (Long scalp)
+    const formingAction = isBullish ? "SHORT / PUT" : "LONG / CALL";
+    const formingDirectionBadge = isBullish ? "BEARISH C→D SCALP" : "BULLISH C→D SCALP";
 
     // Forming Target 1: 50% Midway of C -> D trajectory (Point B structural retest)
     const formingT1 =
-      isBullishReversal
+      isBullish
         ? cPrice - Math.abs(cPrice - dVal) * 0.5
         : cPrice + Math.abs(dVal - cPrice) * 0.5;
 
@@ -771,22 +789,28 @@ export function HarmonicCustomStudio({
     const formingT2 = dVal;
 
     // Forming Stop Loss: Point C swing invalidation
-    const cBuffer = Math.abs(cPrice - bPrice) * 0.1 || (cPrice * 0.01);
-    const formingSL = isBullishReversal ? cPrice + cBuffer : cPrice - cBuffer;
+    const cBuffer = Math.abs(cPrice - bPrice) * 0.1 || cPrice * 0.01;
+    const formingSL = isBullish ? cPrice + cBuffer : cPrice - cBuffer;
 
-    // Rewards & Risk for Stage 1 based on live CMP
-    const formingT1Pts = isBullishReversal ? Math.max(0, liveCmp - formingT1) : Math.max(0, formingT1 - liveCmp);
+    // Forming Risk/Reward calculation
+    const formingT1Pts = isBullish
+      ? Math.max(0, liveCmp - formingT1)
+      : Math.max(0, formingT1 - liveCmp);
     const formingT1Pct = liveCmp > 0 ? (formingT1Pts / liveCmp) * 100 : 0;
 
-    const formingT2Pts = isBullishReversal ? Math.max(0, liveCmp - formingT2) : Math.max(0, formingT2 - liveCmp);
+    const formingT2Pts = isBullish
+      ? Math.max(0, liveCmp - formingT2)
+      : Math.max(0, formingT2 - liveCmp);
     const formingT2Pct = liveCmp > 0 ? (formingT2Pts / liveCmp) * 100 : 0;
 
-    const formingSlPts = isBullishReversal ? Math.max(0, formingSL - liveCmp) : Math.max(0, liveCmp - formingSL);
+    const formingSlPts = isBullish
+      ? Math.max(0, formingSL - liveCmp)
+      : Math.max(0, liveCmp - formingSL);
     const formingSlPct = liveCmp > 0 ? (formingSlPts / liveCmp) * 100 : 0;
 
-    const ptFormingT1 = { x: padX + plotW * 0.88, y: calcY(formingT1), price: formingT1, label: "T1 (Mid)" };
-    const ptFormingT2 = { x: padX + plotW * 1.00, y: calcY(formingT2), price: formingT2, label: "T2 (PRZ D)" };
-    const ptFormingSL = { x: padX + plotW * 0.75, y: calcY(formingSL), price: formingSL, label: "SL (C)" };
+    const ptFormingT1 = { x: padX + plotW * 0.88, y: calcY(formingT1), price: formingT1, label: "T1" };
+    const ptFormingT2 = { x: padX + plotW * 1.00, y: calcY(formingT2), price: formingT2, label: "PRZ D" };
+    const ptFormingSL = { x: padX + plotW * 0.78, y: calcY(formingSL), price: formingSL, label: "SL" };
 
     return {
       svgWidth,
@@ -830,18 +854,21 @@ export function HarmonicCustomStudio({
       ptFormingT2,
       ptFormingSL,
     };
-  }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice, sandboxResult]);
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice, sandboxResult, resolvedIsBullish]);
 
   // Target roadmap coordinate layout for Completed Pattern Reversal (D -> T1 -> T2 -> T3)
   const targetSvgLayout = useMemo(() => {
+    const isBullish = resolvedIsBullish;
+
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
         : sandboxResult?.best_match?.predicted_d_mid ||
           sandboxResult?.best_match?.target_3 ||
-          cPrice;
+          (isBullish
+            ? cPrice - Math.abs(aPrice - bPrice) * 1.272
+            : cPrice + Math.abs(bPrice - aPrice) * 1.272);
 
-    const isBullish = sandboxResult?.best_match?.direction === "BULLISH";
     const reversalAction = isBullish ? "BUY / LONG" : "SELL / SHORT";
     const reversalDirectionBadge = isBullish ? "BULLISH PRZ REVERSAL" : "BEARISH PRZ REVERSAL";
 
@@ -925,7 +952,7 @@ export function HarmonicCustomStudio({
       label: "D",
     };
     const ptT1 = {
-      x: padX + plotW * 0.88,
+      x: padX + plotW * 0.86,
       y: calcY(t1Val),
       price: t1Val,
       label: "T1",
@@ -936,12 +963,46 @@ export function HarmonicCustomStudio({
       price: t2Val,
       label: "T2",
     };
-    const ptSL = {
-      x: padX + plotW * 0.76,
-      y: calcY(slVal),
-      price: slVal,
-      label: "SL",
+
+    // Text position offsets (peak = text above, valley = text below)
+    const getYOffset = (curr: number, prev?: number, next?: number) => {
+      if (prev !== undefined && next !== undefined) {
+        return curr >= prev && curr >= next ? -14 : 22;
+      }
+      if (prev !== undefined) {
+        return curr >= prev ? -14 : 22;
+      }
+      if (next !== undefined) {
+        return curr >= next ? -14 : 22;
+      }
+      return -14;
     };
+
+    const offsetMap = {
+      x: getYOffset(xPrice, undefined, aPrice),
+      a: getYOffset(aPrice, xPrice, bPrice),
+      b: getYOffset(bPrice, aPrice, cPrice),
+      c: getYOffset(cPrice, bPrice, dVal),
+      d: getYOffset(dVal, cPrice, undefined),
+    };
+
+    // Retracement & projection ratios
+    const ab_xa =
+      Math.abs(aPrice - xPrice) > 0
+        ? (Math.abs(bPrice - aPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
+        : "—";
+    const bc_ab =
+      Math.abs(bPrice - aPrice) > 0
+        ? (Math.abs(cPrice - bPrice) / Math.abs(bPrice - aPrice)).toFixed(3)
+        : "—";
+    const cd_bc =
+      Math.abs(cPrice - bPrice) > 0
+        ? (Math.abs(dVal - cPrice) / Math.abs(cPrice - bPrice)).toFixed(3)
+        : "—";
+    const xd_xa =
+      Math.abs(aPrice - xPrice) > 0
+        ? (Math.abs(dVal - xPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
+        : "—";
 
     return {
       svgWidth,
@@ -953,10 +1014,14 @@ export function HarmonicCustomStudio({
       ptD,
       ptT1,
       ptT2,
-      ptSL,
       minP,
       maxP,
       isBullish,
+      offsetMap,
+      ab_xa,
+      bc_ab,
+      cd_bc,
+      xd_xa,
       t1Val,
       t2Val,
       t3Val,
@@ -971,8 +1036,9 @@ export function HarmonicCustomStudio({
       slPts,
       slPct,
       rrRatio,
+      calcY,
     };
-  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult, resolvedIsBullish]);
 
   return (
     <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
@@ -2340,7 +2406,7 @@ export function HarmonicCustomStudio({
                                     </span>
                                   </div>
 
-                                  {targetSvgLayout ? (
+                                   {targetSvgLayout ? (
                                     <svg
                                       viewBox={`0 0 ${targetSvgLayout.svgWidth} ${targetSvgLayout.svgHeight}`}
                                       className="w-100"
@@ -2374,40 +2440,85 @@ export function HarmonicCustomStudio({
                                         strokeWidth="1.2"
                                         opacity="0.6"
                                       />
+                                      {/* Stop Loss Line */}
                                       <line
                                         x1="35"
-                                        y1={targetSvgLayout.ptSL.y}
+                                        y1={targetSvgLayout.calcY(targetSvgLayout.slVal)}
                                         x2={targetSvgLayout.svgWidth - 35}
-                                        y2={targetSvgLayout.ptSL.y}
+                                        y2={targetSvgLayout.calcY(targetSvgLayout.slVal)}
                                         stroke="#dc3545"
-                                        strokeDasharray="2,3"
-                                        strokeWidth="1.2"
-                                        opacity="0.6"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.3"
+                                        opacity="0.75"
                                       />
 
-                                      {/* Wings XAB & BCD */}
+                                      {/* Shaded Wings: Wing 1 (XAB) */}
                                       <polygon
                                         points={`${targetSvgLayout.ptX.x},${targetSvgLayout.ptX.y} ${targetSvgLayout.ptA.x},${targetSvgLayout.ptA.y} ${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y}`}
                                         fill="rgba(13, 110, 253, 0.12)"
                                         stroke="rgba(13, 110, 253, 0.35)"
                                         strokeWidth="1.2"
                                       />
+
+                                      {/* Shaded Wings: Wing 2 (BCD) */}
                                       <polygon
                                         points={`${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y} ${targetSvgLayout.ptC.x},${targetSvgLayout.ptC.y} ${targetSvgLayout.ptD.x},${targetSvgLayout.ptD.y}`}
                                         fill={
                                           targetSvgLayout.isBullish
-                                            ? "rgba(25, 135, 84, 0.14)"
-                                            : "rgba(220, 53, 69, 0.14)"
+                                            ? "rgba(25, 135, 84, 0.15)"
+                                            : "rgba(220, 53, 69, 0.15)"
                                         }
                                         stroke={
                                           targetSvgLayout.isBullish
-                                            ? "rgba(25, 135, 84, 0.4)"
-                                            : "rgba(220, 53, 69, 0.4)"
+                                            ? "rgba(25, 135, 84, 0.45)"
+                                            : "rgba(220, 53, 69, 0.45)"
                                         }
                                         strokeWidth="1.2"
                                       />
 
-                                      {/* Polyline X -> A -> B -> C -> D */}
+                                      {/* Dotted Harmonic Axis Lines */}
+                                      <line
+                                        x1={targetSvgLayout.ptX.x}
+                                        y1={targetSvgLayout.ptX.y}
+                                        x2={targetSvgLayout.ptB.x}
+                                        y2={targetSvgLayout.ptB.y}
+                                        stroke="#6c757d"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.5"
+                                      />
+                                      <line
+                                        x1={targetSvgLayout.ptA.x}
+                                        y1={targetSvgLayout.ptA.y}
+                                        x2={targetSvgLayout.ptC.x}
+                                        y2={targetSvgLayout.ptC.y}
+                                        stroke="#6c757d"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.5"
+                                      />
+                                      <line
+                                        x1={targetSvgLayout.ptB.x}
+                                        y1={targetSvgLayout.ptB.y}
+                                        x2={targetSvgLayout.ptD.x}
+                                        y2={targetSvgLayout.ptD.y}
+                                        stroke="#6c757d"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.5"
+                                      />
+                                      <line
+                                        x1={targetSvgLayout.ptX.x}
+                                        y1={targetSvgLayout.ptX.y}
+                                        x2={targetSvgLayout.ptD.x}
+                                        y2={targetSvgLayout.ptD.y}
+                                        stroke={targetSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                                        strokeDasharray="2,3"
+                                        strokeWidth="1.1"
+                                        opacity="0.4"
+                                      />
+
+                                      {/* Full Harmonic Polyline X -> A -> B -> C -> D */}
                                       <polyline
                                         fill="none"
                                         stroke="#0d6efd"
@@ -2417,6 +2528,28 @@ export function HarmonicCustomStudio({
                                         points={`${targetSvgLayout.ptX.x},${targetSvgLayout.ptX.y} ${targetSvgLayout.ptA.x},${targetSvgLayout.ptA.y} ${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y} ${targetSvgLayout.ptC.x},${targetSvgLayout.ptC.y} ${targetSvgLayout.ptD.x},${targetSvgLayout.ptD.y}`}
                                       />
 
+                                      {/* Fibonacci Ratio Badges */}
+                                      <g transform={`translate(${(targetSvgLayout.ptA.x + targetSvgLayout.ptB.x) / 2}, ${(targetSvgLayout.ptA.y + targetSvgLayout.ptB.y) / 2 - 8})`}>
+                                        <rect x="-24" y="-7" width="48" height="14" rx="3" fill="#ffffff" stroke="#0d6efd" strokeWidth="1" />
+                                        <text textAnchor="middle" y="3" fontSize="8.5" fontWeight="bold" fill="#0d6efd">
+                                          {targetSvgLayout.ab_xa}
+                                        </text>
+                                      </g>
+
+                                      <g transform={`translate(${(targetSvgLayout.ptB.x + targetSvgLayout.ptC.x) / 2}, ${(targetSvgLayout.ptB.y + targetSvgLayout.ptC.y) / 2 - 8})`}>
+                                        <rect x="-24" y="-7" width="48" height="14" rx="3" fill="#ffffff" stroke="#6c757d" strokeWidth="1" />
+                                        <text textAnchor="middle" y="3" fontSize="8.5" fontWeight="bold" fill="#495057">
+                                          {targetSvgLayout.bc_ab}
+                                        </text>
+                                      </g>
+
+                                      <g transform={`translate(${(targetSvgLayout.ptC.x + targetSvgLayout.ptD.x) / 2}, ${(targetSvgLayout.ptC.y + targetSvgLayout.ptD.y) / 2 - 8})`}>
+                                        <rect x="-24" y="-7" width="48" height="14" rx="3" fill="#ffffff" stroke={targetSvgLayout.isBullish ? "#198754" : "#dc3545"} strokeWidth="1" />
+                                        <text textAnchor="middle" y="3" fontSize="8.5" fontWeight="bold" fill={targetSvgLayout.isBullish ? "#198754" : "#dc3545"}>
+                                          {targetSvgLayout.cd_bc}
+                                        </text>
+                                      </g>
+
                                       {/* Reversal Projection Rays: D -> T1 -> T2 */}
                                       <line
                                         x1={targetSvgLayout.ptD.x}
@@ -2424,7 +2557,7 @@ export function HarmonicCustomStudio({
                                         x2={targetSvgLayout.ptT1.x}
                                         y2={targetSvgLayout.ptT1.y}
                                         stroke="#0d6efd"
-                                        strokeWidth="3"
+                                        strokeWidth="3.2"
                                         strokeDasharray="4,3"
                                         strokeLinecap="round"
                                       />
@@ -2434,7 +2567,7 @@ export function HarmonicCustomStudio({
                                         x2={targetSvgLayout.ptT2.x}
                                         y2={targetSvgLayout.ptT2.y}
                                         stroke="#0dcaf0"
-                                        strokeWidth="3"
+                                        strokeWidth="3.2"
                                         strokeDasharray="4,3"
                                         strokeLinecap="round"
                                       />
@@ -2443,16 +2576,37 @@ export function HarmonicCustomStudio({
                                       {[targetSvgLayout.ptX, targetSvgLayout.ptA, targetSvgLayout.ptB, targetSvgLayout.ptC].map((pt, idx) => (
                                         <g key={idx}>
                                           <circle cx={pt.x} cy={pt.y} r="5" fill="#0d6efd" stroke="#ffffff" strokeWidth="1.5" />
-                                          <text x={pt.x} y={pt.y - 10} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="#0d6efd">
-                                            {pt.label}
+                                          <text
+                                            x={pt.x}
+                                            y={pt.y + targetSvgLayout.offsetMap[pt.label.toLowerCase() as keyof typeof targetSvgLayout.offsetMap]}
+                                            textAnchor="middle"
+                                            fontSize="10"
+                                            fontWeight="bold"
+                                            fill="#0d6efd"
+                                          >
+                                            {pt.label} (₹{pt.price.toFixed(1)})
                                           </text>
                                         </g>
                                       ))}
 
                                       {/* Point D Entry Node */}
-                                      <circle cx={targetSvgLayout.ptD.x} cy={targetSvgLayout.ptD.y} r="6.5" fill="#ffc107" stroke="#000000" strokeWidth="1.5" />
-                                      <text x={targetSvgLayout.ptD.x} y={targetSvgLayout.ptD.y - 12} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#000000">
-                                        D (Entry ₹{targetSvgLayout.ptD.price.toFixed(1)})
+                                      <circle
+                                        cx={targetSvgLayout.ptD.x}
+                                        cy={targetSvgLayout.ptD.y}
+                                        r="7"
+                                        fill={targetSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                                        stroke="#ffffff"
+                                        strokeWidth="2"
+                                      />
+                                      <text
+                                        x={targetSvgLayout.ptD.x}
+                                        y={targetSvgLayout.ptD.y + targetSvgLayout.offsetMap.d}
+                                        textAnchor="middle"
+                                        fontSize="10.5"
+                                        fontWeight="bold"
+                                        fill={targetSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                                      >
+                                        D (PRZ ₹{targetSvgLayout.ptD.price.toFixed(1)})
                                       </text>
 
                                       {/* Target 1 Node & Badge */}
@@ -2473,11 +2627,13 @@ export function HarmonicCustomStudio({
                                         </text>
                                       </g>
 
-                                      {/* Stop Loss Node */}
-                                      <circle cx={targetSvgLayout.ptSL.x} cy={targetSvgLayout.ptSL.y} r="5.5" fill="#dc3545" stroke="#ffffff" strokeWidth="1.5" />
-                                      <text x={targetSvgLayout.ptSL.x} y={targetSvgLayout.ptSL.y + 14} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#dc3545">
-                                        SL ₹{targetSvgLayout.slVal.toFixed(1)}
-                                      </text>
+                                      {/* Stop Loss Badge */}
+                                      <g transform={`translate(${targetSvgLayout.svgWidth - 55}, ${targetSvgLayout.calcY(targetSvgLayout.slVal) - 8})`}>
+                                        <rect x="-28" y="-7" width="56" height="14" rx="3" fill="#dc3545" />
+                                        <text textAnchor="middle" y="3.5" fontSize="8.5" fontWeight="bold" fill="#ffffff">
+                                          SL ₹{targetSvgLayout.slVal.toFixed(1)}
+                                        </text>
+                                      </g>
                                     </svg>
                                   ) : (
                                     <div className="text-muted small py-3">Awaiting coordinates...</div>
@@ -2780,6 +2936,8 @@ export function HarmonicCustomStudio({
                     cmpPrice={cmpPrice}
                     symbol={sandboxSymbol}
                     timeframe={sandboxTf}
+                    direction={sandboxDirection}
+                    isBullishOverride={resolvedIsBullish}
                   />
                 </div>
               </div>

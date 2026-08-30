@@ -35,6 +35,8 @@ export interface HarmonicCandleWaveChartProps {
   cmpPrice: number;
   symbol: string;
   timeframe: string;
+  direction?: "AUTO" | "BULLISH" | "BEARISH";
+  isBullishOverride?: boolean;
 }
 
 export function HarmonicCandleWaveChart({
@@ -49,12 +51,25 @@ export function HarmonicCandleWaveChart({
   cmpPrice,
   symbol,
   timeframe,
+  direction = "AUTO",
+  isBullishOverride,
 }: HarmonicCandleWaveChartProps) {
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const [displayMode, setDisplayMode] = useState<"dual" | "forming" | "reversal">("dual");
   const [hoveredIndex1, setHoveredIndex1] = useState<number | null>(null);
   const [hoveredIndex2, setHoveredIndex2] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Resolved Bullish vs Bearish orientation
+  const isBullish = useMemo(() => {
+    if (typeof isBullishOverride === "boolean") return isBullishOverride;
+    if (direction === "BULLISH") return true;
+    if (direction === "BEARISH") return false;
+    if (bestMatch?.direction) {
+      return bestMatch.direction.toUpperCase() === "BULLISH";
+    }
+    return aPrice > xPrice;
+  }, [isBullishOverride, direction, bestMatch, aPrice, xPrice]);
 
   // Generate synthetic candles if live candle feed has not been fetched yet
   const displayCandles = useMemo(() => {
@@ -268,7 +283,7 @@ export function HarmonicCandleWaveChart({
         label: "LTP",
         idx: cmpIdx,
       },
-      isBullish: bestMatch?.direction === "BULLISH",
+      isBullish,
       dVal,
     };
   }, [
@@ -282,11 +297,11 @@ export function HarmonicCandleWaveChart({
     bestMatch,
     priceRange,
     cmpPrice,
+    isBullish,
   ]);
 
   // Stage 1 Forming targets calculation (C -> D momentum scalp)
   const formingData = useMemo(() => {
-    const isBullish = bestMatch?.direction === "BULLISH";
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
@@ -340,11 +355,10 @@ export function HarmonicCandleWaveChart({
       ptsToD,
       dVal,
     };
-  }, [bestMatch, dPrice, cPrice, bPrice, cmpPrice]);
+  }, [bestMatch, dPrice, cPrice, bPrice, cmpPrice, isBullish]);
 
   // Stage 2 Reversal targets calculation (D -> T1 -> T2 -> T3)
   const reversalData = useMemo(() => {
-    const isBullish = bestMatch?.direction === "BULLISH";
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
