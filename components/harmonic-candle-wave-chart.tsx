@@ -10,7 +10,7 @@ interface PivotMeta {
   isPredicted?: boolean;
 }
 
-interface HarmonicCandleWaveChartProps {
+export interface HarmonicCandleWaveChartProps {
   candles?: Array<{
     time: string;
     open: number;
@@ -57,11 +57,9 @@ export function HarmonicCandleWaveChart({
   // Generate synthetic candles if live candle feed has not been fetched yet
   const displayCandles = useMemo(() => {
     if (candles && candles.length >= 10) {
-      // Use the latest 60 candles to keep the view crisp and readable
       return candles.slice(-60);
     }
 
-    // Generate a realistic 45-candle harmonic swing trajectory
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
@@ -90,7 +88,6 @@ export function HarmonicCandleWaveChart({
     let currPrice = xPrice;
 
     for (let i = 0; i < numPoints; i++) {
-      // Interpolate target based on legs
       let targetPrice = currPrice;
       for (let j = 0; j < legPoints.length - 1; j++) {
         if (i >= legPoints[j].idx && i <= legPoints[j + 1].idx) {
@@ -103,7 +100,6 @@ export function HarmonicCandleWaveChart({
         }
       }
 
-      // Add realistic market noise
       const noise = (Math.sin(i * 1.3) * 0.003 + (Math.random() - 0.5) * 0.005) * targetPrice;
       const open = i === 0 ? xPrice : synth[i - 1].close;
       const close = targetPrice + noise;
@@ -128,9 +124,8 @@ export function HarmonicCandleWaveChart({
     return synth;
   }, [candles, xPrice, aPrice, bPrice, cPrice, dPrice, bestMatch, timeframe]);
 
-  // Chart dimensions & scaling
   const chartHeight = 300;
-  const paddingRight = 65; // Y axis price scale width
+  const paddingRight = 65;
   const paddingLeft = 15;
   const paddingTop = 28;
   const paddingBottom = 28;
@@ -146,7 +141,6 @@ export function HarmonicCandleWaveChart({
     const lows = displayCandles.map((c) => c.low);
     const highs = displayCandles.map((c) => c.high);
 
-    // Include pattern points in scale
     const dVal =
       dPrice !== ""
         ? parseFloat(dPrice)
@@ -182,7 +176,6 @@ export function HarmonicCandleWaveChart({
     return paddingLeft + index * candleStep + candleStep / 2;
   };
 
-  // Find nearest candle index for each harmonic pivot
   const harmonicPoints = useMemo(() => {
     if (!displayCandles.length) return null;
 
@@ -203,7 +196,6 @@ export function HarmonicCandleWaveChart({
         }
       }
 
-      // Match by price proximity if timestamp is absent
       let bestIdx = defaultIdx;
       let minDiff = Infinity;
       displayCandles.forEach((c, idx) => {
@@ -225,7 +217,6 @@ export function HarmonicCandleWaveChart({
         ? parseFloat(dPrice)
         : bestMatch?.predicted_d_mid || bestMatch?.target_3 || cPrice;
 
-    // Distribute default indices if timestamp matching collapses to same point
     const len = displayCandles.length;
     let idxX = findBestIndex(xPrice, pivotsMeta?.x?.time, Math.floor(len * 0.05));
     let idxA = findBestIndex(aPrice, pivotsMeta?.a?.time, Math.floor(len * 0.28));
@@ -233,7 +224,6 @@ export function HarmonicCandleWaveChart({
     let idxC = findBestIndex(cPrice, pivotsMeta?.c?.time, Math.floor(len * 0.76));
     let idxD = findBestIndex(dVal, pivotsMeta?.d?.time, len - 1);
 
-    // Enforce sequential X < A < B < C < D ordering
     if (idxA <= idxX) idxA = Math.min(len - 4, idxX + Math.max(1, Math.floor((len - idxX) * 0.25)));
     if (idxB <= idxA) idxB = Math.min(len - 3, idxA + Math.max(1, Math.floor((len - idxA) * 0.33)));
     if (idxC <= idxB) idxC = Math.min(len - 2, idxB + Math.max(1, Math.floor((len - idxB) * 0.50)));
@@ -249,7 +239,6 @@ export function HarmonicCandleWaveChart({
     };
   }, [displayCandles, xPrice, aPrice, bPrice, cPrice, dPrice, pivotsMeta, bestMatch, priceRange]);
 
-  // Smooth line chart path
   const linePathD = useMemo(() => {
     if (!displayCandles.length) return "";
     return displayCandles
@@ -257,10 +246,9 @@ export function HarmonicCandleWaveChart({
       .join(" ");
   }, [displayCandles, priceRange]);
 
-  // Price axis ticks
   const priceTicks = useMemo(() => {
     if (priceRange <= 0) return [];
-    const ticks: number[] = [];
+    const ticks = [];
     const count = 5;
     for (let i = 0; i <= count; i++) {
       ticks.push(minPrice + (priceRange * i) / count);
@@ -278,7 +266,6 @@ export function HarmonicCandleWaveChart({
 
   return (
     <div className="card border-0 shadow-sm rounded-4 bg-white overflow-hidden my-3">
-      {/* Header Bar */}
       <div className="card-header bg-dark text-white p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div className="d-flex align-items-center gap-2">
           <span className="fs-5">🕯️</span>
@@ -293,7 +280,6 @@ export function HarmonicCandleWaveChart({
         </div>
 
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          {/* Active Candle Metrics */}
           {activeCandle && (
             <div className="d-none d-md-flex align-items-center gap-2 bg-black bg-opacity-30 px-3 py-1 rounded-3 font-monospace small" style={{ fontSize: "11px" }}>
               <span className="text-secondary">{activeCandle.time.slice(5, 16)}</span>
@@ -306,7 +292,6 @@ export function HarmonicCandleWaveChart({
             </div>
           )}
 
-          {/* Chart Type Toggle */}
           <div className="btn-group btn-group-sm p-1 bg-white bg-opacity-10 rounded-3">
             <button
               type="button"
@@ -326,7 +311,6 @@ export function HarmonicCandleWaveChart({
         </div>
       </div>
 
-      {/* Chart Canvas */}
       <div
         ref={containerRef}
         className="p-2 position-relative overflow-x-auto"
@@ -345,7 +329,6 @@ export function HarmonicCandleWaveChart({
             </linearGradient>
           </defs>
 
-          {/* Background Grid Lines */}
           {priceTicks.map((p, idx) => {
             const yPos = calcY(p);
             return (
@@ -371,10 +354,8 @@ export function HarmonicCandleWaveChart({
             );
           })}
 
-          {/* Harmonic Shaded Wings (Triangles) */}
           {harmonicPoints && (
             <>
-              {/* Wing 1: X - A - B */}
               <polygon
                 points={`${harmonicPoints.ptX.x},${harmonicPoints.ptX.y} ${harmonicPoints.ptA.x},${harmonicPoints.ptA.y} ${harmonicPoints.ptB.x},${harmonicPoints.ptB.y}`}
                 fill="rgba(13, 110, 253, 0.12)"
@@ -382,7 +363,6 @@ export function HarmonicCandleWaveChart({
                 strokeWidth="1.2"
               />
 
-              {/* Wing 2: B - C - D */}
               <polygon
                 points={`${harmonicPoints.ptB.x},${harmonicPoints.ptB.y} ${harmonicPoints.ptC.x},${harmonicPoints.ptC.y} ${harmonicPoints.ptD.x},${harmonicPoints.ptD.y}`}
                 fill={
@@ -398,7 +378,6 @@ export function HarmonicCandleWaveChart({
                 strokeWidth="1.2"
               />
 
-              {/* Harmonic Skeleton Lines X -> A -> B -> C */}
               <polyline
                 fill="none"
                 stroke="#0d6efd"
@@ -408,7 +387,6 @@ export function HarmonicCandleWaveChart({
                 points={`${harmonicPoints.ptX.x},${harmonicPoints.ptX.y} ${harmonicPoints.ptA.x},${harmonicPoints.ptA.y} ${harmonicPoints.ptB.x},${harmonicPoints.ptB.y} ${harmonicPoints.ptC.x},${harmonicPoints.ptC.y}`}
               />
 
-              {/* C -> D Leg */}
               <line
                 x1={harmonicPoints.ptC.x}
                 y1={harmonicPoints.ptC.y}
@@ -422,7 +400,6 @@ export function HarmonicCandleWaveChart({
             </>
           )}
 
-          {/* Line Chart View */}
           {chartType === "line" && (
             <>
               <path
@@ -439,7 +416,6 @@ export function HarmonicCandleWaveChart({
             </>
           )}
 
-          {/* Candlestick Chart View */}
           {chartType === "candle" &&
             displayCandles.map((c, idx) => {
               const cx = getCandleX(idx);
@@ -459,7 +435,6 @@ export function HarmonicCandleWaveChart({
                   className="cursor-pointer"
                   onMouseEnter={() => setHoveredIndex(idx)}
                 >
-                  {/* High/Low Wick */}
                   <line
                     x1={cx}
                     y1={highY}
@@ -468,8 +443,6 @@ export function HarmonicCandleWaveChart({
                     stroke={candleColor}
                     strokeWidth={isHovered ? "1.8" : "1.2"}
                   />
-
-                  {/* Candle Body */}
                   <rect
                     x={cx - candleWidth / 2}
                     y={bodyY}
@@ -484,7 +457,6 @@ export function HarmonicCandleWaveChart({
               );
             })}
 
-          {/* Harmonic Labeled Node Circles */}
           {harmonicPoints && (
             <>
               {[
@@ -523,7 +495,6 @@ export function HarmonicCandleWaveChart({
                 </g>
               ))}
 
-              {/* Point D PRZ Node */}
               <g>
                 <circle
                   cx={harmonicPoints.ptD.x}
@@ -555,10 +526,8 @@ export function HarmonicCandleWaveChart({
             </>
           )}
 
-          {/* Target & Stop Loss Horizontal Reference Lines */}
           {bestMatch && (
             <>
-              {/* Target 1 */}
               {bestMatch.target_1 && (
                 <g>
                   <line
@@ -583,7 +552,6 @@ export function HarmonicCandleWaveChart({
                 </g>
               )}
 
-              {/* Target 2 */}
               {bestMatch.target_2 && (
                 <g>
                   <line
@@ -608,7 +576,6 @@ export function HarmonicCandleWaveChart({
                 </g>
               )}
 
-              {/* Stop Loss */}
               {bestMatch.stop_loss && (
                 <g>
                   <line
@@ -635,10 +602,8 @@ export function HarmonicCandleWaveChart({
             </>
           )}
 
-          {/* 🟡 Live CMP / LTP Yellow Line & Pulsing Dot on Current Candle */}
           {cmpPrice > 0 && (
             <g>
-              {/* Horizontal Yellow Dashed Line at CMP */}
               <line
                 x1={paddingLeft}
                 y1={calcY(cmpPrice)}
@@ -650,7 +615,6 @@ export function HarmonicCandleWaveChart({
                 opacity="0.9"
               />
 
-              {/* Pulsing Yellow Glowing Dot on Latest Candle */}
               <g transform={`translate(${getCandleX(displayCandles.length - 1)}, ${calcY(cmpPrice)})`}>
                 <circle r="10" fill="rgba(255, 193, 7, 0.3)">
                   <animate attributeName="r" values="6;14;6" dur="1.8s" repeatCount="indefinite" />
@@ -659,7 +623,6 @@ export function HarmonicCandleWaveChart({
                 <circle r="5" fill="#ffc107" stroke="#ffffff" strokeWidth="2" />
               </g>
 
-              {/* Floating Yellow LTP Badge on Price Axis */}
               <g transform={`translate(${svgWidth - paddingRight + 2}, ${calcY(cmpPrice) - 8})`}>
                 <rect x="0" y="0" width="60" height="16" rx="3" fill="#ffc107" stroke="#ffffff" strokeWidth="1" />
                 <text x="30" y="11" textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="#000000">
@@ -669,7 +632,6 @@ export function HarmonicCandleWaveChart({
             </g>
           )}
 
-          {/* Hover Crosshair */}
           {hoveredIndex !== null && (
             <line
               x1={getCandleX(hoveredIndex)}
@@ -684,7 +646,6 @@ export function HarmonicCandleWaveChart({
         </svg>
       </div>
 
-      {/* Footer Legend */}
       <div className="card-footer bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center small text-secondary">
         <div className="d-flex align-items-center gap-3 flex-wrap" style={{ fontSize: "11.5px" }}>
           <span className="d-flex align-items-center gap-1">
@@ -720,3 +681,5 @@ export function HarmonicCandleWaveChart({
     </div>
   );
 }
+
+export default HarmonicCandleWaveChart;
