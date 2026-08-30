@@ -322,6 +322,9 @@ export function HarmonicCustomStudio({
   const [isLiveSynced, setIsLiveSynced] = useState(false);
   const [liveSyncTime, setLiveSyncTime] = useState<string | null>(null);
   const [showCheatsheet, setShowCheatsheet] = useState(false);
+  const [guideActiveTab, setGuideActiveTab] = useState<
+    "cheatsheet" | "why_harmonics" | "patterns_detail" | "playbook"
+  >("cheatsheet");
 
   // Auto-fetch live market pivots and auto-fill coordinates dynamically
   const handleAutoFetchLivePivots = async (
@@ -785,72 +788,327 @@ export function HarmonicCustomStudio({
         {/* ========================================================================= */}
         {showCheatsheet && (
           <div className="card border-primary border-opacity-25 rounded-4 shadow-sm bg-light mb-4 overflow-hidden">
-            <div className="card-header bg-primary text-white py-2 px-3 d-flex justify-content-between align-items-center">
-              <span className="fw-bold small">
-                📚 Canonical Harmonic Pattern Fibonacci Standards (Scott Carney Rules)
-              </span>
-              <button
-                type="button"
-                className="btn-close btn-close-white btn-sm"
-                onClick={() => setShowCheatsheet(false)}
-              />
-            </div>
-            <div className="card-body p-3">
-              <div className="table-responsive">
-                <table className="table table-sm table-bordered bg-white small mb-0">
-                  <thead className="table-dark text-center">
-                    <tr>
-                      <th>Pattern Name</th>
-                      <th>B Point (AB/XA)</th>
-                      <th>C Point (BC/AB)</th>
-                      <th>D Projection (CD/BC)</th>
-                      <th>D Retracement (XD/XA)</th>
-                      <th>Canonical Invalidation Rule</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {HARMONIC_STANDARDS_CHEATSHEET.map((pat) => {
-                      const isCurrentMatched =
-                        sandboxResult?.best_match?.pattern_name
-                          .toUpperCase()
-                          .includes(pat.name.toUpperCase().split(" ")[0]);
-                      return (
-                        <tr
-                          key={pat.name}
-                          className={isCurrentMatched ? "table-success fw-bold" : ""}
-                        >
-                          <td className="fw-bold text-nowrap">
-                            {isCurrentMatched && "🎯 "}
-                            {pat.name}
-                          </td>
-                          <td className="font-monospace text-center">
-                            {pat.bRetracement}{" "}
-                            <span className="text-muted" style={{ fontSize: "10px" }}>
-                              (ideal: {pat.bIdeal})
-                            </span>
-                          </td>
-                          <td className="font-monospace text-center">
-                            {pat.cPullback}{" "}
-                            <span className="text-muted" style={{ fontSize: "10px" }}>
-                              (ideal: {pat.cIdeal})
-                            </span>
-                          </td>
-                          <td className="font-monospace text-center">
-                            {pat.dProjection}{" "}
-                            <span className="text-muted" style={{ fontSize: "10px" }}>
-                              (ideal: {pat.dIdeal})
-                            </span>
-                          </td>
-                          <td className="font-monospace text-center text-primary fw-bold">
-                            {pat.dRetracement}
-                          </td>
-                          <td className="small text-secondary">{pat.keyRule}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <div className="card-header bg-primary text-white py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <span className="fs-5">📚</span>
+                <div>
+                  <h6 className="fw-bold mb-0">Harmonic Pattern Mastery & Strategy Guide</h6>
+                  <span className="small text-white text-opacity-75" style={{ fontSize: "11px" }}>
+                    Canonical Fibonacci rules, institutional edge rationale, and execution blueprint
+                  </span>
+                </div>
               </div>
+
+              <div className="d-flex align-items-center gap-2">
+                <div className="btn-group btn-group-sm p-1 bg-white bg-opacity-20 rounded-3">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${guideActiveTab === "cheatsheet" ? "btn-light text-primary fw-bold" : "btn-link text-white text-decoration-none"}`}
+                    onClick={() => setGuideActiveTab("cheatsheet")}
+                  >
+                    📊 Canonical Ratios
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${guideActiveTab === "why_harmonics" ? "btn-light text-primary fw-bold" : "btn-link text-white text-decoration-none"}`}
+                    onClick={() => setGuideActiveTab("why_harmonics")}
+                  >
+                    💡 Why Harmonics?
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${guideActiveTab === "patterns_detail" ? "btn-light text-primary fw-bold" : "btn-link text-white text-decoration-none"}`}
+                    onClick={() => setGuideActiveTab("patterns_detail")}
+                  >
+                    📖 Pattern Breakdown
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${guideActiveTab === "playbook" ? "btn-light text-primary fw-bold" : "btn-link text-white text-decoration-none"}`}
+                    onClick={() => setGuideActiveTab("playbook")}
+                  >
+                    🎯 4-Step Playbook
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-close btn-close-white btn-sm ms-2"
+                  onClick={() => setShowCheatsheet(false)}
+                />
+              </div>
+            </div>
+
+            <div className="card-body p-3 p-md-4">
+              {/* TAB 1: CANONICAL RATIOS TABLE */}
+              {guideActiveTab === "cheatsheet" && (
+                <div>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="small fw-bold text-secondary text-uppercase">
+                      Scott Carney Canonical Harmonic Ratio Benchmarks
+                    </span>
+                    <span className="badge bg-primary-subtle text-primary border small">
+                      Institutional Standards
+                    </span>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="table table-sm table-bordered bg-white small mb-0 align-middle">
+                      <thead className="table-dark text-center">
+                        <tr>
+                          <th>Pattern Name</th>
+                          <th>B Point (AB/XA)</th>
+                          <th>C Point (BC/AB)</th>
+                          <th>D Projection (CD/BC)</th>
+                          <th>D Retracement (XD/XA)</th>
+                          <th>Canonical Invalidation Rule</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {HARMONIC_STANDARDS_CHEATSHEET.map((pat) => {
+                          const isCurrentMatched =
+                            sandboxResult?.best_match?.pattern_name
+                              .toUpperCase()
+                              .includes(pat.name.toUpperCase().split(" ")[0]);
+                          return (
+                            <tr
+                              key={pat.name}
+                              className={isCurrentMatched ? "table-success fw-bold" : ""}
+                            >
+                              <td className="fw-bold text-nowrap">
+                                {isCurrentMatched && "🎯 "}
+                                {pat.name}
+                              </td>
+                              <td className="font-monospace text-center">
+                                {pat.bRetracement}{" "}
+                                <span className="text-muted" style={{ fontSize: "10px" }}>
+                                  (ideal: {pat.bIdeal})
+                                </span>
+                              </td>
+                              <td className="font-monospace text-center">
+                                {pat.cPullback}{" "}
+                                <span className="text-muted" style={{ fontSize: "10px" }}>
+                                  (ideal: {pat.cIdeal})
+                                </span>
+                              </td>
+                              <td className="font-monospace text-center">
+                                {pat.dProjection}{" "}
+                                <span className="text-muted" style={{ fontSize: "10px" }}>
+                                  (ideal: {pat.dIdeal})
+                                </span>
+                              </td>
+                              <td className="font-monospace text-center text-primary fw-bold">
+                                {pat.dRetracement}
+                              </td>
+                              <td className="small text-secondary">{pat.keyRule}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: WHY HARMONICS & INSTITUTIONAL EDGE */}
+              {guideActiveTab === "why_harmonics" && (
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="fs-4">🎯</span>
+                        <h6 className="fw-bold mb-0 text-primary">
+                          Predictive PRZ vs Lagging Indicators
+                        </h6>
+                      </div>
+                      <p className="small text-secondary mb-0">
+                        Traditional indicators like Moving Averages or RSI lag the market because they only calculate past closed candles. Harmonic patterns use geometric Fibonacci confluence to <strong>forecast future inflection points (Potential Reversal Zones - PRZ)</strong> before the price turns.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="fs-4">⚖️</span>
+                        <h6 className="fw-bold mb-0 text-success">
+                          Asymmetric Risk-to-Reward Ratio (1:2 to 1:4+)
+                        </h6>
+                      </div>
+                      <p className="small text-secondary mb-0">
+                        Because harmonic structures have mathematically defined invalidation levels (the terminal stop loss beyond PRZ), your risk is strictly capped. This allows traders to achieve <strong>asymmetric 1:2, 1:3, and 1:4+ risk-to-reward trades</strong> with small risk and huge expansion runs.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="fs-4">🔄</span>
+                        <h6 className="fw-bold mb-0 text-info">
+                          Two-Way Opportunity: C → D Run + Primary D Reversal
+                        </h6>
+                      </div>
+                      <p className="small text-secondary mb-0">
+                        When Point C confirms, smart money trades the <strong>expansion rally from C to D</strong> (like our VEDL Bat setup). Once Point D PRZ is reached, traders take profit and can execute the <strong>primary reversal trade</strong> in the opposite direction!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="fs-4">🏦</span>
+                        <h6 className="fw-bold mb-0 text-warning text-dark">
+                          Institutional Algorithmic Confluence
+                        </h6>
+                      </div>
+                      <p className="small text-secondary mb-0">
+                        Proprietary trading desks and quantitative HFT algorithms use Fibonacci clusters (0.382, 0.618, 0.786, 0.886, 1.272, 1.618) as liquidity pools. Harmonic trading aligns retail traders with where institutional order flow is executed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: PATTERN-BY-PATTERN BREAKDOWN & LOGIC */}
+              {guideActiveTab === "patterns_detail" && (
+                <div className="row g-3">
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-primary">🦇 Bat & Alternate Bat</h6>
+                        <span className="badge bg-primary-subtle text-primary">D = 0.886 / 1.130</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The highest R:R pattern.</strong> Point B has a shallow retracement (0.382–0.500), which stores immense kinetic energy. The move drops deeply to a precise 0.886 PRZ for an explosive reversal.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        B: 0.382–0.500 | C: 0.382–0.886 | D: 0.886 (Alt: 1.130)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-dark">🦅 Gartley 222</h6>
+                        <span className="badge bg-dark text-white">D = 0.786</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The golden ratio standard.</strong> Point B must hit exactly 0.618 of XA. Point D completes at 0.786 of XA. Best used for trend continuation and early structural reversals.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        B: Strict 0.618 | C: 0.382–0.886 | D: Strict 0.786
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-info">🦋 Butterfly Pattern</h6>
+                        <span className="badge bg-info text-white">D = 1.272–1.618</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The trend exhaustion specialist.</strong> Point B dips deeply to 0.786. Point D extends beyond Point X (1.272–1.618), trapping late trend followers before snapping back into a major reversal.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        B: Strict 0.786 | C: 0.382–0.886 | D: 1.272–1.618 (XA)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-danger">🦀 Crab & Deep Crab</h6>
+                        <span className="badge bg-danger text-white">D = 1.618</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The extreme momentum pattern.</strong> Point D shoots to an extreme 1.618 extension of XA with a powerful 2.24–3.618 CD projection. Captures blow-off tops and capitulation bottoms.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        B: 0.382–0.618 (Deep: 0.886) | D: Extreme 1.618 (XA)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-warning text-dark">🦈 Shark & ⚡ Cypher</h6>
+                        <span className="badge bg-warning text-dark">Point C Breaks A</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The fake breakout trap.</strong> Point C breaks beyond Point A (1.130–1.618), luring breakout traders into the trap. Price then exhausts and completes at Point D for an explosive snapback.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        C: 1.130–1.618 (Breaks A) | D: 0.786–1.130
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="fw-bold mb-0 text-success">📐 AB=CD Reciprocal</h6>
+                        <span className="badge bg-success text-white">|CD| = 1.0 × |AB|</span>
+                      </div>
+                      <p className="small text-secondary mb-2">
+                        <strong>The foundation of harmonic price action.</strong> Leg CD equals Leg AB in point length and time duration, representing natural harmonic market equilibrium and symmetry.
+                      </p>
+                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                        Leg CD = 1.000 × Leg AB | Time Symmetry: t(CD) ≈ t(AB)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: 4-STEP PRACTICAL EXECUTION PLAYBOOK */}
+              {guideActiveTab === "playbook" && (
+                <div className="row g-3">
+                  <div className="col-12 col-md-3">
+                    <div className="p-3 bg-white rounded-3 border h-100">
+                      <span className="badge bg-primary text-white mb-2">STEP 1</span>
+                      <h6 className="fw-bold text-dark">Setup & Quality Check</h6>
+                      <p className="small text-secondary mb-0">
+                        Ensure pattern quality score is <strong>≥ 75%</strong> and Fibonacci ratio compliance shows <code>PERFECT</code> or <code>ACCEPTABLE</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-3">
+                    <div className="p-3 bg-white rounded-3 border h-100">
+                      <span className="badge bg-success text-white mb-2">STEP 2</span>
+                      <h6 className="fw-bold text-dark">Order Execution</h6>
+                      <p className="small text-secondary mb-0">
+                        Place a Limit Order inside the <strong>Suggested Best Buy Range</strong>. Place Stop Loss strictly below the Invalidation Level.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-3">
+                    <div className="p-3 bg-white rounded-3 border h-100">
+                      <span className="badge bg-info text-white mb-2">STEP 3</span>
+                      <h6 className="fw-bold text-dark">Target 1 & Breakeven</h6>
+                      <p className="small text-secondary mb-0">
+                        When price hits <strong>Target 1 (38.2% run)</strong>, book 50% profit and immediately trail Stop Loss to <strong>Breakeven (Entry Price)</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-3">
+                    <div className="p-3 bg-white rounded-3 border h-100">
+                      <span className="badge bg-dark text-white mb-2">STEP 4</span>
+                      <h6 className="fw-bold text-dark">Runners to T2 & T3</h6>
+                      <p className="small text-secondary mb-0">
+                        Trail the remaining 50% position risk-free towards <strong>Target 2 (61.8%)</strong> and <strong>Target 3 (PRZ Full Run)</strong> for maximum gains!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
