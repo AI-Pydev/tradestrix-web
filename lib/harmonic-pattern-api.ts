@@ -739,6 +739,16 @@ export interface PatternMatch {
   quality_score: number;
   geometry_score: number;
   status: string;
+  best_entry_price?: number;
+  entry_zone_low?: number;
+  entry_zone_high?: number;
+  entry_action?: string;
+  t1_reward_points?: number;
+  t1_reward_pct?: number;
+  t2_reward_points?: number;
+  t2_reward_pct?: number;
+  sl_risk_points?: number;
+  sl_risk_pct?: number;
   ratios: Record<string, RatioDetail>;
   predicted_d_low: number;
   predicted_d_high: number;

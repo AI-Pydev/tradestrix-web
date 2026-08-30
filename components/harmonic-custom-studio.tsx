@@ -1456,41 +1456,79 @@ export function HarmonicCustomStudio({
                 <div className="col-12 col-lg-5">
                   <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
                     <div className="card-body p-4">
-                      <h5 className="fw-bold text-dark mb-3">
-                        🎯 PRZ Target & Stop Loss Ladder
+                      <h5 className="fw-bold text-dark mb-3 d-flex justify-content-between align-items-center">
+                        <span>🎯 Trade Blueprint & Best Buy Price</span>
+                        <span className={`badge ${sandboxResult.best_match.direction === "BULLISH" ? "bg-success text-white" : "bg-danger text-white"}`}>
+                          {sandboxResult.best_match.entry_action || (sandboxResult.best_match.direction === "BULLISH" ? "BUY SETUP" : "SHORT SETUP")}
+                        </span>
                       </h5>
+
+                      {/* Best Entry / Buy Price Highlight Box */}
+                      <div className={`p-3 rounded-3 border mb-3 ${sandboxResult.best_match.direction === "BULLISH" ? "bg-success bg-opacity-10 border-success-subtle" : "bg-danger bg-opacity-10 border-danger-subtle"}`}>
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <span className="small fw-bold text-uppercase text-secondary">
+                              ⭐ Suggested Best {sandboxResult.best_match.direction === "BULLISH" ? "Buy" : "Sell"} Price
+                            </span>
+                            <div className="fs-4 fw-bold text-dark font-monospace">
+                              ₹{(sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid).toFixed(2)}
+                            </div>
+                          </div>
+
+                          <div className="text-end">
+                            <span className="small text-secondary fw-semibold d-block">Optimal Entry Range</span>
+                            <span className="badge bg-white text-dark border font-monospace px-2 py-1">
+                              ₹{(sandboxResult.best_match.entry_zone_low || (sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid) * 0.99).toFixed(2)} – ₹{(sandboxResult.best_match.entry_zone_high || (sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid) * 1.015).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
                       <div className="list-group list-group-flush mb-4">
                         <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
                           <div>
-                            <span className="badge bg-primary me-2">Target 1</span>
+                            <span className="badge bg-primary me-2">Target 1 Exit</span>
                             <span className="small text-secondary">
                               38.2% Run
                             </span>
                           </div>
-                          <span className="fw-bold text-primary fs-6 font-monospace">
-                            ₹{sandboxResult.best_match.target_1.toFixed(2)}
-                          </span>
+                          <div className="text-end">
+                            <span className="fw-bold text-primary fs-6 font-monospace d-block">
+                              ₹{sandboxResult.best_match.target_1.toFixed(2)}
+                            </span>
+                            {sandboxResult.best_match.t1_reward_points !== undefined && (
+                              <span className="text-success small font-monospace" style={{ fontSize: "11px" }}>
+                                +₹{sandboxResult.best_match.t1_reward_points.toFixed(2)} (+{sandboxResult.best_match.t1_reward_pct}%)
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
                           <div>
                             <span className="badge bg-info text-white me-2">
-                              Target 2
+                              Target 2 Exit
                             </span>
                             <span className="small text-secondary">
                               61.8% Run
                             </span>
                           </div>
-                          <span className="fw-bold text-info fs-6 font-monospace">
-                            ₹{sandboxResult.best_match.target_2.toFixed(2)}
-                          </span>
+                          <div className="text-end">
+                            <span className="fw-bold text-info fs-6 font-monospace d-block">
+                              ₹{sandboxResult.best_match.target_2.toFixed(2)}
+                            </span>
+                            {sandboxResult.best_match.t2_reward_points !== undefined && (
+                              <span className="text-success small font-monospace" style={{ fontSize: "11px" }}>
+                                +₹{sandboxResult.best_match.t2_reward_points.toFixed(2)} (+{sandboxResult.best_match.t2_reward_pct}%)
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
                           <div>
                             <span className="badge bg-success text-white me-2">
-                              Target 3 (Point D)
+                              Target 3 Exit (Point D)
                             </span>
                             <span className="small text-secondary">
                               PRZ Completion
@@ -1507,17 +1545,24 @@ export function HarmonicCustomStudio({
                               Stop Loss
                             </span>
                             <span className="small text-secondary">
-                              Invalidation
+                              Invalidation Level
                             </span>
                           </div>
-                          <span className="fw-bold text-danger fs-6 font-monospace">
-                            ₹{sandboxResult.best_match.stop_loss.toFixed(2)}
-                          </span>
+                          <div className="text-end">
+                            <span className="fw-bold text-danger fs-6 font-monospace d-block">
+                              ₹{sandboxResult.best_match.stop_loss.toFixed(2)}
+                            </span>
+                            {sandboxResult.best_match.sl_risk_points !== undefined && (
+                              <span className="text-danger small font-monospace" style={{ fontSize: "11px" }}>
+                                -₹{sandboxResult.best_match.sl_risk_points.toFixed(2)} (-{sandboxResult.best_match.sl_risk_pct}%)
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
                           <span className="small fw-semibold text-secondary">
-                            Live Risk : Reward
+                            Live Risk : Reward Ratio
                           </span>
                           <span className="badge bg-dark fs-6 px-3 py-1 font-monospace">
                             1 : {sandboxResult.best_match.live_rr_ratio}
