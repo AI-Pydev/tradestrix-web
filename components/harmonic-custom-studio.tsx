@@ -326,6 +326,9 @@ export function HarmonicCustomStudio({
   const [guideActiveTab, setGuideActiveTab] = useState<
     "cheatsheet" | "why_harmonics" | "patterns_detail" | "playbook"
   >("cheatsheet");
+  const [waveDisplayMode, setWaveDisplayMode] = useState<
+    "dual" | "forming" | "targets"
+  >("dual");
   const [sandboxCandles, setSandboxCandles] = useState<
     Array<{
       time: string;
@@ -747,6 +750,12 @@ export function HarmonicCustomStudio({
     );
     ptCmp.x = padX + plotW * (0.75 + 0.25 * progressToD);
 
+    const progressPct = Math.round(progressToD * 100);
+    const ptsToD = Math.abs(dVal - liveCmp);
+    const pctToD = liveCmp > 0 ? (ptsToD / liveCmp) * 100 : 0;
+    const ptsFromC = Math.abs(liveCmp - cPrice);
+    const pctFromC = cPrice > 0 ? (ptsFromC / cPrice) * 100 : 0;
+
     return {
       svgWidth,
       svgHeight,
@@ -767,8 +776,133 @@ export function HarmonicCustomStudio({
       cd_bc,
       xd_xa,
       isProjectedD: dPrice === "",
+      progressPct,
+      ptsToD,
+      pctToD,
+      ptsFromC,
+      pctFromC,
+      dVal,
+      liveCmp,
     };
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice, sandboxResult]);
+
+  // Target roadmap coordinate layout for Completed Pattern Reversal (D -> T1 -> T2 -> T3)
+  const targetSvgLayout = useMemo(() => {
+    const dVal =
+      dPrice !== ""
+        ? parseFloat(dPrice)
+        : sandboxResult?.best_match?.predicted_d_mid ||
+          sandboxResult?.best_match?.target_3 ||
+          cPrice;
+
+    const isBullish = sandboxResult?.best_match?.direction === "BULLISH";
+    const t1Val =
+      sandboxResult?.best_match?.target_1 ||
+      (isBullish ? dVal * 1.05 : dVal * 0.95);
+    const t2Val =
+      sandboxResult?.best_match?.target_2 ||
+      (isBullish ? dVal * 1.08 : dVal * 0.92);
+    const t3Val =
+      sandboxResult?.best_match?.target_3 ||
+      (isBullish ? dVal * 1.12 : dVal * 0.88);
+    const slVal =
+      sandboxResult?.best_match?.stop_loss ||
+      (isBullish ? dVal * 0.97 : dVal * 1.03);
+
+    const validPrices = [
+      xPrice,
+      aPrice,
+      bPrice,
+      cPrice,
+      dVal,
+      t1Val,
+      t2Val,
+      slVal,
+    ].filter((p) => !isNaN(p) && p > 0);
+    if (validPrices.length < 4) return null;
+
+    const minP = Math.min(...validPrices);
+    const maxP = Math.max(...validPrices);
+    const spread = maxP - minP || 1.0;
+
+    const svgWidth = 540;
+    const svgHeight = 230;
+    const padX = 55;
+    const padTop = 38;
+    const padBottom = 38;
+    const plotH = svgHeight - padTop - padBottom;
+    const plotW = svgWidth - padX * 2;
+
+    const calcY = (price: number) => {
+      const ratio = (price - minP) / spread;
+      return padTop + plotH * (1 - ratio);
+    };
+
+    const ptX = { x: padX, y: calcY(xPrice), price: xPrice, label: "X" };
+    const ptA = {
+      x: padX + plotW * 0.18,
+      y: calcY(aPrice),
+      price: aPrice,
+      label: "A",
+    };
+    const ptB = {
+      x: padX + plotW * 0.36,
+      y: calcY(bPrice),
+      price: bPrice,
+      label: "B",
+    };
+    const ptC = {
+      x: padX + plotW * 0.54,
+      y: calcY(cPrice),
+      price: cPrice,
+      label: "C",
+    };
+    const ptD = {
+      x: padX + plotW * 0.72,
+      y: calcY(dVal),
+      price: dVal,
+      label: "D",
+    };
+    const ptT1 = {
+      x: padX + plotW * 0.88,
+      y: calcY(t1Val),
+      price: t1Val,
+      label: "T1",
+    };
+    const ptT2 = {
+      x: padX + plotW * 1.00,
+      y: calcY(t2Val),
+      price: t2Val,
+      label: "T2",
+    };
+    const ptSL = {
+      x: padX + plotW * 0.76,
+      y: calcY(slVal),
+      price: slVal,
+      label: "SL",
+    };
+
+    return {
+      svgWidth,
+      svgHeight,
+      ptX,
+      ptA,
+      ptB,
+      ptC,
+      ptD,
+      ptT1,
+      ptT2,
+      ptSL,
+      minP,
+      maxP,
+      isBullish,
+      t1Val,
+      t2Val,
+      t3Val,
+      slVal,
+      dVal,
+    };
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
 
   return (
     <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
@@ -1816,270 +1950,443 @@ export function HarmonicCustomStudio({
                         </table>
                       </div>
 
-                      {/* Mathematically Accurate Geometric Wave SVG Diagram */}
-                      <div className="p-3 bg-white rounded-3 border text-center my-3 shadow-sm">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
+                      {/* ========================================================================= */}
+                      {/* DUAL-STATE HARMONIC PREDICTION: FORMING STAGE + TARGET ROADMAP            */}
+                      {/* ========================================================================= */}
+                      <div className="my-3">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
                           <span className="small fw-bold text-secondary text-uppercase" style={{ fontSize: "11px" }}>
-                            📐 Mathematically Scaled Geometric Wave & Triangles
+                            📐 Geometric Wave Dual-State Predictor
                           </span>
-                          <span className="badge bg-light text-dark border small font-monospace">
-                            {sandboxResult.best_match.direction} {sandboxResult.best_match.pattern_name}
-                          </span>
+
+                          <div className="btn-group btn-group-sm p-1 bg-light rounded-3 border">
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${waveDisplayMode === "dual" ? "btn-primary shadow-sm fw-bold" : "btn-link text-secondary text-decoration-none"}`}
+                              onClick={() => setWaveDisplayMode("dual")}
+                            >
+                              ⚡ Dual Split View
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${waveDisplayMode === "forming" ? "btn-primary shadow-sm fw-bold" : "btn-link text-secondary text-decoration-none"}`}
+                              onClick={() => setWaveDisplayMode("forming")}
+                            >
+                              🟡 Stage 1: Forming (C→D)
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${waveDisplayMode === "targets" ? "btn-primary shadow-sm fw-bold" : "btn-link text-secondary text-decoration-none"}`}
+                              onClick={() => setWaveDisplayMode("targets")}
+                            >
+                              🎯 Stage 2: Target Roadmap
+                            </button>
+                          </div>
                         </div>
 
-                        {waveSvgLayout ? (
-                          <svg
-                            viewBox={`0 0 ${waveSvgLayout.svgWidth} ${waveSvgLayout.svgHeight}`}
-                            className="w-100"
-                            style={{ maxHeight: "230px" }}
-                          >
-                            <defs>
-                              <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
-                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.03)" strokeWidth="1" />
-                              </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill="url(#gridPattern)" rx="8" />
+                        <div className="row g-3">
+                          {/* ========================================================================= */}
+                          {/* HALF 1: STAGE 1 - ACTIVE FORMING WAVE (C -> D PRZ EXPANSION)              */}
+                          {/* ========================================================================= */}
+                          {(waveDisplayMode === "dual" || waveDisplayMode === "forming") && (
+                            <div className={waveDisplayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
+                              <div className="p-3 bg-white rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small fw-bold">
+                                      🟡 Stage 1: Active Forming Phase
+                                    </span>
+                                    <span className="badge bg-light text-dark border small font-monospace">
+                                      {waveSvgLayout?.progressPct}% to PRZ D
+                                    </span>
+                                  </div>
 
-                            {/* Reference horizontal price lines */}
-                            <line
-                              x1="40"
-                              y1={waveSvgLayout.ptX.y}
-                              x2={waveSvgLayout.svgWidth - 40}
-                              y2={waveSvgLayout.ptX.y}
-                              stroke="rgba(13, 110, 253, 0.15)"
-                              strokeDasharray="2,4"
-                            />
-                            <line
-                              x1="40"
-                              y1={waveSvgLayout.ptD.y}
-                              x2={waveSvgLayout.svgWidth - 40}
-                              y2={waveSvgLayout.ptD.y}
-                              stroke="rgba(25, 135, 84, 0.2)"
-                              strokeDasharray="2,4"
-                            />
+                                  {waveSvgLayout ? (
+                                    <svg
+                                      viewBox={`0 0 ${waveSvgLayout.svgWidth} ${waveSvgLayout.svgHeight}`}
+                                      className="w-100"
+                                      style={{ maxHeight: "210px" }}
+                                    >
+                                      <defs>
+                                        <pattern id="gridPatternForming" width="40" height="40" patternUnits="userSpaceOnUse">
+                                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.03)" strokeWidth="1" />
+                                        </pattern>
+                                      </defs>
+                                      <rect width="100%" height="100%" fill="url(#gridPatternForming)" rx="8" />
 
-                            {/* Shaded Triangle 1 (X - A - B Wing) */}
-                            <polygon
-                              points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y}`}
-                              fill="rgba(13, 110, 253, 0.14)"
-                              stroke="rgba(13, 110, 253, 0.4)"
-                              strokeWidth="1.2"
-                            />
+                                      {/* Reference horizontal price lines */}
+                                      <line
+                                        x1="40"
+                                        y1={waveSvgLayout.ptX.y}
+                                        x2={waveSvgLayout.svgWidth - 40}
+                                        y2={waveSvgLayout.ptX.y}
+                                        stroke="rgba(13, 110, 253, 0.15)"
+                                        strokeDasharray="2,4"
+                                      />
+                                      <line
+                                        x1="40"
+                                        y1={waveSvgLayout.ptD.y}
+                                        x2={waveSvgLayout.svgWidth - 40}
+                                        y2={waveSvgLayout.ptD.y}
+                                        stroke="rgba(25, 135, 84, 0.2)"
+                                        strokeDasharray="2,4"
+                                      />
 
-                            {/* Shaded Triangle 2 (B - C - D Wing) */}
-                            <polygon
-                              points={`${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y} ${waveSvgLayout.ptD.x},${waveSvgLayout.ptD.y}`}
-                              fill={
-                                waveSvgLayout.isBullish
-                                  ? "rgba(25, 135, 84, 0.16)"
-                                  : "rgba(220, 53, 69, 0.16)"
-                              }
-                              stroke={
-                                waveSvgLayout.isBullish
-                                  ? "rgba(25, 135, 84, 0.45)"
-                                  : "rgba(220, 53, 69, 0.45)"
-                              }
-                              strokeWidth="1.2"
-                            />
+                                      {/* Shaded Triangle 1 (X - A - B Wing) */}
+                                      <polygon
+                                        points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y}`}
+                                        fill="rgba(13, 110, 253, 0.14)"
+                                        stroke="rgba(13, 110, 253, 0.4)"
+                                        strokeWidth="1.2"
+                                      />
 
-                            {/* Dotted Harmonic Axis lines */}
-                            <line
-                              x1={waveSvgLayout.ptX.x}
-                              y1={waveSvgLayout.ptX.y}
-                              x2={waveSvgLayout.ptB.x}
-                              y2={waveSvgLayout.ptB.y}
-                              stroke="#6c757d"
-                              strokeDasharray="3,3"
-                              strokeWidth="1.2"
-                              opacity="0.6"
-                            />
-                            <line
-                              x1={waveSvgLayout.ptA.x}
-                              y1={waveSvgLayout.ptA.y}
-                              x2={waveSvgLayout.ptC.x}
-                              y2={waveSvgLayout.ptC.y}
-                              stroke="#6c757d"
-                              strokeDasharray="3,3"
-                              strokeWidth="1.2"
-                              opacity="0.5"
-                            />
-                            <line
-                              x1={waveSvgLayout.ptX.x}
-                              y1={waveSvgLayout.ptX.y}
-                              x2={waveSvgLayout.ptD.x}
-                              y2={waveSvgLayout.ptD.y}
-                              stroke="#ffc107"
-                              strokeDasharray="4,3"
-                              strokeWidth="1.5"
-                              opacity="0.85"
-                            />
+                                      {/* Shaded Triangle 2 (B - C - D Wing) */}
+                                      <polygon
+                                        points={`${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y} ${waveSvgLayout.ptD.x},${waveSvgLayout.ptD.y}`}
+                                        fill={
+                                          waveSvgLayout.isBullish
+                                            ? "rgba(25, 135, 84, 0.16)"
+                                            : "rgba(220, 53, 69, 0.16)"
+                                        }
+                                        stroke={
+                                          waveSvgLayout.isBullish
+                                            ? "rgba(25, 135, 84, 0.45)"
+                                            : "rgba(220, 53, 69, 0.45)"
+                                        }
+                                        strokeWidth="1.2"
+                                      />
 
-                            {/* Polyline X -> A -> B -> C */}
-                            <polyline
-                              fill="none"
-                              stroke="#0d6efd"
-                              strokeWidth="3.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y}`}
-                            />
+                                      {/* Dotted Harmonic Axis lines */}
+                                      <line
+                                        x1={waveSvgLayout.ptX.x}
+                                        y1={waveSvgLayout.ptX.y}
+                                        x2={waveSvgLayout.ptB.x}
+                                        y2={waveSvgLayout.ptB.y}
+                                        stroke="#6c757d"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.6"
+                                      />
+                                      <line
+                                        x1={waveSvgLayout.ptA.x}
+                                        y1={waveSvgLayout.ptA.y}
+                                        x2={waveSvgLayout.ptC.x}
+                                        y2={waveSvgLayout.ptC.y}
+                                        stroke="#6c757d"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.5"
+                                      />
 
-                            {/* C -> D Leg */}
-                            <line
-                              x1={waveSvgLayout.ptC.x}
-                              y1={waveSvgLayout.ptC.y}
-                              x2={waveSvgLayout.ptD.x}
-                              y2={waveSvgLayout.ptD.y}
-                              stroke={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
-                              strokeWidth="3.5"
-                              strokeDasharray={waveSvgLayout.isProjectedD ? "6,4" : "none"}
-                              strokeLinecap="round"
-                            />
+                                      {/* Polyline X -> A -> B -> C */}
+                                      <polyline
+                                        fill="none"
+                                        stroke="#0d6efd"
+                                        strokeWidth="3"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y}`}
+                                      />
 
-                            {/* Fibonacci Floating Labels on Midpoints */}
-                            <g transform={`translate(${(waveSvgLayout.ptA.x + waveSvgLayout.ptB.x) / 2}, ${(waveSvgLayout.ptA.y + waveSvgLayout.ptB.y) / 2 - 8})`}>
-                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke="#0d6efd" strokeWidth="1" />
-                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill="#0d6efd">
-                                {waveSvgLayout.ab_xa}
-                              </text>
-                            </g>
+                                      {/* C -> CMP Active Leg */}
+                                      <line
+                                        x1={waveSvgLayout.ptC.x}
+                                        y1={waveSvgLayout.ptC.y}
+                                        x2={waveSvgLayout.ptCmp.x}
+                                        y2={waveSvgLayout.ptCmp.y}
+                                        stroke="#ffc107"
+                                        strokeWidth="3.5"
+                                        strokeLinecap="round"
+                                      />
 
-                            <g transform={`translate(${(waveSvgLayout.ptB.x + waveSvgLayout.ptC.x) / 2}, ${(waveSvgLayout.ptB.y + waveSvgLayout.ptC.y) / 2 - 8})`}>
-                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke="#6c757d" strokeWidth="1" />
-                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill="#495057">
-                                {waveSvgLayout.bc_ab}
-                              </text>
-                            </g>
+                                      {/* CMP -> D Projected Dashed Ray */}
+                                      <line
+                                        x1={waveSvgLayout.ptCmp.x}
+                                        y1={waveSvgLayout.ptCmp.y}
+                                        x2={waveSvgLayout.ptD.x}
+                                        y2={waveSvgLayout.ptD.y}
+                                        stroke={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                                        strokeWidth="2.5"
+                                        strokeDasharray="5,3"
+                                        strokeLinecap="round"
+                                      />
 
-                            {/* AC Diagonal Ratio Badge */}
-                            <g transform={`translate(${(waveSvgLayout.ptA.x + waveSvgLayout.ptC.x) / 2}, ${(waveSvgLayout.ptA.y + waveSvgLayout.ptC.y) / 2 + 10})`}>
-                              <rect x="-38" y="-8" width="76" height="16" rx="3.5" fill="#fff9db" stroke="#ffc107" strokeWidth="1" />
-                              <text textAnchor="middle" y="3.5" fontSize="9" fontWeight="bold" fill="#795548">
-                                AC: {waveSvgLayout.ac_xa}
-                              </text>
-                            </g>
+                                      {/* Ratios */}
+                                      <g transform={`translate(${(waveSvgLayout.ptA.x + waveSvgLayout.ptB.x) / 2}, ${(waveSvgLayout.ptA.y + waveSvgLayout.ptB.y) / 2 - 8})`}>
+                                        <rect x="-26" y="-8" width="52" height="16" rx="3.5" fill="#ffffff" stroke="#0d6efd" strokeWidth="1" />
+                                        <text textAnchor="middle" y="3" fontSize="9" fontWeight="bold" fill="#0d6efd">
+                                          {waveSvgLayout.ab_xa}
+                                        </text>
+                                      </g>
 
-                            <g transform={`translate(${(waveSvgLayout.ptC.x + waveSvgLayout.ptD.x) / 2}, ${(waveSvgLayout.ptC.y + waveSvgLayout.ptD.y) / 2 - 8})`}>
-                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke={waveSvgLayout.isBullish ? "#198754" : "#dc3545"} strokeWidth="1" />
-                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}>
-                                {waveSvgLayout.cd_bc}
-                              </text>
-                            </g>
+                                      <g transform={`translate(${(waveSvgLayout.ptB.x + waveSvgLayout.ptC.x) / 2}, ${(waveSvgLayout.ptB.y + waveSvgLayout.ptC.y) / 2 - 8})`}>
+                                        <rect x="-26" y="-8" width="52" height="16" rx="3.5" fill="#ffffff" stroke="#6c757d" strokeWidth="1" />
+                                        <text textAnchor="middle" y="3" fontSize="9" fontWeight="bold" fill="#495057">
+                                          {waveSvgLayout.bc_ab}
+                                        </text>
+                                      </g>
 
-                            <g transform={`translate(${(waveSvgLayout.ptX.x + waveSvgLayout.ptD.x) / 2}, ${(waveSvgLayout.ptX.y + waveSvgLayout.ptD.y) / 2 + 10})`}>
-                              <rect x="-42" y="-9" width="84" height="18" rx="4" fill="#fff3cd" stroke="#ffc107" strokeWidth="1" />
-                              <text textAnchor="middle" y="3" fontSize="9.5" fontWeight="bold" fill="#856404">
-                                XD: {waveSvgLayout.xd_xa}
-                              </text>
-                            </g>
+                                      {/* Nodes X, A, B, C */}
+                                      {[waveSvgLayout.ptX, waveSvgLayout.ptA, waveSvgLayout.ptB, waveSvgLayout.ptC].map((pt, idx) => (
+                                        <g key={idx}>
+                                          <circle cx={pt.x} cy={pt.y} r="5.5" fill="#0d6efd" stroke="#ffffff" strokeWidth="2" />
+                                          <text x={pt.x} y={pt.y + waveSvgLayout.offsetMap[pt.label.toLowerCase() as keyof typeof waveSvgLayout.offsetMap]} textAnchor="middle" fontSize="10.5" fontWeight="bold" fill="#0d6efd">
+                                            {pt.label} (₹{pt.price.toFixed(1)})
+                                          </text>
+                                        </g>
+                                      ))}
 
-                            {/* Point Nodes and Labels */}
-                            <circle cx={waveSvgLayout.ptX.x} cy={waveSvgLayout.ptX.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
-                            <text
-                              x={waveSvgLayout.ptX.x}
-                              y={waveSvgLayout.ptX.y + waveSvgLayout.offsetMap.x}
-                              textAnchor="middle"
-                              fontSize="11"
-                              fontWeight="bold"
-                              fill="#0d6efd"
-                            >
-                              X (₹{waveSvgLayout.ptX.price.toFixed(1)})
-                            </text>
+                                      {/* Target Point D PRZ Node */}
+                                      <circle cx={waveSvgLayout.ptD.x} cy={waveSvgLayout.ptD.y} r="7" fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"} stroke="#ffffff" strokeWidth="2" />
+                                      <text x={waveSvgLayout.ptD.x} y={waveSvgLayout.ptD.y + waveSvgLayout.offsetMap.d} textAnchor="middle" fontSize="11" fontWeight="bold" fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}>
+                                        D (PRZ ₹{waveSvgLayout.ptD.price.toFixed(1)})
+                                      </text>
 
-                            <circle cx={waveSvgLayout.ptA.x} cy={waveSvgLayout.ptA.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
-                            <text
-                              x={waveSvgLayout.ptA.x}
-                              y={waveSvgLayout.ptA.y + waveSvgLayout.offsetMap.a}
-                              textAnchor="middle"
-                              fontSize="11"
-                              fontWeight="bold"
-                              fill="#0d6efd"
-                            >
-                              A (₹{waveSvgLayout.ptA.price.toFixed(1)})
-                            </text>
+                                      {/* 🟡 Live Current LTP Yellow Line & Pulsing Dot */}
+                                      {cmpPrice > 0 && waveSvgLayout.ptCmp && (
+                                        <g transform={`translate(${waveSvgLayout.ptCmp.x}, ${waveSvgLayout.ptCmp.y})`}>
+                                          <circle r="10" fill="rgba(255, 193, 7, 0.35)">
+                                            <animate attributeName="r" values="6;13;6" dur="1.8s" repeatCount="indefinite" />
+                                            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite" />
+                                          </circle>
+                                          <circle r="5" fill="#ffc107" stroke="#ffffff" strokeWidth="2" />
+                                          <g transform="translate(0, -15)">
+                                            <rect x="-38" y="-8" width="76" height="15" rx="3" fill="#ffc107" stroke="#ffffff" strokeWidth="1" />
+                                            <text textAnchor="middle" y="3" fontSize="9" fontWeight="bold" fill="#000000">
+                                              🟡 LTP ₹{waveSvgLayout.ptCmp.price.toFixed(1)}
+                                            </text>
+                                          </g>
+                                        </g>
+                                      )}
+                                    </svg>
+                                  ) : (
+                                    <div className="text-muted small py-3">Awaiting coordinates...</div>
+                                  )}
+                                </div>
 
-                            <circle cx={waveSvgLayout.ptB.x} cy={waveSvgLayout.ptB.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
-                            <text
-                              x={waveSvgLayout.ptB.x}
-                              y={waveSvgLayout.ptB.y + waveSvgLayout.offsetMap.b}
-                              textAnchor="middle"
-                              fontSize="11"
-                              fontWeight="bold"
-                              fill="#0d6efd"
-                            >
-                              B (₹{waveSvgLayout.ptB.price.toFixed(1)})
-                            </text>
+                                {/* Bottom Forming Stage Metrics Strip */}
+                                <div className="mt-2 pt-2 border-top text-start">
+                                  <div className="d-flex justify-content-between align-items-center small mb-1">
+                                    <span className="text-secondary" style={{ fontSize: "11px" }}>Trajectory to PRZ D:</span>
+                                    <span className="fw-bold font-monospace text-dark" style={{ fontSize: "11px" }}>
+                                      {waveSvgLayout?.ptsToD.toFixed(1)} pts ({waveSvgLayout?.pctToD.toFixed(2)}% remaining)
+                                    </span>
+                                  </div>
+                                  <div className="progress" style={{ height: "6px" }}>
+                                    <div
+                                      className="progress-bar bg-warning progress-bar-striped progress-bar-animated"
+                                      role="progressbar"
+                                      style={{ width: `${Math.min(100, Math.max(5, waveSvgLayout?.progressPct || 0))}%` }}
+                                    />
+                                  </div>
+                                  <div className="mt-1 d-flex justify-content-between align-items-center" style={{ fontSize: "10.5px" }}>
+                                    <span className="text-muted">C: ₹{cPrice.toFixed(1)}</span>
+                                    <span className="badge bg-warning-subtle text-warning-emphasis font-monospace">
+                                      Ride C→D Scalp or Limit Entry at D
+                                    </span>
+                                    <span className="text-muted">D: ₹{(waveSvgLayout?.dVal || 0).toFixed(1)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                            <circle cx={waveSvgLayout.ptC.x} cy={waveSvgLayout.ptC.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
-                            <text
-                              x={waveSvgLayout.ptC.x}
-                              y={waveSvgLayout.ptC.y + waveSvgLayout.offsetMap.c}
-                              textAnchor="middle"
-                              fontSize="11"
-                              fontWeight="bold"
-                              fill="#0d6efd"
-                            >
-                              C (₹{waveSvgLayout.ptC.price.toFixed(1)})
-                            </text>
+                          {/* ========================================================================= */}
+                          {/* HALF 2: STAGE 2 - FULL COMPLETED PATTERN & TARGET ROADMAP (D -> T1 -> T2) */}
+                          {/* ========================================================================= */}
+                          {(waveDisplayMode === "dual" || waveDisplayMode === "targets") && (
+                            <div className={waveDisplayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
+                              <div className="p-3 bg-white rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="badge bg-success-subtle text-success border border-success-subtle small fw-bold">
+                                      🎯 Stage 2: Target Roadmap & Reversal
+                                    </span>
+                                    <span className="badge bg-light text-dark border small font-monospace">
+                                      T1: ₹{targetSvgLayout?.t1Val.toFixed(1)} • T2: ₹{targetSvgLayout?.t2Val.toFixed(1)}
+                                    </span>
+                                  </div>
 
-                            <circle
-                              cx={waveSvgLayout.ptD.x}
-                              cy={waveSvgLayout.ptD.y}
-                              r="7.5"
-                              fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
-                              stroke="#ffffff"
-                              strokeWidth="2.5"
-                            />
-                            <text
-                              x={waveSvgLayout.ptD.x}
-                              y={waveSvgLayout.ptD.y + waveSvgLayout.offsetMap.d}
-                              textAnchor="middle"
-                              fontSize="11.5"
-                              fontWeight="bold"
-                              fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
-                            >
-                              D ({waveSvgLayout.isProjectedD ? "PRZ ~ " : ""}₹{waveSvgLayout.ptD.price.toFixed(1)})
-                            </text>
+                                  {targetSvgLayout ? (
+                                    <svg
+                                      viewBox={`0 0 ${targetSvgLayout.svgWidth} ${targetSvgLayout.svgHeight}`}
+                                      className="w-100"
+                                      style={{ maxHeight: "210px" }}
+                                    >
+                                      <defs>
+                                        <pattern id="gridPatternTarget" width="40" height="40" patternUnits="userSpaceOnUse">
+                                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.03)" strokeWidth="1" />
+                                        </pattern>
+                                      </defs>
+                                      <rect width="100%" height="100%" fill="url(#gridPatternTarget)" rx="8" />
 
-                            {/* 🟡 Live Current LTP Yellow Line & Pulsing Dot Marker */}
-                            {cmpPrice > 0 && waveSvgLayout.ptCmp && (
-                              <g>
-                                {/* Horizontal Yellow Dashed Line at CMP */}
-                                <line
-                                  x1="30"
-                                  y1={waveSvgLayout.ptCmp.y}
-                                  x2={waveSvgLayout.svgWidth - 30}
-                                  y2={waveSvgLayout.ptCmp.y}
-                                  stroke="#ffc107"
-                                  strokeDasharray="4,4"
-                                  strokeWidth="1.5"
-                                  opacity="0.85"
-                                />
+                                      {/* Target Horizontal Price Lines */}
+                                      <line
+                                        x1="35"
+                                        y1={targetSvgLayout.ptT1.y}
+                                        x2={targetSvgLayout.svgWidth - 35}
+                                        y2={targetSvgLayout.ptT1.y}
+                                        stroke="#0d6efd"
+                                        strokeDasharray="2,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.6"
+                                      />
+                                      <line
+                                        x1="35"
+                                        y1={targetSvgLayout.ptT2.y}
+                                        x2={targetSvgLayout.svgWidth - 35}
+                                        y2={targetSvgLayout.ptT2.y}
+                                        stroke="#0dcaf0"
+                                        strokeDasharray="2,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.6"
+                                      />
+                                      <line
+                                        x1="35"
+                                        y1={targetSvgLayout.ptSL.y}
+                                        x2={targetSvgLayout.svgWidth - 35}
+                                        y2={targetSvgLayout.ptSL.y}
+                                        stroke="#dc3545"
+                                        strokeDasharray="2,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.6"
+                                      />
 
-                                {/* Pulsing Glowing Yellow Dot for Current Live Position */}
-                                <g transform={`translate(${waveSvgLayout.ptCmp.x}, ${waveSvgLayout.ptCmp.y})`}>
-                                  <circle r="11" fill="rgba(255, 193, 7, 0.35)">
-                                    <animate attributeName="r" values="6;13;6" dur="1.8s" repeatCount="indefinite" />
-                                    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite" />
-                                  </circle>
-                                  <circle r="5.5" fill="#ffc107" stroke="#ffffff" strokeWidth="2" />
+                                      {/* Wings XAB & BCD */}
+                                      <polygon
+                                        points={`${targetSvgLayout.ptX.x},${targetSvgLayout.ptX.y} ${targetSvgLayout.ptA.x},${targetSvgLayout.ptA.y} ${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y}`}
+                                        fill="rgba(13, 110, 253, 0.12)"
+                                        stroke="rgba(13, 110, 253, 0.35)"
+                                        strokeWidth="1.2"
+                                      />
+                                      <polygon
+                                        points={`${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y} ${targetSvgLayout.ptC.x},${targetSvgLayout.ptC.y} ${targetSvgLayout.ptD.x},${targetSvgLayout.ptD.y}`}
+                                        fill={
+                                          targetSvgLayout.isBullish
+                                            ? "rgba(25, 135, 84, 0.14)"
+                                            : "rgba(220, 53, 69, 0.14)"
+                                        }
+                                        stroke={
+                                          targetSvgLayout.isBullish
+                                            ? "rgba(25, 135, 84, 0.4)"
+                                            : "rgba(220, 53, 69, 0.4)"
+                                        }
+                                        strokeWidth="1.2"
+                                      />
 
-                                  {/* Floating Yellow LTP Pill */}
-                                  <g transform="translate(0, -16)">
-                                    <rect x="-42" y="-9" width="84" height="17" rx="3.5" fill="#ffc107" stroke="#ffffff" strokeWidth="1" />
-                                    <text textAnchor="middle" y="3.5" fontSize="9.5" fontWeight="bold" fill="#000000">
-                                      🟡 LTP ₹{waveSvgLayout.ptCmp.price.toFixed(1)}
-                                    </text>
-                                  </g>
-                                </g>
-                              </g>
-                            )}
-                          </svg>
-                        ) : (
-                          <div className="text-muted small py-3">
-                            Awaiting coordinate calculation...
-                          </div>
-                        )}
+                                      {/* Polyline X -> A -> B -> C -> D */}
+                                      <polyline
+                                        fill="none"
+                                        stroke="#0d6efd"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        points={`${targetSvgLayout.ptX.x},${targetSvgLayout.ptX.y} ${targetSvgLayout.ptA.x},${targetSvgLayout.ptA.y} ${targetSvgLayout.ptB.x},${targetSvgLayout.ptB.y} ${targetSvgLayout.ptC.x},${targetSvgLayout.ptC.y} ${targetSvgLayout.ptD.x},${targetSvgLayout.ptD.y}`}
+                                      />
+
+                                      {/* Reversal Projection Rays: D -> T1 -> T2 */}
+                                      <line
+                                        x1={targetSvgLayout.ptD.x}
+                                        y1={targetSvgLayout.ptD.y}
+                                        x2={targetSvgLayout.ptT1.x}
+                                        y2={targetSvgLayout.ptT1.y}
+                                        stroke="#0d6efd"
+                                        strokeWidth="3"
+                                        strokeDasharray="4,3"
+                                        strokeLinecap="round"
+                                      />
+                                      <line
+                                        x1={targetSvgLayout.ptT1.x}
+                                        y1={targetSvgLayout.ptT1.y}
+                                        x2={targetSvgLayout.ptT2.x}
+                                        y2={targetSvgLayout.ptT2.y}
+                                        stroke="#0dcaf0"
+                                        strokeWidth="3"
+                                        strokeDasharray="4,3"
+                                        strokeLinecap="round"
+                                      />
+
+                                      {/* Nodes X, A, B, C */}
+                                      {[targetSvgLayout.ptX, targetSvgLayout.ptA, targetSvgLayout.ptB, targetSvgLayout.ptC].map((pt, idx) => (
+                                        <g key={idx}>
+                                          <circle cx={pt.x} cy={pt.y} r="5" fill="#0d6efd" stroke="#ffffff" strokeWidth="1.5" />
+                                          <text x={pt.x} y={pt.y - 10} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="#0d6efd">
+                                            {pt.label}
+                                          </text>
+                                        </g>
+                                      ))}
+
+                                      {/* Point D Entry Node */}
+                                      <circle cx={targetSvgLayout.ptD.x} cy={targetSvgLayout.ptD.y} r="6.5" fill="#ffc107" stroke="#000000" strokeWidth="1.5" />
+                                      <text x={targetSvgLayout.ptD.x} y={targetSvgLayout.ptD.y - 12} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#000000">
+                                        D (Entry ₹{targetSvgLayout.ptD.price.toFixed(1)})
+                                      </text>
+
+                                      {/* Target 1 Node & Badge */}
+                                      <circle cx={targetSvgLayout.ptT1.x} cy={targetSvgLayout.ptT1.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="1.5" />
+                                      <g transform={`translate(${targetSvgLayout.ptT1.x}, ${targetSvgLayout.ptT1.y - 14})`}>
+                                        <rect x="-28" y="-7" width="56" height="14" rx="3" fill="#0d6efd" />
+                                        <text textAnchor="middle" y="3.5" fontSize="8.5" fontWeight="bold" fill="#ffffff">
+                                          T1 ₹{targetSvgLayout.t1Val.toFixed(1)}
+                                        </text>
+                                      </g>
+
+                                      {/* Target 2 Node & Badge */}
+                                      <circle cx={targetSvgLayout.ptT2.x} cy={targetSvgLayout.ptT2.y} r="6" fill="#0dcaf0" stroke="#ffffff" strokeWidth="1.5" />
+                                      <g transform={`translate(${targetSvgLayout.ptT2.x}, ${targetSvgLayout.ptT2.y - 14})`}>
+                                        <rect x="-28" y="-7" width="56" height="14" rx="3" fill="#0dcaf0" />
+                                        <text textAnchor="middle" y="3.5" fontSize="8.5" fontWeight="bold" fill="#000000">
+                                          T2 ₹{targetSvgLayout.t2Val.toFixed(1)}
+                                        </text>
+                                      </g>
+
+                                      {/* Stop Loss Node */}
+                                      <circle cx={targetSvgLayout.ptSL.x} cy={targetSvgLayout.ptSL.y} r="5.5" fill="#dc3545" stroke="#ffffff" strokeWidth="1.5" />
+                                      <text x={targetSvgLayout.ptSL.x} y={targetSvgLayout.ptSL.y + 14} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#dc3545">
+                                        SL ₹{targetSvgLayout.slVal.toFixed(1)}
+                                      </text>
+                                    </svg>
+                                  ) : (
+                                    <div className="text-muted small py-3">Awaiting coordinates...</div>
+                                  )}
+                                </div>
+
+                                {/* Bottom Target Stage Metrics Strip */}
+                                <div className="mt-2 pt-2 border-top text-start">
+                                  <div className="row g-2 text-center" style={{ fontSize: "11px" }}>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Target 1 (38.2%)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t1Val.toFixed(1)}</span>
+                                        <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          +{sandboxResult.best_match.t1_reward_pct || 0}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-info fw-bold d-block" style={{ fontSize: "10px" }}>Target 2 (61.8%)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t2Val.toFixed(1)}</span>
+                                        <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          +{sandboxResult.best_match.t2_reward_pct || 0}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Stop Loss (SL)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.slVal.toFixed(1)}</span>
+                                        <span className="text-danger small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          -{sandboxResult.best_match.sl_risk_pct || 0}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Action Button */}
