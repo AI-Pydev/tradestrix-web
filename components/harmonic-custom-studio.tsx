@@ -756,6 +756,38 @@ export function HarmonicCustomStudio({
     const ptsFromC = Math.abs(liveCmp - cPrice);
     const pctFromC = cPrice > 0 ? (ptsFromC / cPrice) * 100 : 0;
 
+    // Stage 1 Forming Stage Targets (Direction: Moving along C -> D Leg towards PRZ)
+    const isBullishReversal = isBullish; // If Bullish pattern, D is low so C -> D is moving DOWN
+    const formingAction = isBullishReversal ? "SHORT / PUT" : "LONG / CALL";
+    const formingDirectionBadge = isBullishReversal ? "BEARISH C→D SCALP" : "BULLISH C→D SCALP";
+
+    // Forming Target 1: 50% Midway of C -> D trajectory (Point B structural retest)
+    const formingT1 =
+      isBullishReversal
+        ? cPrice - Math.abs(cPrice - dVal) * 0.5
+        : cPrice + Math.abs(dVal - cPrice) * 0.5;
+
+    // Forming Target 2: The PRZ Arrival price at Point D
+    const formingT2 = dVal;
+
+    // Forming Stop Loss: Point C swing invalidation
+    const cBuffer = Math.abs(cPrice - bPrice) * 0.1 || (cPrice * 0.01);
+    const formingSL = isBullishReversal ? cPrice + cBuffer : cPrice - cBuffer;
+
+    // Rewards & Risk for Stage 1 based on live CMP
+    const formingT1Pts = isBullishReversal ? Math.max(0, liveCmp - formingT1) : Math.max(0, formingT1 - liveCmp);
+    const formingT1Pct = liveCmp > 0 ? (formingT1Pts / liveCmp) * 100 : 0;
+
+    const formingT2Pts = isBullishReversal ? Math.max(0, liveCmp - formingT2) : Math.max(0, formingT2 - liveCmp);
+    const formingT2Pct = liveCmp > 0 ? (formingT2Pts / liveCmp) * 100 : 0;
+
+    const formingSlPts = isBullishReversal ? Math.max(0, formingSL - liveCmp) : Math.max(0, liveCmp - formingSL);
+    const formingSlPct = liveCmp > 0 ? (formingSlPts / liveCmp) * 100 : 0;
+
+    const ptFormingT1 = { x: padX + plotW * 0.88, y: calcY(formingT1), price: formingT1, label: "T1 (Mid)" };
+    const ptFormingT2 = { x: padX + plotW * 1.00, y: calcY(formingT2), price: formingT2, label: "T2 (PRZ D)" };
+    const ptFormingSL = { x: padX + plotW * 0.75, y: calcY(formingSL), price: formingSL, label: "SL (C)" };
+
     return {
       svgWidth,
       svgHeight,
@@ -783,6 +815,20 @@ export function HarmonicCustomStudio({
       pctFromC,
       dVal,
       liveCmp,
+      formingAction,
+      formingDirectionBadge,
+      formingT1,
+      formingT2,
+      formingSL,
+      formingT1Pts,
+      formingT1Pct,
+      formingT2Pts,
+      formingT2Pct,
+      formingSlPts,
+      formingSlPct,
+      ptFormingT1,
+      ptFormingT2,
+      ptFormingSL,
     };
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice, sandboxResult]);
 
@@ -796,18 +842,33 @@ export function HarmonicCustomStudio({
           cPrice;
 
     const isBullish = sandboxResult?.best_match?.direction === "BULLISH";
+    const reversalAction = isBullish ? "BUY / LONG" : "SELL / SHORT";
+    const reversalDirectionBadge = isBullish ? "BULLISH PRZ REVERSAL" : "BEARISH PRZ REVERSAL";
+
+    const cdMove = Math.abs(dVal - cPrice);
     const t1Val =
       sandboxResult?.best_match?.target_1 ||
-      (isBullish ? dVal * 1.05 : dVal * 0.95);
+      (isBullish ? dVal + cdMove * 0.382 : dVal - cdMove * 0.382);
     const t2Val =
       sandboxResult?.best_match?.target_2 ||
-      (isBullish ? dVal * 1.08 : dVal * 0.92);
+      (isBullish ? dVal + cdMove * 0.618 : dVal - cdMove * 0.618);
     const t3Val =
       sandboxResult?.best_match?.target_3 ||
-      (isBullish ? dVal * 1.12 : dVal * 0.88);
+      (isBullish ? dVal + cdMove * 1.000 : dVal - cdMove * 1.000);
     const slVal =
       sandboxResult?.best_match?.stop_loss ||
-      (isBullish ? dVal * 0.97 : dVal * 1.03);
+      (isBullish ? dVal - cdMove * 0.15 : dVal + cdMove * 0.15);
+
+    const t1Pts = sandboxResult?.best_match?.t1_reward_points || Math.abs(t1Val - dVal);
+    const t1Pct = sandboxResult?.best_match?.t1_reward_pct || (dVal > 0 ? (t1Pts / dVal) * 100 : 0);
+
+    const t2Pts = sandboxResult?.best_match?.t2_reward_points || Math.abs(t2Val - dVal);
+    const t2Pct = sandboxResult?.best_match?.t2_reward_pct || (dVal > 0 ? (t2Pts / dVal) * 100 : 0);
+
+    const slPts = sandboxResult?.best_match?.sl_risk_points || Math.abs(dVal - slVal);
+    const slPct = sandboxResult?.best_match?.sl_risk_pct || (dVal > 0 ? (slPts / dVal) * 100 : 0);
+
+    const rrRatio = sandboxResult?.best_match?.live_rr_ratio || (slPts > 0 ? (t1Pts / slPts).toFixed(2) : "2.0");
 
     const validPrices = [
       xPrice,
@@ -901,6 +962,15 @@ export function HarmonicCustomStudio({
       t3Val,
       slVal,
       dVal,
+      reversalAction,
+      reversalDirectionBadge,
+      t1Pts,
+      t1Pct,
+      t2Pts,
+      t2Pct,
+      slPts,
+      slPct,
+      rrRatio,
     };
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
 
@@ -2023,13 +2093,38 @@ export function HarmonicCustomStudio({
                                         stroke="rgba(13, 110, 253, 0.15)"
                                         strokeDasharray="2,4"
                                       />
+                                      {/* Forming T1 Line (Midway 50%) */}
+                                      <line
+                                        x1="40"
+                                        y1={waveSvgLayout.ptFormingT1.y}
+                                        x2={waveSvgLayout.svgWidth - 40}
+                                        y2={waveSvgLayout.ptFormingT1.y}
+                                        stroke="#fd7e14"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.65"
+                                      />
+                                      {/* Forming T2 Line (Point D PRZ) */}
                                       <line
                                         x1="40"
                                         y1={waveSvgLayout.ptD.y}
                                         x2={waveSvgLayout.svgWidth - 40}
                                         y2={waveSvgLayout.ptD.y}
-                                        stroke="rgba(25, 135, 84, 0.2)"
-                                        strokeDasharray="2,4"
+                                        stroke="#198754"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.75"
+                                      />
+                                      {/* Forming SL Line (Point C Invalidation) */}
+                                      <line
+                                        x1="40"
+                                        y1={waveSvgLayout.ptFormingSL.y}
+                                        x2={waveSvgLayout.svgWidth - 40}
+                                        y2={waveSvgLayout.ptFormingSL.y}
+                                        stroke="#dc3545"
+                                        strokeDasharray="3,3"
+                                        strokeWidth="1.2"
+                                        opacity="0.65"
                                       />
 
                                       {/* Shaded Triangle 1 (X - A - B Wing) */}
@@ -2142,6 +2237,14 @@ export function HarmonicCustomStudio({
                                         D (PRZ ₹{waveSvgLayout.ptD.price.toFixed(1)})
                                       </text>
 
+                                      {/* Forming T1 Midway Label Pill */}
+                                      <g transform={`translate(${waveSvgLayout.svgWidth - 55}, ${waveSvgLayout.ptFormingT1.y - 8})`}>
+                                        <rect x="-28" y="-7" width="56" height="14" rx="3" fill="#fd7e14" />
+                                        <text textAnchor="middle" y="3.5" fontSize="8.5" fontWeight="bold" fill="#ffffff">
+                                          T1 ₹{waveSvgLayout.formingT1.toFixed(1)}
+                                        </text>
+                                      </g>
+
                                       {/* 🟡 Live Current LTP Yellow Line & Pulsing Dot */}
                                       {cmpPrice > 0 && waveSvgLayout.ptCmp && (
                                         <g transform={`translate(${waveSvgLayout.ptCmp.x}, ${waveSvgLayout.ptCmp.y})`}>
@@ -2167,24 +2270,54 @@ export function HarmonicCustomStudio({
                                 {/* Bottom Forming Stage Metrics Strip */}
                                 <div className="mt-2 pt-2 border-top text-start">
                                   <div className="d-flex justify-content-between align-items-center small mb-1">
-                                    <span className="text-secondary" style={{ fontSize: "11px" }}>Trajectory to PRZ D:</span>
+                                    <span className="text-secondary" style={{ fontSize: "11px" }}>
+                                      C → D Trajectory Progress:
+                                    </span>
                                     <span className="fw-bold font-monospace text-dark" style={{ fontSize: "11px" }}>
-                                      {waveSvgLayout?.ptsToD.toFixed(1)} pts ({waveSvgLayout?.pctToD.toFixed(2)}% remaining)
+                                      {waveSvgLayout?.progressPct}% ({waveSvgLayout?.ptsToD.toFixed(1)} pts to PRZ)
                                     </span>
                                   </div>
-                                  <div className="progress" style={{ height: "6px" }}>
+                                  <div className="progress mb-2" style={{ height: "5px" }}>
                                     <div
                                       className="progress-bar bg-warning progress-bar-striped progress-bar-animated"
                                       role="progressbar"
                                       style={{ width: `${Math.min(100, Math.max(5, waveSvgLayout?.progressPct || 0))}%` }}
                                     />
                                   </div>
-                                  <div className="mt-1 d-flex justify-content-between align-items-center" style={{ fontSize: "10.5px" }}>
-                                    <span className="text-muted">C: ₹{cPrice.toFixed(1)}</span>
-                                    <span className="badge bg-warning-subtle text-warning-emphasis font-monospace">
-                                      Ride C→D Scalp or Limit Entry at D
+
+                                  <div className="row g-2 text-center" style={{ fontSize: "11px" }}>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-warning-emphasis fw-bold d-block" style={{ fontSize: "10px" }}>Forming T1 (50%)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingT1.toFixed(1)}</span>
+                                        <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          +{waveSvgLayout?.formingT1Pct.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Forming T2 (PRZ D)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingT2.toFixed(1)}</span>
+                                        <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          +{waveSvgLayout?.formingT2Pct.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-4">
+                                      <div className="p-1.5 bg-light rounded-2 border">
+                                        <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Forming SL (Pt C)</span>
+                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingSL.toFixed(1)}</span>
+                                        <span className="text-danger small d-block font-monospace" style={{ fontSize: "9.5px" }}>
+                                          -{waveSvgLayout?.formingSlPct.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 text-center">
+                                    <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-monospace" style={{ fontSize: "10px" }}>
+                                      ⚡ {waveSvgLayout?.formingDirectionBadge}: Target D at ₹{waveSvgLayout?.formingT2.toFixed(1)}
                                     </span>
-                                    <span className="text-muted">D: ₹{(waveSvgLayout?.dVal || 0).toFixed(1)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -2353,34 +2486,47 @@ export function HarmonicCustomStudio({
 
                                 {/* Bottom Target Stage Metrics Strip */}
                                 <div className="mt-2 pt-2 border-top text-start">
+                                  <div className="d-flex justify-content-between align-items-center small mb-1">
+                                    <span className="text-secondary" style={{ fontSize: "11px" }}>
+                                      Reversal Risk / Reward:
+                                    </span>
+                                    <span className="badge bg-success font-monospace" style={{ fontSize: "10px" }}>
+                                      1 : {targetSvgLayout?.rrRatio} (Breakeven at T1)
+                                    </span>
+                                  </div>
                                   <div className="row g-2 text-center" style={{ fontSize: "11px" }}>
                                     <div className="col-4">
                                       <div className="p-1.5 bg-light rounded-2 border">
-                                        <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Target 1 (38.2%)</span>
+                                        <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Reversal T1 (38.2%)</span>
                                         <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t1Val.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
-                                          +{sandboxResult.best_match.t1_reward_pct || 0}%
+                                          +{targetSvgLayout?.t1Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
                                       <div className="p-1.5 bg-light rounded-2 border">
-                                        <span className="text-info fw-bold d-block" style={{ fontSize: "10px" }}>Target 2 (61.8%)</span>
+                                        <span className="text-info fw-bold d-block" style={{ fontSize: "10px" }}>Reversal T2 (61.8%)</span>
                                         <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t2Val.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
-                                          +{sandboxResult.best_match.t2_reward_pct || 0}%
+                                          +{targetSvgLayout?.t2Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
                                       <div className="p-1.5 bg-light rounded-2 border">
-                                        <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Stop Loss (SL)</span>
+                                        <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Reversal SL</span>
                                         <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.slVal.toFixed(1)}</span>
                                         <span className="text-danger small d-block font-monospace" style={{ fontSize: "9.5px" }}>
-                                          -{sandboxResult.best_match.sl_risk_pct || 0}%
+                                          -{targetSvgLayout?.slPct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
+                                  </div>
+                                  <div className="mt-2 text-center">
+                                    <span className="badge bg-success-subtle text-success border border-success-subtle font-monospace" style={{ fontSize: "10px" }}>
+                                      🎯 {targetSvgLayout?.reversalDirectionBadge}: Reversal at Point D (₹{targetSvgLayout?.dVal.toFixed(1)})
+                                    </span>
                                   </div>
                                 </div>
                               </div>

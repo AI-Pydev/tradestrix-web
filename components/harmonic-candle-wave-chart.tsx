@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState, useRef } from "react";
 import type { PatternMatch } from "@/lib/harmonic-pattern-api";
+import { useMemo, useRef, useState } from "react";
 
 interface PivotMeta {
   price: number;
