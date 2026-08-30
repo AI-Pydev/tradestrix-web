@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
 import {
+  createHarmonicPaperTrade,
+  CustomSymbolAnalysisResponse,
+  CustomWaveEvaluationResponse,
   evaluateHarmonicSandboxWave,
   fetchCustomHarmonicAnalysis,
-  createHarmonicPaperTrade,
-  CustomWaveEvaluationResponse,
-  CustomSymbolAnalysisResponse,
 } from "@/lib/harmonic-pattern-api";
+import { useEffect, useMemo, useState } from "react";
 
 interface HarmonicCustomStudioProps {
   onPaperTradeSuccess?: () => void;
@@ -621,6 +621,108 @@ export function HarmonicCustomStudio({
       bc: { points: bcDist, pct: bcPct, ratio: bc_ab, from: bPrice, to: cPrice },
       cd: { points: cdDist, pct: cdPct, ratio: cd_bc, from: cPrice, to: dVal },
       xd: { points: xdDist, pct: xdPct, ratio: xd_xa, from: xPrice, to: dVal },
+    };
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
+
+  // Mathematical coordinate layout for the dynamic Geometric Wave SVG
+  const waveSvgLayout = useMemo(() => {
+    const dVal =
+      dPrice !== ""
+        ? parseFloat(dPrice)
+        : sandboxResult?.best_match?.predicted_d_mid ||
+          sandboxResult?.best_match?.target_3 ||
+          cPrice;
+
+    const validPrices = [xPrice, aPrice, bPrice, cPrice, dVal].filter(
+      (p) => !isNaN(p) && p > 0
+    );
+    if (validPrices.length < 4) return null;
+
+    const minP = Math.min(...validPrices);
+    const maxP = Math.max(...validPrices);
+    const spread = maxP - minP || 1.0;
+
+    // ViewBox dimensions: 540 x 230
+    const svgWidth = 540;
+    const svgHeight = 230;
+    const padX = 60;
+    const padTop = 38;
+    const padBottom = 38;
+    const plotH = svgHeight - padTop - padBottom;
+    const plotW = svgWidth - padX * 2;
+
+    // Invert Y axis for financial charting (higher price = lower Y in SVG)
+    const calcY = (price: number) => {
+      const ratio = (price - minP) / spread;
+      return padTop + plotH * (1 - ratio);
+    };
+
+    const ptX = { x: padX, y: calcY(xPrice), price: xPrice, label: "X" };
+    const ptA = { x: padX + plotW * 0.25, y: calcY(aPrice), price: aPrice, label: "A" };
+    const ptB = { x: padX + plotW * 0.50, y: calcY(bPrice), price: bPrice, label: "B" };
+    const ptC = { x: padX + plotW * 0.75, y: calcY(cPrice), price: cPrice, label: "C" };
+    const ptD = { x: padX + plotW * 1.00, y: calcY(dVal), price: dVal, label: "D" };
+
+    const isBullish = sandboxResult?.best_match?.direction === "BULLISH";
+
+    // Text position offsets (peak = text above, valley = text below)
+    const getYOffset = (curr: number, prev?: number, next?: number) => {
+      if (prev !== undefined && next !== undefined) {
+        return curr >= prev && curr >= next ? -14 : 22;
+      }
+      if (prev !== undefined) {
+        return curr >= prev ? -14 : 22;
+      }
+      if (next !== undefined) {
+        return curr >= next ? -14 : 22;
+      }
+      return -14;
+    };
+
+    const offsetMap = {
+      x: getYOffset(xPrice, undefined, aPrice),
+      a: getYOffset(aPrice, xPrice, bPrice),
+      b: getYOffset(bPrice, aPrice, cPrice),
+      c: getYOffset(cPrice, bPrice, dVal),
+      d: getYOffset(dVal, cPrice, undefined),
+    };
+
+    // Retracement & projection ratios
+    const ab_xa =
+      Math.abs(aPrice - xPrice) > 0
+        ? (Math.abs(bPrice - aPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
+        : "—";
+    const bc_ab =
+      Math.abs(bPrice - aPrice) > 0
+        ? (Math.abs(cPrice - bPrice) / Math.abs(bPrice - aPrice)).toFixed(3)
+        : "—";
+    const cd_bc =
+      Math.abs(cPrice - bPrice) > 0
+        ? (Math.abs(dVal - cPrice) / Math.abs(cPrice - bPrice)).toFixed(3)
+        : "—";
+    const xd_xa =
+      Math.abs(aPrice - xPrice) > 0
+        ? (Math.abs(dVal - xPrice) / Math.abs(aPrice - xPrice)).toFixed(3)
+        : "—";
+
+    return {
+      svgWidth,
+      svgHeight,
+      ptX,
+      ptA,
+      ptB,
+      ptC,
+      ptD,
+      minP,
+      maxP,
+      midP: (minP + maxP) / 2,
+      isBullish,
+      offsetMap,
+      ab_xa,
+      bc_ab,
+      cd_bc,
+      xd_xa,
+      isProjectedD: dPrice === "",
     };
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult]);
 
@@ -1380,62 +1482,228 @@ export function HarmonicCustomStudio({
                         </table>
                       </div>
 
-                      {/* Geometric Wave SVG Diagram */}
-                      <div className="p-3 bg-white rounded-3 border text-center my-3">
-                        <div className="small fw-semibold text-secondary mb-1">
-                          Geometric Wave Formation
+                      {/* Mathematically Accurate Geometric Wave SVG Diagram */}
+                      <div className="p-3 bg-white rounded-3 border text-center my-3 shadow-sm">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span className="small fw-bold text-secondary text-uppercase" style={{ fontSize: "11px" }}>
+                            📐 Mathematically Scaled Geometric Wave & Triangles
+                          </span>
+                          <span className="badge bg-light text-dark border small font-monospace">
+                            {sandboxResult.best_match.direction} {sandboxResult.best_match.pattern_name}
+                          </span>
                         </div>
-                        <svg
-                          viewBox="0 0 400 120"
-                          className="w-100"
-                          style={{ maxHeight: "120px" }}
-                        >
-                          <polyline
-                            fill="none"
-                            stroke="#0d6efd"
-                            strokeWidth="3"
-                            points="30,20 110,100 190,45 270,90 370,15"
-                          />
-                          <polygon
-                            fill="rgba(13, 110, 253, 0.12)"
-                            points="30,20 110,100 190,45"
-                          />
-                          <polygon
-                            fill="rgba(25, 135, 84, 0.12)"
-                            points="190,45 270,90 370,15"
-                          />
-                          {/* Points */}
-                          <circle cx="30" cy="20" r="5" fill="#0d6efd" />
-                          <text x="25" y="15" fontSize="10" fontWeight="bold">
-                            X ({xPrice.toFixed(1)})
-                          </text>
-                          <circle cx="110" cy="100" r="5" fill="#0d6efd" />
-                          <text x="105" y="115" fontSize="10" fontWeight="bold">
-                            A ({aPrice.toFixed(1)})
-                          </text>
-                          <circle cx="190" cy="45" r="5" fill="#0d6efd" />
-                          <text x="185" y="38" fontSize="10" fontWeight="bold">
-                            B ({bPrice.toFixed(1)})
-                          </text>
-                          <circle cx="270" cy="90" r="5" fill="#0d6efd" />
-                          <text x="265" y="105" fontSize="10" fontWeight="bold">
-                            C ({cPrice.toFixed(1)})
-                          </text>
-                          <circle cx="370" cy="15" r="6" fill="#198754" />
-                          <text
-                            x="345"
-                            y="12"
-                            fontSize="11"
-                            fontWeight="bold"
-                            fill="#198754"
+
+                        {waveSvgLayout ? (
+                          <svg
+                            viewBox={`0 0 ${waveSvgLayout.svgWidth} ${waveSvgLayout.svgHeight}`}
+                            className="w-100"
+                            style={{ maxHeight: "230px" }}
                           >
-                            D (PRZ ~
-                            {sandboxResult.best_match.predicted_d_mid.toFixed(
-                              1
-                            )}
-                            )
-                          </text>
-                        </svg>
+                            <defs>
+                              <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.03)" strokeWidth="1" />
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#gridPattern)" rx="8" />
+
+                            {/* Reference horizontal price lines */}
+                            <line
+                              x1="40"
+                              y1={waveSvgLayout.ptX.y}
+                              x2={waveSvgLayout.svgWidth - 40}
+                              y2={waveSvgLayout.ptX.y}
+                              stroke="rgba(13, 110, 253, 0.15)"
+                              strokeDasharray="2,4"
+                            />
+                            <line
+                              x1="40"
+                              y1={waveSvgLayout.ptD.y}
+                              x2={waveSvgLayout.svgWidth - 40}
+                              y2={waveSvgLayout.ptD.y}
+                              stroke="rgba(25, 135, 84, 0.2)"
+                              strokeDasharray="2,4"
+                            />
+
+                            {/* Shaded Triangle 1 (X - A - B Wing) */}
+                            <polygon
+                              points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y}`}
+                              fill="rgba(13, 110, 253, 0.14)"
+                              stroke="rgba(13, 110, 253, 0.4)"
+                              strokeWidth="1.2"
+                            />
+
+                            {/* Shaded Triangle 2 (B - C - D Wing) */}
+                            <polygon
+                              points={`${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y} ${waveSvgLayout.ptD.x},${waveSvgLayout.ptD.y}`}
+                              fill={
+                                waveSvgLayout.isBullish
+                                  ? "rgba(25, 135, 84, 0.16)"
+                                  : "rgba(220, 53, 69, 0.16)"
+                              }
+                              stroke={
+                                waveSvgLayout.isBullish
+                                  ? "rgba(25, 135, 84, 0.45)"
+                                  : "rgba(220, 53, 69, 0.45)"
+                              }
+                              strokeWidth="1.2"
+                            />
+
+                            {/* Dotted Harmonic Axis lines */}
+                            <line
+                              x1={waveSvgLayout.ptX.x}
+                              y1={waveSvgLayout.ptX.y}
+                              x2={waveSvgLayout.ptB.x}
+                              y2={waveSvgLayout.ptB.y}
+                              stroke="#6c757d"
+                              strokeDasharray="3,3"
+                              strokeWidth="1.2"
+                              opacity="0.6"
+                            />
+                            <line
+                              x1={waveSvgLayout.ptA.x}
+                              y1={waveSvgLayout.ptA.y}
+                              x2={waveSvgLayout.ptC.x}
+                              y2={waveSvgLayout.ptC.y}
+                              stroke="#6c757d"
+                              strokeDasharray="3,3"
+                              strokeWidth="1.2"
+                              opacity="0.5"
+                            />
+                            <line
+                              x1={waveSvgLayout.ptX.x}
+                              y1={waveSvgLayout.ptX.y}
+                              x2={waveSvgLayout.ptD.x}
+                              y2={waveSvgLayout.ptD.y}
+                              stroke="#ffc107"
+                              strokeDasharray="4,3"
+                              strokeWidth="1.5"
+                              opacity="0.85"
+                            />
+
+                            {/* Polyline X -> A -> B -> C */}
+                            <polyline
+                              fill="none"
+                              stroke="#0d6efd"
+                              strokeWidth="3.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={`${waveSvgLayout.ptX.x},${waveSvgLayout.ptX.y} ${waveSvgLayout.ptA.x},${waveSvgLayout.ptA.y} ${waveSvgLayout.ptB.x},${waveSvgLayout.ptB.y} ${waveSvgLayout.ptC.x},${waveSvgLayout.ptC.y}`}
+                            />
+
+                            {/* C -> D Leg */}
+                            <line
+                              x1={waveSvgLayout.ptC.x}
+                              y1={waveSvgLayout.ptC.y}
+                              x2={waveSvgLayout.ptD.x}
+                              y2={waveSvgLayout.ptD.y}
+                              stroke={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                              strokeWidth="3.5"
+                              strokeDasharray={waveSvgLayout.isProjectedD ? "6,4" : "none"}
+                              strokeLinecap="round"
+                            />
+
+                            {/* Fibonacci Floating Labels on Midpoints */}
+                            <g transform={`translate(${(waveSvgLayout.ptA.x + waveSvgLayout.ptB.x) / 2}, ${(waveSvgLayout.ptA.y + waveSvgLayout.ptB.y) / 2 - 8})`}>
+                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke="#0d6efd" strokeWidth="1" />
+                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill="#0d6efd">
+                                {waveSvgLayout.ab_xa}
+                              </text>
+                            </g>
+
+                            <g transform={`translate(${(waveSvgLayout.ptB.x + waveSvgLayout.ptC.x) / 2}, ${(waveSvgLayout.ptB.y + waveSvgLayout.ptC.y) / 2 - 8})`}>
+                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke="#6c757d" strokeWidth="1" />
+                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill="#495057">
+                                {waveSvgLayout.bc_ab}
+                              </text>
+                            </g>
+
+                            <g transform={`translate(${(waveSvgLayout.ptC.x + waveSvgLayout.ptD.x) / 2}, ${(waveSvgLayout.ptC.y + waveSvgLayout.ptD.y) / 2 - 8})`}>
+                              <rect x="-30" y="-9" width="60" height="18" rx="4" fill="#ffffff" stroke={waveSvgLayout.isBullish ? "#198754" : "#dc3545"} strokeWidth="1" />
+                              <text textAnchor="middle" y="3" fontSize="10" fontWeight="bold" fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}>
+                                {waveSvgLayout.cd_bc}
+                              </text>
+                            </g>
+
+                            <g transform={`translate(${(waveSvgLayout.ptX.x + waveSvgLayout.ptD.x) / 2}, ${(waveSvgLayout.ptX.y + waveSvgLayout.ptD.y) / 2 + 10})`}>
+                              <rect x="-42" y="-9" width="84" height="18" rx="4" fill="#fff3cd" stroke="#ffc107" strokeWidth="1" />
+                              <text textAnchor="middle" y="3" fontSize="9.5" fontWeight="bold" fill="#856404">
+                                XD: {waveSvgLayout.xd_xa}
+                              </text>
+                            </g>
+
+                            {/* Point Nodes and Labels */}
+                            <circle cx={waveSvgLayout.ptX.x} cy={waveSvgLayout.ptX.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
+                            <text
+                              x={waveSvgLayout.ptX.x}
+                              y={waveSvgLayout.ptX.y + waveSvgLayout.offsetMap.x}
+                              textAnchor="middle"
+                              fontSize="11"
+                              fontWeight="bold"
+                              fill="#0d6efd"
+                            >
+                              X (₹{waveSvgLayout.ptX.price.toFixed(1)})
+                            </text>
+
+                            <circle cx={waveSvgLayout.ptA.x} cy={waveSvgLayout.ptA.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
+                            <text
+                              x={waveSvgLayout.ptA.x}
+                              y={waveSvgLayout.ptA.y + waveSvgLayout.offsetMap.a}
+                              textAnchor="middle"
+                              fontSize="11"
+                              fontWeight="bold"
+                              fill="#0d6efd"
+                            >
+                              A (₹{waveSvgLayout.ptA.price.toFixed(1)})
+                            </text>
+
+                            <circle cx={waveSvgLayout.ptB.x} cy={waveSvgLayout.ptB.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
+                            <text
+                              x={waveSvgLayout.ptB.x}
+                              y={waveSvgLayout.ptB.y + waveSvgLayout.offsetMap.b}
+                              textAnchor="middle"
+                              fontSize="11"
+                              fontWeight="bold"
+                              fill="#0d6efd"
+                            >
+                              B (₹{waveSvgLayout.ptB.price.toFixed(1)})
+                            </text>
+
+                            <circle cx={waveSvgLayout.ptC.x} cy={waveSvgLayout.ptC.y} r="6" fill="#0d6efd" stroke="#ffffff" strokeWidth="2.5" />
+                            <text
+                              x={waveSvgLayout.ptC.x}
+                              y={waveSvgLayout.ptC.y + waveSvgLayout.offsetMap.c}
+                              textAnchor="middle"
+                              fontSize="11"
+                              fontWeight="bold"
+                              fill="#0d6efd"
+                            >
+                              C (₹{waveSvgLayout.ptC.price.toFixed(1)})
+                            </text>
+
+                            <circle
+                              cx={waveSvgLayout.ptD.x}
+                              cy={waveSvgLayout.ptD.y}
+                              r="7.5"
+                              fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                              stroke="#ffffff"
+                              strokeWidth="2.5"
+                            />
+                            <text
+                              x={waveSvgLayout.ptD.x}
+                              y={waveSvgLayout.ptD.y + waveSvgLayout.offsetMap.d}
+                              textAnchor="middle"
+                              fontSize="11.5"
+                              fontWeight="bold"
+                              fill={waveSvgLayout.isBullish ? "#198754" : "#dc3545"}
+                            >
+                              D ({waveSvgLayout.isProjectedD ? "PRZ ~ " : ""}₹{waveSvgLayout.ptD.price.toFixed(1)})
+                            </text>
+                          </svg>
+                        ) : (
+                          <div className="text-muted small py-3">
+                            Awaiting coordinate calculation...
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Button */}
