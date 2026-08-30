@@ -872,30 +872,23 @@ export function HarmonicCustomStudio({
     const reversalAction = isBullish ? "BUY / LONG" : "SELL / SHORT";
     const reversalDirectionBadge = isBullish ? "BULLISH PRZ REVERSAL" : "BEARISH PRZ REVERSAL";
 
-    const cdMove = Math.abs(dVal - cPrice);
-    const t1Val =
-      sandboxResult?.best_match?.target_1 ||
-      (isBullish ? dVal + cdMove * 0.382 : dVal - cdMove * 0.382);
-    const t2Val =
-      sandboxResult?.best_match?.target_2 ||
-      (isBullish ? dVal + cdMove * 0.618 : dVal - cdMove * 0.618);
-    const t3Val =
-      sandboxResult?.best_match?.target_3 ||
-      (isBullish ? dVal + cdMove * 1.000 : dVal - cdMove * 1.000);
-    const slVal =
-      sandboxResult?.best_match?.stop_loss ||
-      (isBullish ? dVal - cdMove * 0.15 : dVal + cdMove * 0.15);
+    const cdMove = Math.abs(dVal - cPrice) || dVal * 0.05;
+    // Pure Reversal Targets calculated outward from Point D PRZ
+    const t1Val = isBullish ? dVal + cdMove * 0.382 : dVal - cdMove * 0.382;
+    const t2Val = isBullish ? dVal + cdMove * 0.618 : dVal - cdMove * 0.618;
+    const t3Val = isBullish ? dVal + cdMove * 1.000 : dVal - cdMove * 1.000;
+    const slVal = isBullish ? dVal - cdMove * 0.15 : dVal + cdMove * 0.15;
 
-    const t1Pts = sandboxResult?.best_match?.t1_reward_points || Math.abs(t1Val - dVal);
-    const t1Pct = sandboxResult?.best_match?.t1_reward_pct || (dVal > 0 ? (t1Pts / dVal) * 100 : 0);
+    const t1Pts = Math.abs(t1Val - dVal);
+    const t1Pct = dVal > 0 ? (t1Pts / dVal) * 100 : 0;
 
-    const t2Pts = sandboxResult?.best_match?.t2_reward_points || Math.abs(t2Val - dVal);
-    const t2Pct = sandboxResult?.best_match?.t2_reward_pct || (dVal > 0 ? (t2Pts / dVal) * 100 : 0);
+    const t2Pts = Math.abs(t2Val - dVal);
+    const t2Pct = dVal > 0 ? (t2Pts / dVal) * 100 : 0;
 
-    const slPts = sandboxResult?.best_match?.sl_risk_points || Math.abs(dVal - slVal);
-    const slPct = sandboxResult?.best_match?.sl_risk_pct || (dVal > 0 ? (slPts / dVal) * 100 : 0);
+    const slPts = Math.abs(dVal - slVal);
+    const slPct = dVal > 0 ? (slPts / dVal) * 100 : 0;
 
-    const rrRatio = sandboxResult?.best_match?.live_rr_ratio || (slPts > 0 ? (t1Pts / slPts).toFixed(2) : "2.0");
+    const rrRatio = slPts > 0 ? (t1Pts / slPts).toFixed(2) : "2.55";
 
     const validPrices = [
       xPrice,

@@ -153,9 +153,63 @@ export function HarmonicCandleWaveChart({
   const plotHeight = chartHeight - paddingTop - paddingBottom;
 
   const candleCount = displayCandles.length;
+  const futureSlots = 14; // Future projection space to the right of live candles
   const candleStep = 13;
   const candleWidth = 7;
-  const svgWidth = Math.max(candleCount * candleStep + paddingLeft + paddingRight, 540);
+  const svgWidth = Math.max((candleCount + futureSlots) * candleStep + paddingLeft + paddingRight, 540);
+
+  // Stage 2 Reversal targets calculation (D -> T1 -> T2 -> T3)
+  const reversalData = useMemo(() => {
+    const dVal =
+      dPrice !== ""
+        ? parseFloat(dPrice)
+        : bestMatch?.predicted_d_mid || bestMatch?.target_3 || cPrice;
+
+    const reversalAction = isBullish ? "BUY / LONG" : "SELL / SHORT";
+    const reversalDirectionBadge = isBullish
+      ? "BULLISH PRZ REVERSAL"
+      : "BEARISH PRZ REVERSAL";
+
+    const cdMove = Math.abs(dVal - cPrice) || dVal * 0.05;
+    // Pure Reversal Targets calculated outward from Point D PRZ
+    const t1Val = isBullish ? dVal + cdMove * 0.382 : dVal - cdMove * 0.382;
+    const t2Val = isBullish ? dVal + cdMove * 0.618 : dVal - cdMove * 0.618;
+    const t3Val = isBullish ? dVal + cdMove * 1.000 : dVal - cdMove * 1.000;
+    const slVal = isBullish ? dVal - cdMove * 0.15 : dVal + cdMove * 0.15;
+
+    const t1Pts = Math.abs(t1Val - dVal);
+    const t1Pct = dVal > 0 ? (t1Pts / dVal) * 100 : 0;
+
+    const t2Pts = Math.abs(t2Val - dVal);
+    const t2Pct = dVal > 0 ? (t2Pts / dVal) * 100 : 0;
+
+    const slPts = Math.abs(dVal - slVal);
+    const slPct = dVal > 0 ? (slPts / dVal) * 100 : 0;
+
+    const rrRatio = slPts > 0 ? (t1Pts / slPts).toFixed(2) : "2.55";
+
+    const immSupp = bestMatch?.immediate_support;
+    const immRes = bestMatch?.immediate_resistance;
+
+    return {
+      reversalAction,
+      reversalDirectionBadge,
+      t1Val,
+      t2Val,
+      t3Val,
+      slVal,
+      t1Pts,
+      t1Pct,
+      t2Pts,
+      t2Pct,
+      slPts,
+      slPct,
+      rrRatio,
+      immSupp,
+      immRes,
+      dVal,
+    };
+  }, [bestMatch, dPrice, cPrice, isBullish]);
 
   // Common price boundaries calculation
   const { minPrice, maxPrice, priceRange } = useMemo(() => {
@@ -167,8 +221,8 @@ export function HarmonicCandleWaveChart({
       dPrice !== ""
         ? parseFloat(dPrice)
         : bestMatch?.predicted_d_mid || bestMatch?.target_3 || cPrice;
-    lows.push(xPrice, aPrice, bPrice, cPrice, dVal, cmpPrice);
-    highs.push(xPrice, aPrice, bPrice, cPrice, dVal, cmpPrice);
+    lows.push(xPrice, aPrice, bPrice, cPrice, dVal, cmpPrice, reversalData.t1Val, reversalData.t2Val, reversalData.slVal);
+    highs.push(xPrice, aPrice, bPrice, cPrice, dVal, cmpPrice, reversalData.t1Val, reversalData.t2Val, reversalData.slVal);
 
     if (bestMatch?.stop_loss) lows.push(bestMatch.stop_loss);
     if (bestMatch?.target_2) highs.push(bestMatch.target_2);
@@ -186,7 +240,7 @@ export function HarmonicCandleWaveChart({
       maxPrice: max + buffer,
       priceRange: max - min + buffer * 2,
     };
-  }, [displayCandles, xPrice, aPrice, bPrice, cPrice, dPrice, bestMatch, cmpPrice]);
+  }, [displayCandles, xPrice, aPrice, bPrice, cPrice, dPrice, bestMatch, cmpPrice, reversalData]);
 
   const calcY = (price: number) => {
     if (priceRange <= 0) return paddingTop + plotHeight / 2;
@@ -198,7 +252,7 @@ export function HarmonicCandleWaveChart({
     return paddingLeft + index * candleStep + candleStep / 2;
   };
 
-  // Harmonic coordinates mapped to candles
+  // Harmonic coordinates mapped to candles with future projection space
   const harmonicPoints = useMemo(() => {
     if (!displayCandles.length) return null;
 
@@ -249,7 +303,6 @@ export function HarmonicCandleWaveChart({
     let idxA = findBestIndex(aPrice, pivotsMeta?.a?.time, Math.floor(len * 0.28));
     let idxB = findBestIndex(bPrice, pivotsMeta?.b?.time, Math.floor(len * 0.52));
     let idxC = findBestIndex(cPrice, pivotsMeta?.c?.time, Math.floor(len * 0.76));
-    let idxD = findBestIndex(dVal, pivotsMeta?.d?.time, len - 1);
 
     if (idxA <= idxX)
       idxA = Math.min(len - 4, idxX + Math.max(1, Math.floor((len - idxX) * 0.25)));
@@ -257,34 +310,53 @@ export function HarmonicCandleWaveChart({
       idxB = Math.min(len - 3, idxA + Math.max(1, Math.floor((len - idxA) * 0.33)));
     if (idxC <= idxB)
       idxC = Math.min(len - 2, idxB + Math.max(1, Math.floor((len - idxB) * 0.5)));
-    if (idxD <= idxC) idxD = len - 1;
 
-    // Progression node for live CMP along C -> D
-    const cdDistance = Math.abs(dVal - cPrice) || 1.0;
-    const progressFrac = Math.min(
-      1.0,
-      Math.max(0.0, Math.abs(cmpPrice - cPrice) / cdDistance)
-    );
-    const cmpIdx = Math.min(
-      len - 1,
-      Math.max(idxC, Math.round(idxC + (idxD - idxC) * progressFrac))
-    );
+    // Point D is projected into future bars (to the right of latest candle) when forming
+    const isFormingD = dPrice === "" || !pivotsMeta?.d?.time;
+    const idxD = isFormingD
+      ? len - 1 + 6
+      : findBestIndex(dVal, pivotsMeta?.d?.time, len - 1);
+
+    const cmpIdx = len - 1; // Live CMP is ALWAYS at the latest live candle
+
+    const ptX = { x: getCandleX(idxX), y: calcY(xPrice), price: xPrice, label: "X", idx: idxX };
+    const ptA = { x: getCandleX(idxA), y: calcY(aPrice), price: aPrice, label: "A", idx: idxA };
+    const ptB = { x: getCandleX(idxB), y: calcY(bPrice), price: bPrice, label: "B", idx: idxB };
+    const ptC = { x: getCandleX(idxC), y: calcY(cPrice), price: cPrice, label: "C", idx: idxC };
+    const ptD = { x: getCandleX(idxD), y: calcY(dVal), price: dVal, label: "D", idx: idxD };
+    const ptCmp = {
+      x: getCandleX(cmpIdx),
+      y: calcY(cmpPrice > 0 ? cmpPrice : cPrice),
+      price: cmpPrice > 0 ? cmpPrice : cPrice,
+      label: "LTP",
+      idx: cmpIdx,
+    };
+
+    const ptT1 = {
+      x: getCandleX(idxD + 3),
+      y: calcY(reversalData.t1Val),
+      price: reversalData.t1Val,
+      label: "T1",
+    };
+    const ptT2 = {
+      x: getCandleX(idxD + 6),
+      y: calcY(reversalData.t2Val),
+      price: reversalData.t2Val,
+      label: "T2",
+    };
 
     return {
-      ptX: { x: getCandleX(idxX), y: calcY(xPrice), price: xPrice, label: "X", idx: idxX },
-      ptA: { x: getCandleX(idxA), y: calcY(aPrice), price: aPrice, label: "A", idx: idxA },
-      ptB: { x: getCandleX(idxB), y: calcY(bPrice), price: bPrice, label: "B", idx: idxB },
-      ptC: { x: getCandleX(idxC), y: calcY(cPrice), price: cPrice, label: "C", idx: idxC },
-      ptD: { x: getCandleX(idxD), y: calcY(dVal), price: dVal, label: "D", idx: idxD },
-      ptCmp: {
-        x: getCandleX(cmpIdx),
-        y: calcY(cmpPrice),
-        price: cmpPrice,
-        label: "LTP",
-        idx: cmpIdx,
-      },
+      ptX,
+      ptA,
+      ptB,
+      ptC,
+      ptD,
+      ptCmp,
+      ptT1,
+      ptT2,
       isBullish,
       dVal,
+      isFormingD,
     };
   }, [
     displayCandles,
@@ -298,6 +370,7 @@ export function HarmonicCandleWaveChart({
     priceRange,
     cmpPrice,
     isBullish,
+    reversalData,
   ]);
 
   // Stage 1 Forming targets calculation (C -> D momentum scalp)
@@ -356,71 +429,6 @@ export function HarmonicCandleWaveChart({
       dVal,
     };
   }, [bestMatch, dPrice, cPrice, bPrice, cmpPrice, isBullish]);
-
-  // Stage 2 Reversal targets calculation (D -> T1 -> T2 -> T3)
-  const reversalData = useMemo(() => {
-    const dVal =
-      dPrice !== ""
-        ? parseFloat(dPrice)
-        : bestMatch?.predicted_d_mid || bestMatch?.target_3 || cPrice;
-
-    const reversalAction = isBullish ? "BUY / LONG" : "SELL / SHORT";
-    const reversalDirectionBadge = isBullish
-      ? "BULLISH PRZ REVERSAL"
-      : "BEARISH PRZ REVERSAL";
-
-    const cdMove = Math.abs(dVal - cPrice);
-    const t1Val =
-      bestMatch?.target_1 ||
-      (isBullish ? dVal + cdMove * 0.382 : dVal - cdMove * 0.382);
-    const t2Val =
-      bestMatch?.target_2 ||
-      (isBullish ? dVal + cdMove * 0.618 : dVal - cdMove * 0.618);
-    const t3Val =
-      bestMatch?.target_3 ||
-      (isBullish ? dVal + cdMove * 1.0 : dVal - cdMove * 1.0);
-    const slVal =
-      bestMatch?.stop_loss ||
-      (isBullish ? dVal - cdMove * 0.15 : dVal + cdMove * 0.15);
-
-    const t1Pts = bestMatch?.t1_reward_points || Math.abs(t1Val - dVal);
-    const t1Pct =
-      bestMatch?.t1_reward_pct || (dVal > 0 ? (t1Pts / dVal) * 100 : 0);
-
-    const t2Pts = bestMatch?.t2_reward_points || Math.abs(t2Val - dVal);
-    const t2Pct =
-      bestMatch?.t2_reward_pct || (dVal > 0 ? (t2Pts / dVal) * 100 : 0);
-
-    const slPts = bestMatch?.sl_risk_points || Math.abs(dVal - slVal);
-    const slPct =
-      bestMatch?.sl_risk_pct || (dVal > 0 ? (slPts / dVal) * 100 : 0);
-
-    const rrRatio =
-      bestMatch?.live_rr_ratio ||
-      (slPts > 0 ? (t1Pts / slPts).toFixed(2) : "2.0");
-
-    const immSupp = bestMatch?.immediate_support;
-    const immRes = bestMatch?.immediate_resistance;
-
-    return {
-      reversalAction,
-      reversalDirectionBadge,
-      t1Val,
-      t2Val,
-      t3Val,
-      slVal,
-      t1Pts,
-      t1Pct,
-      t2Pts,
-      t2Pct,
-      slPts,
-      slPct,
-      rrRatio,
-      immSupp,
-      immRes,
-      dVal,
-    };
-  }, [bestMatch, dPrice, cPrice]);
 
   const linePathD = useMemo(() => {
     if (!displayCandles.length) return "";
@@ -1212,32 +1220,63 @@ export function HarmonicCandleWaveChart({
                         <line
                           x1={harmonicPoints.ptD.x}
                           y1={harmonicPoints.ptD.y}
-                          x2={Math.min(
-                            svgWidth - paddingRight - 10,
-                            harmonicPoints.ptD.x + 35
-                          )}
-                          y2={calcY(reversalData.t1Val)}
+                          x2={harmonicPoints.ptT1.x}
+                          y2={harmonicPoints.ptT1.y}
                           stroke="#0d6efd"
                           strokeWidth="2.8"
                           strokeDasharray="4,3"
                           strokeLinecap="round"
                         />
                         <line
-                          x1={Math.min(
-                            svgWidth - paddingRight - 10,
-                            harmonicPoints.ptD.x + 35
-                          )}
-                          y1={calcY(reversalData.t1Val)}
-                          x2={Math.min(
-                            svgWidth - paddingRight,
-                            harmonicPoints.ptD.x + 65
-                          )}
-                          y2={calcY(reversalData.t2Val)}
+                          x1={harmonicPoints.ptT1.x}
+                          y1={harmonicPoints.ptT1.y}
+                          x2={harmonicPoints.ptT2.x}
+                          y2={harmonicPoints.ptT2.y}
                           stroke="#0dcaf0"
                           strokeWidth="2.8"
                           strokeDasharray="4,3"
                           strokeLinecap="round"
                         />
+
+                        {/* Target 1 Node */}
+                        <circle
+                          cx={harmonicPoints.ptT1.x}
+                          cy={harmonicPoints.ptT1.y}
+                          r="5.5"
+                          fill="#0d6efd"
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x={harmonicPoints.ptT1.x}
+                          y={harmonicPoints.ptT1.y - 8}
+                          textAnchor="middle"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fill="#0d6efd"
+                        >
+                          T1 (₹{harmonicPoints.ptT1.price.toFixed(1)})
+                        </text>
+
+                        {/* Target 2 Node */}
+                        <circle
+                          cx={harmonicPoints.ptT2.x}
+                          cy={harmonicPoints.ptT2.y}
+                          r="5.5"
+                          fill="#0dcaf0"
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x={harmonicPoints.ptT2.x}
+                          y={harmonicPoints.ptT2.y - 8}
+                          textAnchor="middle"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fill="#0dcaf0"
+                        >
+                          T2 (₹{harmonicPoints.ptT2.price.toFixed(1)})
+                        </text>
                       </>
                     )}
 
@@ -1339,10 +1378,10 @@ export function HarmonicCandleWaveChart({
                         <circle
                           cx={harmonicPoints.ptD.x}
                           cy={harmonicPoints.ptD.y}
-                          r="6"
-                          fill="#ffc107"
-                          stroke="#000000"
-                          strokeWidth="1.5"
+                          r="6.5"
+                          fill={harmonicPoints.isBullish ? "#198754" : "#dc3545"}
+                          stroke="#ffffff"
+                          strokeWidth="2"
                         />
                         <text
                           x={harmonicPoints.ptD.x}
@@ -1350,10 +1389,41 @@ export function HarmonicCandleWaveChart({
                           textAnchor="middle"
                           fontSize="9"
                           fontWeight="bold"
-                          fill="#000000"
+                          fill={harmonicPoints.isBullish ? "#198754" : "#dc3545"}
                         >
-                          D (Entry)
+                          D (PRZ ₹{harmonicPoints.ptD.price.toFixed(1)})
                         </text>
+
+                        {/* 🟡 Live Current LTP Marker on Real Live Candle */}
+                        {cmpPrice > 0 && harmonicPoints.ptCmp && (
+                          <g
+                            transform={`translate(${harmonicPoints.ptCmp.x}, ${harmonicPoints.ptCmp.y})`}
+                          >
+                            <circle r="9" fill="rgba(255, 193, 7, 0.35)">
+                              <animate
+                                attributeName="r"
+                                values="5;12;5"
+                                dur="1.8s"
+                                repeatCount="indefinite"
+                              />
+                            </circle>
+                            <circle
+                              r="4.5"
+                              fill="#ffc107"
+                              stroke="#ffffff"
+                              strokeWidth="2"
+                            />
+                            <text
+                              y="16"
+                              textAnchor="middle"
+                              fontSize="8"
+                              fontWeight="bold"
+                              fill="#b78103"
+                            >
+                              Live CMP
+                            </text>
+                          </g>
+                        )}
                       </>
                     )}
 
