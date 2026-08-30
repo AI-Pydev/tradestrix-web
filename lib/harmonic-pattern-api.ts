@@ -749,6 +749,12 @@ export interface PatternMatch {
   t2_reward_pct?: number;
   sl_risk_points?: number;
   sl_risk_pct?: number;
+  immediate_support?: number;
+  immediate_resistance?: number;
+  support_distance_points?: number;
+  support_distance_pct?: number;
+  resistance_distance_points?: number;
+  resistance_distance_pct?: number;
   ratios: Record<string, RatioDetail>;
   predicted_d_low: number;
   predicted_d_high: number;

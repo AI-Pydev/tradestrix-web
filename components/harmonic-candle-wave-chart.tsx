@@ -599,6 +599,64 @@ export function HarmonicCandleWaveChart({
                   </text>
                 </g>
               )}
+
+              {/* Immediate Resistance (R1) Line */}
+              {(() => {
+                const immRes = bestMatch.immediate_resistance;
+                if (!immRes || immRes === bestMatch.target_1 || immRes === bestMatch.target_2) return null;
+                return (
+                  <g>
+                    <line
+                      x1={paddingLeft}
+                      y1={calcY(immRes)}
+                      x2={svgWidth - paddingRight}
+                      y2={calcY(immRes)}
+                      stroke="#fd7e14"
+                      strokeDasharray="2,2"
+                      strokeWidth="1.2"
+                      opacity="0.8"
+                    />
+                    <text
+                      x={svgWidth - paddingRight + 4}
+                      y={calcY(immRes) + 3}
+                      fontSize="9"
+                      fontWeight="bold"
+                      fill="#fd7e14"
+                    >
+                      R1 ₹{immRes.toFixed(1)}
+                    </text>
+                  </g>
+                );
+              })()}
+
+              {/* Immediate Support (S1) Line */}
+              {(() => {
+                const immSupp = bestMatch.immediate_support;
+                if (!immSupp || immSupp === bestMatch.stop_loss) return null;
+                return (
+                  <g>
+                    <line
+                      x1={paddingLeft}
+                      y1={calcY(immSupp)}
+                      x2={svgWidth - paddingRight}
+                      y2={calcY(immSupp)}
+                      stroke="#20c997"
+                      strokeDasharray="2,2"
+                      strokeWidth="1.2"
+                      opacity="0.8"
+                    />
+                    <text
+                      x={svgWidth - paddingRight + 4}
+                      y={calcY(immSupp) + 3}
+                      fontSize="9"
+                      fontWeight="bold"
+                      fill="#20c997"
+                    >
+                      S1 ₹{immSupp.toFixed(1)}
+                    </text>
+                  </g>
+                );
+              })()}
             </>
           )}
 
@@ -671,6 +729,14 @@ export function HarmonicCandleWaveChart({
           <span className="d-flex align-items-center gap-1 text-danger">
             <span className="badge bg-danger p-1 rounded-circle" style={{ width: "8px", height: "8px" }} />
             Stop Loss
+          </span>
+          <span className="d-flex align-items-center gap-1" style={{ color: "#20c997" }}>
+            <span className="badge p-1 rounded-circle" style={{ backgroundColor: "#20c997", width: "8px", height: "8px" }} />
+            S₁ Support
+          </span>
+          <span className="d-flex align-items-center gap-1" style={{ color: "#fd7e14" }}>
+            <span className="badge p-1 rounded-circle" style={{ backgroundColor: "#fd7e14", width: "8px", height: "8px" }} />
+            R₁ Resistance
           </span>
         </div>
 

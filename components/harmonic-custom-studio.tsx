@@ -2075,6 +2075,67 @@ export function HarmonicCustomStudio({
                         </div>
                       </div>
 
+                      {/* 🛡️ Immediate Support & Resistance Levels Box */}
+                      {(() => {
+                        const immSupp = sandboxResult.best_match.immediate_support ||
+                          (() => {
+                            const pList = [xPrice, aPrice, bPrice, cPrice, parseFloat(dPrice) || sandboxResult.best_match.predicted_d_mid, sandboxResult.best_match.stop_loss].filter(p => !isNaN(p) && p < cmpPrice && p > 0);
+                            return pList.length ? Math.max(...pList) : cmpPrice * 0.985;
+                          })();
+                        const immRes = sandboxResult.best_match.immediate_resistance ||
+                          (() => {
+                            const pList = [xPrice, aPrice, bPrice, cPrice, parseFloat(dPrice) || sandboxResult.best_match.predicted_d_mid, sandboxResult.best_match.target_1].filter(p => !isNaN(p) && p > cmpPrice && p > 0);
+                            return pList.length ? Math.min(...pList) : cmpPrice * 1.015;
+                          })();
+                        const sDistPts = Math.max(cmpPrice - immSupp, 0);
+                        const sDistPct = cmpPrice > 0 ? (sDistPts / cmpPrice) * 100 : 0;
+                        const rDistPts = Math.max(immRes - cmpPrice, 0);
+                        const rDistPct = cmpPrice > 0 ? (rDistPts / cmpPrice) * 100 : 0;
+
+                        return (
+                          <div className="p-2.5 px-3 rounded-3 bg-light border mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="small fw-bold text-dark text-uppercase d-flex align-items-center gap-1">
+                                <span>🛡️</span> Immediate Support & Resistance
+                              </span>
+                              <span className="badge bg-secondary-subtle text-secondary font-monospace" style={{ fontSize: "10px" }}>
+                                Pivot Confluence
+                              </span>
+                            </div>
+
+                            <div className="row g-2 text-center">
+                              <div className="col-6">
+                                <div className="p-2 bg-white rounded-2 border border-success-subtle shadow-sm">
+                                  <div className="small fw-bold text-success text-uppercase" style={{ fontSize: "10.5px" }}>
+                                    Immediate Support (S₁)
+                                  </div>
+                                  <div className="fs-6 fw-bold text-dark font-monospace mt-0.5">
+                                    ₹{immSupp.toFixed(2)}
+                                  </div>
+                                  <span className="text-secondary small font-monospace d-block" style={{ fontSize: "10px" }}>
+                                    -{sDistPts.toFixed(1)} pts (-{sDistPct.toFixed(2)}%)
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="col-6">
+                                <div className="p-2 bg-white rounded-2 border border-danger-subtle shadow-sm">
+                                  <div className="small fw-bold text-danger text-uppercase" style={{ fontSize: "10.5px" }}>
+                                    Immediate Resistance (R₁)
+                                  </div>
+                                  <div className="fs-6 fw-bold text-dark font-monospace mt-0.5">
+                                    ₹{immRes.toFixed(2)}
+                                  </div>
+                                  <span className="text-secondary small font-monospace d-block" style={{ fontSize: "10px" }}>
+                                    +{rDistPts.toFixed(1)} pts (+{rDistPct.toFixed(2)}%)
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div className="list-group list-group-flush mb-4">
                         <div className="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
                           <div>
