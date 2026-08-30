@@ -1,5 +1,6 @@
 "use client";
 
+import { HarmonicCandleWaveChart } from "@/components/harmonic-candle-wave-chart";
 import {
   createHarmonicPaperTrade,
   CustomSymbolAnalysisResponse,
@@ -7,7 +8,6 @@ import {
   evaluateHarmonicSandboxWave,
   fetchCustomHarmonicAnalysis,
 } from "@/lib/harmonic-pattern-api";
-import { HarmonicCandleWaveChart } from "@/components/harmonic-candle-wave-chart";
 import { useEffect, useMemo, useState } from "react";
 
 interface HarmonicCustomStudioProps {

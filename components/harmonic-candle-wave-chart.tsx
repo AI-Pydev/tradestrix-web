@@ -140,7 +140,6 @@ export function HarmonicCandleWaveChart({
   const candleStep = 13;
   const candleWidth = 7;
   const svgWidth = Math.max(candleCount * candleStep + paddingLeft + paddingRight, 540);
-  const plotWidth = svgWidth - paddingLeft - paddingRight;
 
   const { minPrice, maxPrice, priceRange } = useMemo(() => {
     if (!displayCandles.length) return { minPrice: 0, maxPrice: 1, priceRange: 1 };
