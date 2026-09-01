@@ -2096,7 +2096,15 @@ const BROKER_HEALTH_DETAIL_ENDPOINTS = [
   "/api/v1/broker-health/{brokerId}",
   "/api/v1/brokers/{brokerId}/health",
 ] as const;
-const BROKER_HEALTH_BROKERS = ["dhan", "kotakneo", "upstox", "kite"] as const;
+const BROKER_HEALTH_BROKERS = ["dhan", "kotakneo", "upstox", "kite", "shoonya"] as const;
+
+export type ShoonyaManualAuthRequest = {
+  user_id: string;
+  password: string;
+  totp: string;
+  vendor_code: string;
+  api_key: string;
+};
 
 function canonicalHealthBrokerId(value: string) {
   const normalized = String(value || "")
@@ -2580,6 +2588,14 @@ export async function authenticateKotakBroker(payload: KotakManualAuthRequest) {
     payload,
   );
 }
+
+export async function authenticateShoonyaBroker(payload: ShoonyaManualAuthRequest) {
+  return postBackendJsonWithBody<BrokerCallbackResult, ShoonyaManualAuthRequest>(
+    "/api/v1/brokers/shoonya/manual/json",
+    payload,
+  );
+}
+
 
 export async function runUpstoxOptionChainBot(payload: UpstoxOptionChainBotRunRequest) {
   return postBackendJsonWithBody<UpstoxOptionChainBotRunResponse, UpstoxOptionChainBotRunRequest>(
@@ -3262,3 +3278,558 @@ export async function getStrategyAnalysis(analysisId: number) {
     `/api/research/strategy-analysis/${analysisId}`,
   );
 }
+
+export type TrendLineScanRequest = {
+  broker_id?: "upstox" | "kite";
+  include_indices?: boolean;
+  include_stocks?: boolean;
+  max_indices?: number;
+  max_stocks?: number;
+  timeframe?: string;
+  min_headroom_atr?: number;
+};
+
+export type TrendLineScanItem = {
+  instrument_key: string;
+  symbol: string;
+  kind: "index" | "stock";
+  current_price: number;
+  atr: number;
+  market_regime: string;
+  call_trade_quality: string;
+  call_vetoed: boolean;
+  call_veto_reason?: string | null;
+  put_trade_quality: string;
+  put_vetoed: boolean;
+  put_veto_reason?: string | null;
+  res_dist_atr: number;
+  sup_dist_atr: number;
+  primary_formation?: string | null;
+  rejection?: string | null;
+  breakout?: string | null;
+  bullish_score: number;
+  bearish_score: number;
+  audit_reasons: string[];
+};
+
+export type TrendLineScanResponse = {
+  count: number;
+  timeframe: string;
+  results: TrendLineScanItem[];
+};
+
+export type TrendLineSymbolDetail = {
+  instrument_key: string;
+  timeframe: string;
+  current_price: number;
+  atr: number;
+  market_regime: string;
+  call_trade_quality: string;
+  call_vetoed: boolean;
+  call_veto_reason?: string | null;
+  put_trade_quality: string;
+  put_vetoed: boolean;
+  put_veto_reason?: string | null;
+  res_dist_atr: number;
+  sup_dist_atr: number;
+  active_lines: Array<{
+    line_id: string;
+    direction: string;
+    lifecycle: string;
+    slope_normalized: number;
+    slope_regime: string;
+    strength_score: number;
+    touch_count: number;
+    start_time: string;
+    end_time: string;
+    intercept_price: number;
+  }>;
+  primary_formation?: Record<string, unknown> | null;
+  audit_reasons: string[];
+  feature_vector: Record<string, number>;
+};
+
+export async function runTrendLineScanner(payload: TrendLineScanRequest) {
+  return postBackendJsonWithBody<TrendLineScanResponse, TrendLineScanRequest>(
+    `/api/v1/trendline-intelligence/scan`,
+    payload,
+  );
+}
+
+export async function fetchSymbolTrendlines(instrumentKey: string, brokerId = "upstox", timeframe = "3m") {
+  return getBackendJson<TrendLineSymbolDetail>(
+    `/api/v1/trendline-intelligence/symbol/${encodeURIComponent(instrumentKey)}?broker_id=${brokerId}&timeframe=${timeframe}`,
+  );
+}
+
+export type TrendLineCatalogItem = {
+  instrument_key: string;
+  symbol: string;
+  name: string;
+  kind: "index" | "stock";
+};
+
+export type TrendLineCatalogResponse = {
+  indices: TrendLineCatalogItem[];
+  stocks: TrendLineCatalogItem[];
+  total: number;
+};
+
+export type TrendLineChartAnchor = {
+  index: number;
+  price: number;
+  kind: "HIGH" | "LOW";
+  time: string;
+};
+
+export type TrendLineChartLine = {
+  line_id: string;
+  direction: "BULLISH_SUPPORT" | "BEARISH_RESISTANCE";
+  lifecycle: string;
+  slope_raw: number;
+  slope_normalized: number;
+  slope_regime: string;
+  strength_score: number;
+  touch_count: number;
+  start_index: number;
+  end_index: number;
+  start_price: number;
+  current_price: number;
+  projected_price: number;
+  anchors: TrendLineChartAnchor[];
+};
+
+export type TrendLineChartFormation = {
+  formation_id: string;
+  pattern_type: string;
+  upper_line_id: string;
+  lower_line_id: string;
+  midpoint_price: number;
+  current_width_points: number;
+  current_width_atr: number;
+  compression_ratio: number;
+  converging: boolean;
+  apex_index?: number | null;
+  apex_price?: number | null;
+  bars_to_apex?: number | null;
+  apex_proximity_pct: number;
+  quality_score: number;
+};
+
+export type TrendLineChartResponse = {
+  instrument_key: string;
+  timeframe: string;
+  current_price: number;
+  atr: number;
+  market_regime: string;
+  candles: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>;
+  active_lines: TrendLineChartLine[];
+  formations: TrendLineChartFormation[];
+  rejections: Array<{
+    event_type: string;
+    line_id: string;
+    time: string;
+    price: number;
+    wick_ratio: number;
+    score: number;
+  }>;
+  breakouts: Array<{
+    event_type: string;
+    line_id: string;
+    time: string;
+    price: number;
+    direction: string;
+    confirmed: boolean;
+    penetration_atr: number;
+  }>;
+  headroom: {
+    res_dist_atr: number;
+    sup_dist_atr: number;
+    call_quality: string;
+    call_vetoed: boolean;
+    call_veto_reason?: string | null;
+    put_quality: string;
+    put_vetoed: boolean;
+    put_veto_reason?: string | null;
+  };
+  confluence: {
+    bullish_score: number;
+    bearish_score: number;
+  };
+  audit_reasons: string[];
+  feature_vector: Record<string, number>;
+};
+
+export async function fetchTrendLineCatalog() {
+  return getBackendJson<TrendLineCatalogResponse>(
+    `/api/v1/trendline-intelligence/catalog`,
+  );
+}
+
+export async function fetchTrendLineChartData(instrumentKey: string, brokerId = "upstox", timeframe = "3m") {
+  return getBackendJson<TrendLineChartResponse>(
+    `/api/v1/trendline-intelligence/chart/${encodeURIComponent(instrumentKey)}?broker_id=${brokerId}&timeframe=${timeframe}`,
+  );
+}
+
+export interface TrendLineSandboxResult {
+  active_lines_count?: number;
+  primary_formation?: string | null;
+  call_vetoed?: boolean;
+  call_trade_quality?: string;
+  put_vetoed?: boolean;
+  put_trade_quality?: string;
+  res_dist_atr?: number;
+  sup_dist_atr?: number;
+  [key: string]: unknown;
+}
+
+export async function runTrendLineSandbox(payload: {
+  instrument_key: string;
+  broker_id?: "upstox" | "kite";
+  timeframe?: string;
+  pivot_window?: number;
+  min_headroom_atr?: number;
+  touch_tolerance_atr?: number;
+  cluster_window_bars?: number;
+}) {
+  return postBackendJsonWithBody<TrendLineSandboxResult, typeof payload>(
+    `/api/v1/trendline-intelligence/evaluate-sandbox`,
+    payload,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Equity, ETF & Index BeES Bot Desk Types and Functions
+// ---------------------------------------------------------------------------
+
+export type EquityInstrumentItem = {
+  symbol: string;
+  trading_symbol: string;
+  label: string;
+  instrument_key: string;
+  category: "index_bees" | "thematic_etfs" | "top_stocks" | string;
+  exchange: string;
+  lot_size: number;
+  verified: boolean;
+  description: string;
+};
+
+export type EquityCatalogResponse = {
+  index_bees: EquityInstrumentItem[];
+  thematic_etfs: EquityInstrumentItem[];
+  top_stocks: EquityInstrumentItem[];
+  all_items: EquityInstrumentItem[];
+};
+
+export type EquityStrategyItem = {
+  id: string;
+  label: string;
+  description: string;
+  default_target_pct: string;
+  default_sl_pct: string;
+};
+
+export type EquityBotRunRequest = {
+  instrument_key: string;
+  symbol?: string;
+  strategy_id: string;
+  execution_mode: "paper" | "live";
+  execution_broker: "kotak_neo" | "upstox" | "dhan" | "kite" | "shoonya";
+  product_type: "CNC" | "MIS";
+  sizing_mode: "capital" | "quantity";
+  allocated_capital: number;
+  quantity: number;
+  candle_interval: string;
+  candle_unit: string;
+  target_pct: number;
+  target_points?: number | null;
+  sl_pct: number;
+  trailing_sl_pct?: number | null;
+  allow_no_sl: boolean;
+  market_data_broker: string;
+  poll_interval_sec?: number;
+  job_name?: string | null;
+};
+
+export type EquityManagedJob = {
+  job_id: string;
+  job_name: string;
+  config: EquityBotRunRequest;
+  status: "starting" | "running" | "stopping" | "completed" | "failed" | "stopped";
+  has_open_trade: boolean;
+  open_trade_id?: number | null;
+  entry_price?: number | null;
+  current_ltp?: number | null;
+  target_price?: number | null;
+  sl_price?: number | null;
+  unrealized_pnl?: number | null;
+  unrealized_pnl_pct?: number | null;
+  target_progress_pct?: number | null;
+  quantity: number;
+  trade_count: number;
+  closed_trade_count: number;
+  total_realized_pnl: number;
+  today_realized_pnl: number;
+  started_at: string;
+  stopped_at?: string | null;
+  last_log_at?: string | null;
+  last_error?: string | null;
+  logs?: string[];
+};
+
+export type EquityDashboardSummary = {
+  managed_jobs: number;
+  active_jobs: number;
+  open_trades: number;
+  total_investment: number;
+  today_realized_pnl: number;
+  fleet_realized_pnl: number;
+  gross_profit: number;
+  gross_loss: number;
+  win_rate: number;
+  total_closed_trades: number;
+};
+
+export type EquityTradeHistoryTrade = {
+  id: number;
+  job_id: string;
+  job_name: string;
+  symbol: string;
+  instrument_key: string;
+  category: string;
+  strategy_id: string;
+  strategy_label: string;
+  product_type: string;
+  trade_mode: string;
+  broker: string;
+  quantity: number;
+  entry_price: number;
+  exit_price?: number | null;
+  target_price: number;
+  sl_price: number;
+  opened_at: string;
+  closed_at?: string | null;
+  status: string;
+  exit_reason?: string | null;
+  raw_pnl?: number | null;
+  brokerage: number;
+  net_pnl?: number | null;
+  date: string;
+};
+
+export type EquityTradeHistoryBucket = {
+  date?: string;
+  month?: string;
+  pnl: number;
+  trade_count: number;
+  wins: number;
+  losses: number;
+};
+
+export type EquityTradeHistoryPoint = {
+  date: string;
+  pnl: number;
+};
+
+export type EquityTradeHistoryAnalytics = {
+  summary: {
+    total_pnl: number;
+    total_trades: number;
+    open_trades: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    gross_profit: number;
+    gross_loss: number;
+    profit_factor: number;
+    average_trade_pnl: number;
+  };
+  daily_buckets: EquityTradeHistoryBucket[];
+  monthly_buckets: EquityTradeHistoryBucket[];
+  equity_points: EquityTradeHistoryPoint[];
+  trades: EquityTradeHistoryTrade[];
+};
+
+export async function fetchEquityCatalog() {
+  return getBackendJson<EquityCatalogResponse>("/api/v1/equity/catalog");
+}
+
+export async function fetchEquityStrategies() {
+  return getBackendJson<EquityStrategyItem[]>("/api/v1/equity/strategies");
+}
+
+export async function startEquityBot(payload: EquityBotRunRequest) {
+  return postBackendJsonWithBody<EquityManagedJob, EquityBotRunRequest>(
+    "/api/v1/equity/jobs/run",
+    payload,
+  );
+}
+
+export async function fetchEquityDashboardSummary() {
+  return getBackendJson<EquityDashboardSummary>("/api/v1/equity/dashboard/summary");
+}
+
+export async function fetchEquityDashboardJobs(params?: {
+  status_group?: "all" | "active" | "history";
+  page?: number;
+  limit?: number;
+}) {
+  const search = new URLSearchParams();
+  if (params?.status_group) {
+    search.set("status_group", params.status_group);
+  }
+  if (params?.page != null) {
+    search.set("page", String(params.page));
+  }
+  if (params?.limit != null) {
+    search.set("limit", String(params.limit));
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<{
+    items: EquityManagedJob[];
+    total_count: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+  }>(`/api/v1/equity/dashboard/jobs${suffix}`);
+}
+
+export async function fetchEquityJobDetail(jobId: string) {
+  const encoded = encodeURIComponent(jobId);
+  return getBackendJson<EquityManagedJob>(`/api/v1/equity/jobs/${encoded}`);
+}
+
+export async function stopEquityJob(jobId: string) {
+  const encoded = encodeURIComponent(jobId);
+  return postBackendJson<EquityManagedJob>(`/api/v1/equity/jobs/${encoded}/stop`);
+}
+
+export async function squareOffEquityJob(jobId: string) {
+  const encoded = encodeURIComponent(jobId);
+  return postBackendJson<EquityManagedJob>(`/api/v1/equity/jobs/${encoded}/square-off`);
+}
+
+export async function deleteEquityJob(jobId: string) {
+  const encoded = encodeURIComponent(jobId);
+  return deleteBackend(`/api/v1/equity/jobs/${encoded}`);
+}
+
+export async function bulkDeleteEquityJobs(jobIds: string[]) {
+  return postBackendJsonWithBody<{ deleted_count: number; failed_count: number }, { job_ids: string[] }>(
+    "/api/v1/equity/jobs/bulk-delete",
+    { job_ids: jobIds },
+  );
+}
+
+export async function deleteAllEquityHistory() {
+  return postBackendJson<{ deleted_count: number }>("/api/v1/equity/jobs/delete-all-history");
+}
+
+export async function fetchEquityTradeHistory(params?: {
+  start_date?: string;
+  end_date?: string;
+  execution_mode?: "all" | "paper" | "live";
+  category?: string;
+  symbol?: string;
+  strategy_id?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params?.start_date) {
+    search.set("start_date", params.start_date);
+  }
+  if (params?.end_date) {
+    search.set("end_date", params.end_date);
+  }
+  if (params?.execution_mode && params.execution_mode !== "all") {
+    search.set("execution_mode", params.execution_mode);
+  }
+  if (params?.category && params.category !== "all") {
+    search.set("category", params.category);
+  }
+  if (params?.symbol && params.symbol !== "all") {
+    search.set("symbol", params.symbol);
+  }
+  if (params?.strategy_id && params.strategy_id !== "all") {
+    search.set("strategy_id", params.strategy_id);
+  }
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return getBackendJson<EquityTradeHistoryAnalytics>(`/api/v1/equity/trade-history${suffix}`);
+}
+
+export type EquityAutoLaunchStatus = {
+  enabled: boolean;
+  config: {
+    enabled: boolean;
+    strategy_id: string;
+    candle_interval: string;
+    candle_unit: string;
+    target_pct: number;
+    sl_pct: number;
+    allocated_capital: number;
+    product_type: string;
+    execution_mode: string;
+    execution_broker: string;
+    market_data_broker: string;
+    allow_no_sl: boolean;
+    max_active_bots: number;
+    poll_interval_sec: number;
+  };
+  total_nifty50_universe: number;
+  active_nifty50_bots: number;
+  total_active_bots: number;
+  open_trades: number;
+  last_scan_at?: string | null;
+  last_error?: string | null;
+};
+
+export async function fetchEquityAutoLaunchStatus() {
+  return getBackendJson<EquityAutoLaunchStatus>("/api/v1/equity/auto-launch/status");
+}
+
+export async function enableEquityAutoLaunch() {
+  return postBackendJson<EquityAutoLaunchStatus>("/api/v1/equity/auto-launch/enable");
+}
+
+export async function disableEquityAutoLaunch() {
+  return postBackendJson<EquityAutoLaunchStatus>("/api/v1/equity/auto-launch/disable");
+}
+
+export async function launchNifty50PaperFleet(payload?: {
+  strategy_id?: string;
+  candle_interval?: string;
+  target_pct?: number;
+  sl_pct?: number;
+  allocated_capital?: number;
+}) {
+  return postBackendJsonWithBody<
+    { launched_count: number; already_active_count: number; total_universe: number; strategy_id: string },
+    typeof payload
+  >("/api/v1/equity/auto-launch/nifty50", payload || {});
+}
+
+export async function stopNifty50PaperFleet() {
+  return postBackendJson<{ stopped_count: number }>("/api/v1/equity/auto-launch/stop-fleet");
+}
+
+export async function squareOffNifty50PaperFleet() {
+  return postBackendJson<{ squared_off_count: number }>("/api/v1/equity/auto-launch/square-off-fleet");
+}
+
+export async function updateEquityAutoLaunchConfig(payload: Record<string, unknown>) {
+  return postBackendJsonWithBody<EquityAutoLaunchStatus, typeof payload>(
+    "/api/v1/equity/auto-launch/config",
+    payload,
+  );
+}
+
+
+
+

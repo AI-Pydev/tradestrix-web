@@ -610,6 +610,10 @@ export type PredictiveDProjection = {
   anticipated_t1: number;
   anticipated_t2: number;
   anticipated_sl: number;
+  target_1?: number;
+  target_2?: number;
+  target_3?: number;
+  stop_loss?: number;
   t1_rule_desc: string;
   t2_rule_desc: string;
   sl_rule_desc: string;
@@ -816,8 +820,8 @@ export interface CustomSymbolAnalysisResponse {
     type: "HIGH" | "LOW";
     index: number;
   }>;
-  patterns: any[];
-  predictions: any[];
+  patterns: HarmonicPatternScanItem[];
+  predictions: PredictiveDProjection[];
   support_levels: number[];
   resistance_levels: number[];
   nearest_support: number | null;

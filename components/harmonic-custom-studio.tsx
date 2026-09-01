@@ -7,13 +7,15 @@ import {
   CustomWaveEvaluationResponse,
   evaluateHarmonicSandboxWave,
   fetchCustomHarmonicAnalysis,
+  HarmonicPatternScanItem,
+  PredictiveDProjection,
 } from "@/lib/harmonic-pattern-api";
 import { useEffect, useMemo, useState } from "react";
 
 interface HarmonicCustomStudioProps {
   onPaperTradeSuccess?: () => void;
-  onOpenPatternModal?: (pattern: any) => void;
-  onOpenPredictiveModal?: (prediction: any) => void;
+  onOpenPatternModal?: (pattern: HarmonicPatternScanItem) => void;
+  onOpenPredictiveModal?: (prediction: PredictiveDProjection) => void;
 }
 
 interface InstrumentOption {
@@ -232,24 +234,35 @@ export function HarmonicCustomStudio({
       .then((data) => {
         if (data && (data.stocks || data.indices)) {
           const combined: InstrumentOption[] = [
-            ...(data.indices || []).map((i: any) => ({
-              label: i.label || i.symbol || "INDEX",
-              name: i.label || i.symbol || "Index",
-              instrument_key: i.instrument_key,
-              kind: "index" as const,
-            })),
-            ...(data.stocks || []).map((s: any) => ({
-              label: s.label || s.trading_symbol || s.symbol || "STOCK",
-              name: s.label || s.trading_symbol || "Stock",
-              instrument_key: s.instrument_key,
-              kind: "stock" as const,
-            })),
-            ...(data.commodities || []).map((c: any) => ({
-              label: c.label || c.symbol || "COMMODITY",
-              name: c.label || c.symbol || "Commodity",
-              instrument_key: c.instrument_key,
-              kind: "commodity" as const,
-            })),
+            ...(data.indices || []).map(
+              (i: { label?: string; symbol?: string; instrument_key: string }) => ({
+                label: i.label || i.symbol || "INDEX",
+                name: i.label || i.symbol || "Index",
+                instrument_key: i.instrument_key,
+                kind: "index" as const,
+              })
+            ),
+            ...(data.stocks || []).map(
+              (s: {
+                label?: string;
+                trading_symbol?: string;
+                symbol?: string;
+                instrument_key: string;
+              }) => ({
+                label: s.label || s.trading_symbol || s.symbol || "STOCK",
+                name: s.label || s.trading_symbol || "Stock",
+                instrument_key: s.instrument_key,
+                kind: "stock" as const,
+              })
+            ),
+            ...(data.commodities || []).map(
+              (c: { label?: string; symbol?: string; instrument_key: string }) => ({
+                label: c.label || c.symbol || "COMMODITY",
+                name: c.label || c.symbol || "Commodity",
+                instrument_key: c.instrument_key,
+                kind: "commodity" as const,
+              })
+            ),
           ];
           if (combined.length > 0) {
             setCatalog(combined);
@@ -451,9 +464,11 @@ export function HarmonicCustomStudio({
         });
         setSandboxResult(res);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Error";
       setSandboxError(
-        `Failed to auto-fetch live pivots for ${targetKey}: ${err?.message || "Error"}`
+        `Failed to auto-fetch live pivots for ${targetKey}: ${msg}`
       );
     } finally {
       setSandboxLoading(false);
@@ -480,8 +495,10 @@ export function HarmonicCustomStudio({
         direction: sandboxDirection,
       });
       setSandboxResult(res);
-    } catch (err: any) {
-      setSandboxError(err?.message || "Failed to evaluate sandbox coordinates");
+    } catch (err: unknown) {
+      setSandboxError(
+        err instanceof Error ? err.message : "Failed to evaluate sandbox coordinates"
+      );
     } finally {
       setSandboxLoading(false);
     }
@@ -490,7 +507,6 @@ export function HarmonicCustomStudio({
   // On initial mount, auto-fetch live pivots for default symbol (VEDL)
   useEffect(() => {
     handleAutoFetchLivePivots(sandboxInstKey, sandboxTf, sandboxSymbol);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Quick preset loader for sandbox
@@ -560,8 +576,10 @@ export function HarmonicCustomStudio({
     try {
       const data = await fetchCustomHarmonicAnalysis(targetKey, scannerTf);
       setScannerData(data);
-    } catch (err: any) {
-      setScannerError(err?.message || `Failed to analyze ${targetKey}`);
+    } catch (err: unknown) {
+      setScannerError(
+        err instanceof Error ? err.message : `Failed to analyze ${targetKey}`
+      );
     } finally {
       setScannerLoading(false);
     }
@@ -591,8 +609,10 @@ export function HarmonicCustomStudio({
         `✅ Paper Trade active! ID: ${res?.trade?.trade_id || "OK"} (Target 1: ₹${match.target_1.toFixed(2)})`
       );
       if (onPaperTradeSuccess) onPaperTradeSuccess();
-    } catch (err: any) {
-      setPaperTradeMsg(`❌ Trade failed: ${err?.message || "Error"}`);
+    } catch (err: unknown) {
+      setPaperTradeMsg(
+        `❌ Trade failed: ${err instanceof Error ? err.message : "Error"}`
+      );
     }
   };
 
@@ -1608,8 +1628,10 @@ export function HarmonicCustomStudio({
                 <select
                   className="form-select form-select-sm"
                   value={sandboxDirection}
-                  onChange={(e: any) => {
-                    setSandboxDirection(e.target.value);
+                  onChange={(e) => {
+                    setSandboxDirection(
+                      e.target.value as "AUTO" | "BULLISH" | "BEARISH"
+                    );
                   }}
                 >
                   <option value="AUTO">Auto Detect Wave</option>
@@ -3159,13 +3181,13 @@ export function HarmonicCustomStudio({
                             <div className="col-6">
                               Target 1:{" "}
                               <strong className="text-success">
-                                ₹{p.target_1.toFixed(2)}
+                                ₹{(p.target_1 ?? p.anticipated_t1)?.toFixed(2)}
                               </strong>
                             </div>
                             <div className="col-6">
                               Stop Loss:{" "}
                               <strong className="text-danger">
-                                ₹{p.stop_loss.toFixed(2)}
+                                ₹{(p.stop_loss ?? p.anticipated_sl)?.toFixed(2)}
                               </strong>
                             </div>
                             <div className="col-6">

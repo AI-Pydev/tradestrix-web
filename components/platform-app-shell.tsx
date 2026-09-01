@@ -80,6 +80,18 @@ const baseNavGroups: NavGroup[] = [
         monogram: "TH",
       },
       {
+        href: "/equity-desk",
+        label: "Stock & ETF Desk",
+        caption: "Stock, ETF & BeES bots",
+        monogram: "EQ",
+      },
+      {
+        href: "/equity-trade-history",
+        label: "Stock & ETF History",
+        caption: "Stock & ETF PnL",
+        monogram: "EH",
+      },
+      {
         href: "/multi-bot-launcher",
         label: "Multi-Bot",
         caption: "Batch launcher",
@@ -164,6 +176,12 @@ const baseNavGroups: NavGroup[] = [
         monogram: "AI",
       },
       {
+        href: "/trendline-intelligence",
+        label: "Trendlines",
+        caption: "Trendline & headroom gate",
+        monogram: "TL",
+      },
+      {
         href: "/harmonic-patterns",
         label: "Harmonics",
         caption: "Pattern scanner & PRZ chart",
@@ -177,6 +195,7 @@ const baseNavGroups: NavGroup[] = [
       },
     ],
   },
+
   {
     monogram: "MK",
     title: "Markets",
@@ -274,6 +293,14 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/trade-history": {
     title: "Trade History",
     subtitle: "Daily, monthly, paper, and live PnL review",
+  },
+  "/equity-desk": {
+    title: "Stock & ETF Desk",
+    subtitle: "Autonomous execution desk for Cash Equities, Sector ETFs, and Index BeES",
+  },
+  "/equity-trade-history": {
+    title: "Stock & ETF Trade History",
+    subtitle: "Ledger, cumulative equity curve, and daily PnL breakdown for equity bots",
   },
   "/execution-dashboard": {
     title: "Execution Accordion",

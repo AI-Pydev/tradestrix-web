@@ -1,7 +1,7 @@
 "use client";
 
 import type { PatternMatch } from "@/lib/harmonic-pattern-api";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 interface PivotMeta {
   price: number;
@@ -58,7 +58,6 @@ export function HarmonicCandleWaveChart({
   const [displayMode, setDisplayMode] = useState<"dual" | "forming" | "reversal">("dual");
   const [hoveredIndex1, setHoveredIndex1] = useState<number | null>(null);
   const [hoveredIndex2, setHoveredIndex2] = useState<number | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Resolved Bullish vs Bearish orientation
   const isBullish = useMemo(() => {
@@ -212,7 +211,7 @@ export function HarmonicCandleWaveChart({
   }, [bestMatch, dPrice, cPrice, isBullish]);
 
   // Common price boundaries calculation
-  const { minPrice, maxPrice, priceRange } = useMemo(() => {
+  const { minPrice, priceRange } = useMemo(() => {
     if (!displayCandles.length) return { minPrice: 0, maxPrice: 1, priceRange: 1 };
     const lows = displayCandles.map((c) => c.low);
     const highs = displayCandles.map((c) => c.high);
