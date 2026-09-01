@@ -773,7 +773,12 @@ export function EquityDashboardShell() {
                       ...prev,
                       execution_broker: e.target.value as
                         | "kotak_neo"
-                        | "shoonya"
+                        | "shoonya",
+                    }))
+                  }
+                >
+                  <option value="kotak_neo">Kotak Neo</option>
+                  <option value="shoonya">Shoonya (Finvasia)</option>
                 </select>
               </div>
 
