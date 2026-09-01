@@ -1,6 +1,11 @@
 "use client";
 
 import { HarmonicCandleWaveChart } from "@/components/harmonic-candle-wave-chart";
+import { HarmonicPatternInspectorDrawer } from "@/components/harmonic-pattern-inspector-drawer";
+import {
+  evaluateHarmonicPattern,
+  HarmonicPatternMatch,
+} from "@/lib/harmonic-engine";
 import {
   createHarmonicPaperTrade,
   CustomSymbolAnalysisResponse,
@@ -331,7 +336,37 @@ export function HarmonicCustomStudio({
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const [sandboxResult, setSandboxResult] =
     useState<CustomWaveEvaluationResponse | null>(null);
+  const [clientPatternMatch, setClientPatternMatch] =
+    useState<HarmonicPatternMatch | null>(null);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
+
+  // Client-side Instant Pattern Evaluation (0ms latency without backend roundtrip)
+  useEffect(() => {
+    const parsedD = dPrice.trim() !== "" ? parseFloat(dPrice) : null;
+    if (
+      parsedD !== null &&
+      !isNaN(parsedD) &&
+      xPrice > 0 &&
+      aPrice > 0 &&
+      bPrice > 0 &&
+      cPrice > 0
+    ) {
+      const match = evaluateHarmonicPattern(
+        {
+          X: { label: "X", index: 0, time: Date.now() - 3600000 * 4, price: xPrice },
+          A: { label: "A", index: 1, time: Date.now() - 3600000 * 3, price: aPrice },
+          B: { label: "B", index: 2, time: Date.now() - 3600000 * 2, price: bPrice },
+          C: { label: "C", index: 3, time: Date.now() - 3600000 * 1, price: cPrice },
+          D: { label: "D", index: 4, time: Date.now(), price: parsedD },
+        },
+        cmpPrice
+      );
+      setClientPatternMatch(match);
+    } else {
+      setClientPatternMatch(null);
+    }
+  }, [xPrice, aPrice, bPrice, cPrice, dPrice, cmpPrice]);
   const [paperTradeMsg, setPaperTradeMsg] = useState<string | null>(null);
   const [isLiveSynced, setIsLiveSynced] = useState(false);
   const [liveSyncTime, setLiveSyncTime] = useState<string | null>(null);
@@ -2046,7 +2081,7 @@ export function HarmonicCustomStudio({
                           </span>
                         </div>
 
-                        <div className="text-end">
+                        <div className="text-end d-flex flex-column align-items-end gap-1">
                           <span className="badge bg-success-subtle text-success fs-6 border border-success-subtle px-3 py-2">
                             Quality:{" "}
                             {(
@@ -2054,6 +2089,17 @@ export function HarmonicCustomStudio({
                             ).toFixed(0)}
                             %
                           </span>
+                          {clientPatternMatch && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm mt-1"
+                              onClick={() => setIsInspectorOpen(true)}
+                              title="Inspect canonical textbook rules & ratios locally"
+                            >
+                              <i className="bi bi-rulers" />
+                              <span>⚡ Canonical Inspector</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -3357,6 +3403,15 @@ export function HarmonicCustomStudio({
           </div>
         )}
       </div>
+
+      {/* Client-Side Harmonic Pattern Canonical Inspector Drawer */}
+      <HarmonicPatternInspectorDrawer
+        isOpen={isInspectorOpen}
+        onClose={() => setIsInspectorOpen(false)}
+        pattern={clientPatternMatch}
+        symbolLabel={sandboxSymbol}
+        timeframe={sandboxTf}
+      />
     </div>
   );
 }

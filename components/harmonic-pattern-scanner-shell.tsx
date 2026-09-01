@@ -1,7 +1,12 @@
 "use client";
 
 import { HarmonicCustomStudio } from "@/components/harmonic-custom-studio";
+import { HarmonicPatternInspectorDrawer } from "@/components/harmonic-pattern-inspector-drawer";
 import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-modal";
+import {
+    evaluateHarmonicPattern,
+    HarmonicPatternMatch,
+} from "@/lib/harmonic-engine";
 import {
     HARMONIC_SUPPORTED_TIMEFRAMES,
     HarmonicAutoTradeSettings,
@@ -170,6 +175,38 @@ export function HarmonicPatternScannerShell() {
   const [activeChartTf, setActiveChartTf] = useState("3m");
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeMtfReport, setActiveMtfReport] = useState<MTFConfluenceReport | null>(null);
+
+  // Client-Side Pattern Inspector State
+  const [inspectorPattern, setInspectorPattern] = useState<HarmonicPatternMatch | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorSymbol, setInspectorSymbol] = useState("INSTRUMENT");
+  const [inspectorTf, setInspectorTf] = useState("15m");
+
+  const handleOpenInspectorForPattern = (item: HarmonicPatternScanItem | null) => {
+    if (!item) return;
+    const effectiveD = item.d?.price || item.base_price || item.prz_mid;
+    if (item.x && item.a && item.b && item.c && effectiveD) {
+      const match = evaluateHarmonicPattern(
+        {
+          X: { label: "X", index: 0, time: new Date(item.x.time || "").getTime() || Date.now() - 3600000 * 4, price: item.x.price },
+          A: { label: "A", index: 1, time: new Date(item.a.time || "").getTime() || Date.now() - 3600000 * 3, price: item.a.price },
+          B: { label: "B", index: 2, time: new Date(item.b.time || "").getTime() || Date.now() - 3600000 * 2, price: item.b.price },
+          C: { label: "C", index: 3, time: new Date(item.c.time || "").getTime() || Date.now() - 3600000 * 1, price: item.c.price },
+          D: { label: "D", index: 4, time: new Date(item.d?.time || "").getTime() || Date.now(), price: effectiveD },
+        },
+        item.current_price
+      );
+      if (match) {
+        setInspectorPattern(match);
+        setInspectorSymbol(item.label);
+        setInspectorTf(item.timeframe);
+        setInspectorOpen(true);
+        return;
+      }
+    }
+    setInspectorSymbol(item.label);
+    setInspectorTf(item.timeframe);
+  };
 
   const handleOpenPredictiveDModal = (
     instrumentKey: string,
@@ -1965,6 +2002,15 @@ export function HarmonicPatternScannerShell() {
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm"
+                      onClick={() => handleOpenInspectorForPattern(selectedStock)}
+                      title="Inspect canonical Fibonacci ratios and PDF textbook rules locally"
+                    >
+                      <i className="bi bi-rulers" />
+                      <span>⚡ Inspect Ratios</span>
+                    </button>
+                    <button
                       className="btn btn-sm btn-success text-white fw-bold d-flex align-items-center gap-1"
                       onClick={() => handleOpenPaperTradeModal(selectedStock)}
                     >
@@ -2720,6 +2766,15 @@ export function HarmonicPatternScannerShell() {
           }}
         />
       )}
+
+      {/* Client-Side Pattern Canonical Inspector Drawer */}
+      <HarmonicPatternInspectorDrawer
+        isOpen={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        pattern={inspectorPattern}
+        symbolLabel={inspectorSymbol}
+        timeframe={inspectorTf}
+      />
     </div>
   );
 }
