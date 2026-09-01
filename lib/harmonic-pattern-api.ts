@@ -511,9 +511,23 @@ export type HarmonicAutoTradeSettings = {
   updated_at?: string;
 };
 
+export type HarmonicAutoTradeStatus = {
+  running: boolean;
+  enabled: boolean;
+  execution_mode: string;
+  open_positions_count: number;
+  max_open_positions: number;
+  available_slots: number;
+  last_entry_run_at: string | null;
+  last_exit_run_at: string | null;
+  last_trades_entered: number;
+  settings?: HarmonicAutoTradeSettings;
+};
+
 export type HarmonicAutoTradeSettingsResponse = {
   status: string;
   settings: HarmonicAutoTradeSettings;
+  runtime_status?: HarmonicAutoTradeStatus;
 };
 
 export type HarmonicAutoEntryResponse = {
@@ -527,6 +541,21 @@ export type HarmonicAutoEntryResponse = {
 export async function fetchHarmonicAutoTradeSettings(): Promise<HarmonicAutoTradeSettingsResponse> {
   const response = await fetch(
     `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/settings`,
+    {
+      headers: buildAuthorizedHeaders(),
+      cache: "no-store",
+    }
+  );
+  await throwIfApiError(response);
+  return response.json();
+}
+
+export async function fetchHarmonicAutoTradeStatus(): Promise<{
+  status: string;
+  data: HarmonicAutoTradeStatus;
+}> {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/v1/pattern-intelligence/auto-trade/status`,
     {
       headers: buildAuthorizedHeaders(),
       cache: "no-store",

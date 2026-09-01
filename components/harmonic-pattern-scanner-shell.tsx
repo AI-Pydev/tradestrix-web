@@ -5,6 +5,7 @@ import { HarmonicPredictiveDModal } from "@/components/harmonic-predictive-d-mod
 import {
     HARMONIC_SUPPORTED_TIMEFRAMES,
     HarmonicAutoTradeSettings,
+    HarmonicAutoTradeStatus,
     HarmonicPaperTrade,
     HarmonicPaperTradeSummary,
     HarmonicPatternScanItem,
@@ -160,6 +161,7 @@ export function HarmonicPatternScannerShell() {
 
   // Auto-Trade State
   const [autoTradeSettings, setAutoTradeSettings] = useState<HarmonicAutoTradeSettings | null>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<HarmonicAutoTradeStatus | null>(null);
   const [autoTradeLoading, setAutoTradeLoading] = useState(false);
 
   const [selectedStock, setSelectedStock] = useState<HarmonicPatternScanItem | null>(null);
@@ -226,7 +228,7 @@ export function HarmonicPatternScannerShell() {
         setMtfReports(resp.results || []);
       } else if (viewMode === "paper_portfolio") {
         const [tradesResp, autoSettingsResp] = await Promise.allSettled([
-          fetchHarmonicPaperTrades({ status: paperStatusFilter }),
+          syncHarmonicPaperTrades(),
           fetchHarmonicAutoTradeSettings(),
         ]);
         if (tradesResp.status === "fulfilled") {
@@ -235,6 +237,9 @@ export function HarmonicPatternScannerShell() {
         }
         if (autoSettingsResp.status === "fulfilled") {
           setAutoTradeSettings(autoSettingsResp.value.settings);
+          if (autoSettingsResp.value.runtime_status) {
+            setRuntimeStatus(autoSettingsResp.value.runtime_status);
+          }
         }
       }
     } catch (err: unknown) {
@@ -276,8 +281,16 @@ export function HarmonicPatternScannerShell() {
     try {
       const resp = await updateHarmonicAutoTradeSettings({ enabled });
       setAutoTradeSettings(resp.settings);
-      setSuccessMsg(enabled ? "🟢 Harmonic Auto-Trade Bot ENABLED!" : "⚪ Harmonic Auto-Trade Bot PAUSED.");
-      setTimeout(() => setSuccessMsg(null), 4000);
+      if (resp.runtime_status) {
+        setRuntimeStatus(resp.runtime_status);
+      }
+      setSuccessMsg(
+        enabled
+          ? "🟢 Harmonic Auto-Trade Bot ENABLED (Background Daemon Running)!"
+          : "⚪ Harmonic Auto-Trade Bot PAUSED."
+      );
+      setTimeout(() => setSuccessMsg(null), 5000);
+      await loadData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to toggle auto-trade.");
     } finally {
@@ -290,6 +303,9 @@ export function HarmonicPatternScannerShell() {
     try {
       const resp = await updateHarmonicAutoTradeSettings(settings);
       setAutoTradeSettings(resp.settings);
+      if (resp.runtime_status) {
+        setRuntimeStatus(resp.runtime_status);
+      }
       setSuccessMsg("Auto-trade settings updated successfully.");
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: unknown) {
@@ -303,8 +319,9 @@ export function HarmonicPatternScannerShell() {
     setAutoTradeLoading(true);
     try {
       const resp = await runHarmonicAutoEntryNow();
-      setSuccessMsg(`Auto-Entry evaluated: ${resp.trades_opened_count || 0} new trade(s) entered.`);
-      setTimeout(() => setSuccessMsg(null), 4000);
+      const detail = resp.message || `Auto-Entry evaluated: ${resp.trades_opened_count || 0} new trade(s) entered.`;
+      setSuccessMsg(detail);
+      setTimeout(() => setSuccessMsg(null), 6000);
       await loadData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to run auto-entry cycle.");
@@ -780,7 +797,7 @@ export function HarmonicPatternScannerShell() {
                     <i className={`bi ${autoTradeSettings?.enabled ? "bi-robot" : "bi-pause-circle"} fs-4`} />
                   </div>
                   <div>
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
                       <h5 className="mb-0 fw-bold">Harmonic Auto-Trade Bot</h5>
                       <span
                         className={`badge ${
@@ -791,17 +808,36 @@ export function HarmonicPatternScannerShell() {
                       >
                         {autoTradeSettings?.enabled ? "● AUTO-TRADE ACTIVE" : "○ PAUSED"}
                       </span>
-                      <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace">
+                      {runtimeStatus && (
+                        <span
+                          className={`badge ${
+                            runtimeStatus.running
+                              ? "bg-primary-subtle text-primary border border-primary-subtle"
+                              : "bg-warning-subtle text-warning border border-warning-subtle"
+                          } font-monospace`}
+                        >
+                          {runtimeStatus.running ? "⚡ Daemon Running" : "⚠️ Daemon Idle"}
+                        </span>
+                      )}
+                      <span className="badge bg-info-subtle text-info border border-info-subtle font-monospace">
+                        Slots: {paperTrades.filter((t) => t.status === "OPEN").length} / {autoTradeSettings?.max_open_positions || 4}
+                      </span>
+                      <span className="badge bg-secondary-subtle text-secondary font-monospace">
                         Mode: {autoTradeSettings?.execution_mode?.toUpperCase() || "PAPER"}
                       </span>
                     </div>
                     <p className="text-secondary small mb-0 mt-1">
                       Automated entry on PRZ formations, real-time risk sizing, and target/stop profit taking.
+                      {runtimeStatus?.last_entry_run_at && (
+                        <span className="ms-2 text-muted">
+                          (Last Scan: {new Date(runtimeStatus.last_entry_run_at).toLocaleTimeString()})
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
 
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center gap-2 flex-wrap">
                   <button
                     className={`btn btn-sm fw-bold px-3 d-flex align-items-center gap-1 ${
                       autoTradeSettings?.enabled ? "btn-danger" : "btn-success text-white"
@@ -828,6 +864,14 @@ export function HarmonicPatternScannerShell() {
                     title="Immediately evaluate universe and enter all qualified setups"
                   >
                     <i className="bi bi-lightning-charge-fill" /> Run Auto-Entry Cycle
+                  </button>
+                  <button
+                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                    onClick={handleSyncPaperTrades}
+                    disabled={autoTradeLoading}
+                    title="Sync open positions with live market quotes and evaluate target/SL exits"
+                  >
+                    <i className="bi bi-arrow-repeat" /> Sync & Evaluate Exits
                   </button>
                 </div>
               </div>
