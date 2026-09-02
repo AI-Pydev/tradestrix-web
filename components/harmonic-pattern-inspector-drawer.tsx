@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { HarmonicPatternMatch, RatioMeasurement } from "@/lib/harmonic-engine";
 
 interface HarmonicPatternInspectorDrawerProps {
@@ -254,3 +253,4 @@ export function HarmonicPatternInspectorDrawer({
     </div>
   );
 }
+

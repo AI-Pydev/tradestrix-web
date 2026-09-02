@@ -124,3 +124,4 @@ export interface ClassicalPatternMatch {
   riskRewardRatio: number;
   ruleDescription: string;
 }
+

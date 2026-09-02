@@ -1,10 +1,10 @@
 import {
-  HarmonicPatternMatch,
-  HarmonicPatternType,
-  HarmonicPoint,
-  PatternOrientation,
-  RatioMeasurement,
-  TakeProfitTarget
+    HarmonicPatternMatch,
+    HarmonicPatternType,
+    HarmonicPoint,
+    PatternOrientation,
+    RatioMeasurement,
+    TakeProfitTarget
 } from './types';
 
 interface PatternRuleDef {
@@ -474,3 +474,4 @@ export function evaluateHarmonicPattern(
     action
   };
 }
+

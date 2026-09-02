@@ -16,9 +16,9 @@ import {
     setTradingViewAlertTemplateLive,
     setTradingViewAlertTemplatePaper,
     testTradingViewAlertTemplateWebhook,
+    TradingViewAlertDashboardStats,
     TradingViewAlertTemplate,
     TradingViewAlertTemplateCreateRequest,
-    TradingViewAlertDashboardStats,
     TradingViewAlertTemplateDiagnostics,
     TradingViewAlertTemplateStats,
     TradingViewAlertTemplateTestResponse,
@@ -36,7 +36,10 @@ type FormState = {
   trade_mode: 1 | 3;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: string;
+  option_moneyness: "ATM" | "ITM" | "OTM";
   option_offset: string;
+  use_delta_selection: boolean;
+  target_delta: string;
   pine_strategy_id: string;
   notes: string;
 };
@@ -368,7 +371,10 @@ export function TradingViewAlertsShell() {
     trade_mode: 1,
     execution_broker: "kotak_neo",
     lots: "1",
-    option_offset: "0",
+    option_moneyness: "ITM",
+    option_offset: "-1",
+    use_delta_selection: false,
+    target_delta: "0.55",
     pine_strategy_id: "",
     notes: "",
   });
@@ -448,6 +454,16 @@ export function TradingViewAlertsShell() {
       setError("");
       setMessage("");
 
+      const rawOffset = toInt(form.option_offset, 0);
+      let calculatedOffset = rawOffset;
+      if (form.option_moneyness === "ITM") {
+        calculatedOffset = -Math.abs(rawOffset || 1);
+      } else if (form.option_moneyness === "OTM") {
+        calculatedOffset = Math.abs(rawOffset || 1);
+      } else if (form.option_moneyness === "ATM") {
+        calculatedOffset = 0;
+      }
+
       const payload: TradingViewAlertTemplateCreateRequest = {
         alert_name: form.alert_name.trim(),
         instrument_key: form.instrument_key,
@@ -457,7 +473,10 @@ export function TradingViewAlertsShell() {
         execution_broker: form.trade_mode === 3 ? (form.execution_broker ?? "kotak_neo") : null,
         lots: Math.max(toInt(form.lots, 1), 1),
         quantity: null,
-        option_offset: Math.max(toInt(form.option_offset, 0), 0),
+        option_moneyness: form.option_moneyness,
+        option_offset: calculatedOffset,
+        use_delta_selection: form.use_delta_selection,
+        target_delta: Number(form.target_delta) || 0.55,
         pine_strategy_id: form.pine_strategy_id.trim() ? form.pine_strategy_id.trim() : null,
         notes: form.notes.trim() || "",
       };
@@ -786,9 +805,32 @@ export function TradingViewAlertsShell() {
                   />
                 </div>
 
-                <div style={{ minWidth: 140 }}>
-                  <label className="form-label" htmlFor="tv-offset">
-                    Option Offset
+                <div style={{ minWidth: 160 }}>
+                  <label className="form-label" htmlFor="tv-moneyness">
+                    Moneyness (Strike)
+                  </label>
+                  <select
+                    className="form-select form-select-sm"
+                    id="tv-moneyness"
+                    value={form.option_moneyness}
+                    onChange={(event) => {
+                      const val = event.target.value as "ATM" | "ITM" | "OTM";
+                      setForm((prev) => ({
+                        ...prev,
+                        option_moneyness: val,
+                        option_offset: val === "ITM" ? "-1" : val === "OTM" ? "1" : "0",
+                      }));
+                    }}
+                  >
+                    <option value="ITM">ITM-1 (Delta ~0.60, Best)</option>
+                    <option value="ATM">ATM (Delta ~0.50)</option>
+                    <option value="OTM">OTM-1 (Delta ~0.40)</option>
+                  </select>
+                </div>
+
+                <div style={{ minWidth: 100 }}>
+                  <label className="form-label" htmlFor="tv-offset" title="Negative for ITM (e.g. -1), 0 for ATM, positive for OTM">
+                    Offset
                   </label>
                   <input
                     className="form-control form-control-sm"
@@ -796,7 +838,7 @@ export function TradingViewAlertsShell() {
                     inputMode="numeric"
                     value={form.option_offset}
                     onChange={(event) => setForm((prev) => ({ ...prev, option_offset: event.target.value }))}
-                    placeholder="0"
+                    placeholder="-1"
                   />
                 </div>
 
@@ -1019,7 +1061,9 @@ export function TradingViewAlertsShell() {
                           <span className="badge-soft blue">
                             {template.lots} lot{template.lots === 1 ? "" : "s"} / {template.quantity} qty
                           </span>
-                          <span className="badge-soft blue">+{template.option_offset} offset</span>
+                          <span className={`badge-soft ${template.option_offset < 0 ? "green" : template.option_offset === 0 ? "blue" : "purple"}`}>
+                            {template.option_offset === 0 ? "ATM" : template.option_offset < 0 ? `${template.option_offset} ITM` : `+${template.option_offset} OTM`}
+                          </span>
                         </div>
                       </div>
 
