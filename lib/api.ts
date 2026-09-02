@@ -1981,7 +1981,10 @@ export type TradingViewAlertTemplate = {
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: number;
   quantity: number;
+  option_moneyness?: "ATM" | "OTM" | "ITM";
   option_offset: number;
+  use_delta_selection?: boolean;
+  target_delta?: number;
   access_token: string;
   pine_strategy_id: string;
   notes: string;
@@ -2003,7 +2006,10 @@ export type TradingViewAlertTemplateCreateRequest = {
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   lots: number;
   quantity?: number | null;
+  option_moneyness?: "ATM" | "OTM" | "ITM" | null;
   option_offset: number;
+  use_delta_selection?: boolean;
+  target_delta?: number;
   pine_strategy_id?: string | null;
   notes?: string;
 };

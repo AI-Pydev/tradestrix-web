@@ -1448,15 +1448,21 @@ export function DashboardShell() {
                     />
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Strike Offset</label>
+                    <label className="form-label" title="-1 = 1 Strike ITM (Best for Momentum), 0 = ATM, +1 = 1 Strike OTM">
+                      Strike Offset
+                    </label>
                     <input
                       className="form-control"
                       type="number"
                       value={botForm.strike_offset}
+                      placeholder="-1 for ITM, 0 for ATM"
                       onChange={(e) =>
                         setBotForm((prev) => ({ ...prev, strike_offset: Number(e.target.value) || 0 }))
                       }
                     />
+                    <div className="text-muted small" style={{ fontSize: "0.72rem" }}>
+                      -1 = ITM, 0 = ATM, +1 = OTM
+                    </div>
                   </div>
                   <div className="col-12 col-md-6 col-xl-2">
                     <label className="form-label">Max Entry LTP</label>

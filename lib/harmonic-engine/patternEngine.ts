@@ -1,10 +1,10 @@
-import {
-  ClassicalPatternMatch,
-  EngineCandle,
-  HarmonicPatternMatch,
-  PivotPoint
-} from './types';
 import { evaluateHarmonicPattern } from './harmonicRules';
+import {
+    ClassicalPatternMatch,
+    EngineCandle,
+    HarmonicPatternMatch,
+    PivotPoint
+} from './types';
 
 /**
  * Extracts high/low swing pivot points using a rolling window
@@ -388,3 +388,4 @@ export function detectClassicalPatterns(candles: EngineCandle[], pivots?: PivotP
 
   return patterns;
 }
+
