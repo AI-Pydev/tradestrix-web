@@ -125,7 +125,7 @@ export function evaluateHarmonicPattern(
   points: { X: HarmonicPoint; A: HarmonicPoint; B: HarmonicPoint; C: HarmonicPoint; D: HarmonicPoint; O?: HarmonicPoint },
   currentPrice: number
 ): HarmonicPatternMatch | null {
-  const { X, A, B, C, D, O } = points;
+  const { X, A, B, C, D } = points;
   const isBullish = A.price > X.price && D.price < C.price;
   const orientation: PatternOrientation = isBullish ? 'Bullish' : 'Bearish';
   const action = isBullish ? 'BUY' : 'SELL';
@@ -137,15 +137,12 @@ export function evaluateHarmonicPattern(
   const bcDiff = Math.abs(C.price - B.price);
   const cdDiff = Math.abs(D.price - C.price);
   const xcDiff = Math.abs(C.price - X.price);
-  const oxDiff = O ? Math.abs(X.price - O.price) : xaDiff;
 
   const ab_xa = abDiff / xaDiff;
   const bc_ab = bcDiff / (abDiff || 1);
   const cd_ab = cdDiff / (abDiff || 1);
   const cd_xa = cdDiff / xaDiff;
   const cd_xc = cdDiff / (xcDiff || 1);
-  const bc_0x = bcDiff / (oxDiff || 1);
-  const cd_bc = cdDiff / (bcDiff || 1);
 
   // Score against each harmonic pattern
   let bestMatch: { type: HarmonicPatternType; score: number; ratios: Record<string, RatioMeasurement> } | null = null;
