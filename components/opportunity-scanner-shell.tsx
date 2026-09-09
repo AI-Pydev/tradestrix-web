@@ -10,8 +10,8 @@ import {
     fetchScannerPaperLabDashboard,
     InstrumentCatalogResponse,
     OpportunityScannerResponse,
-    runScannerPaperAutoEntryNow,
     runOpportunityScanner,
+    runScannerPaperAutoEntryNow,
     ScannerPaperAutoEntryStatus,
     ScannerPaperLabDashboard,
     updateScannerPaperAutoEntrySettings,
@@ -816,7 +816,7 @@ export function OpportunityScannerShell() {
                         />
                       </div>
                       <div className="col-12 d-flex gap-2">
-                        <button className="btn btn-warning" disabled={scanRunning} onClick={handleRunScan}>
+                        <button className="btn-bb-primary" disabled={scanRunning} onClick={handleRunScan}>
                           {scanRunning ? "Scanning..." : "Run Opportunity Scan"}
                         </button>
                         <div className="muted align-self-center">
@@ -955,7 +955,7 @@ export function OpportunityScannerShell() {
                     </div>
 
                     <div className="d-flex gap-2 align-items-center">
-                      <a className="btn btn-sm btn-outline-light" href="#scanner-results">
+                      <a className="btn-bb-secondary" href="#scanner-results">
                         Jump to Table
                       </a>
                       {(recommendedRow.status === "ACTIONABLE" || recommendedRow.status === "WATCHLIST") &&
@@ -963,12 +963,12 @@ export function OpportunityScannerShell() {
                       recommendedRow.option_ltp != null &&
                       recommendedRow.lot_size != null ? (
                         <button
-                          className="btn btn-sm btn-warning"
+                          className="btn-bb-primary"
                           disabled={trackActionKey === recommendedRow.instrument_key}
                           onClick={() => handleTrackRow(recommendedRow)}
                           type="button"
                         >
-                          {trackActionKey === recommendedRow.instrument_key ? "Tracking..." : "Track 1 Lot"}
+                          {trackActionKey === recommendedRow.instrument_key ? "Tracking..." : "Execute Paper Trade"}
                         </button>
                       ) : null}
                     </div>
@@ -1083,7 +1083,7 @@ export function OpportunityScannerShell() {
                           row.option_ltp != null &&
                           row.lot_size != null ? (
                             <button
-                              className="btn btn-sm btn-outline-light"
+                              className="btn-bb-micro"
                               disabled={trackActionKey === row.instrument_key}
                               onClick={() => handleTrackRow(row)}
                             >
@@ -1225,7 +1225,7 @@ export function OpportunityScannerShell() {
               <div className="col-lg-4">
                 <div className="d-flex flex-wrap gap-2">
                   <button
-                    className="btn btn-outline-light"
+                    className="btn-bb-secondary"
                     disabled={autoEntrySaving}
                     onClick={handleSaveAutoEntrySettings}
                     type="button"
@@ -1233,7 +1233,7 @@ export function OpportunityScannerShell() {
                     {autoEntrySaving ? "Saving..." : "Save Auto Run"}
                   </button>
                   <button
-                    className="btn btn-warning"
+                    className="btn-bb-accent"
                     disabled={autoEntryRunning}
                     onClick={handleRunAutoEntryNow}
                     type="button"
@@ -1358,7 +1358,7 @@ export function OpportunityScannerShell() {
                               <td>
                                 {trade.status === "OPEN" ? (
                                   <button
-                                    className="btn btn-sm btn-warning"
+                                    className="btn-bb-micro"
                                     disabled={closeActionKey === trade.trade_id}
                                     onClick={() => handleCloseTrade(trade.trade_id)}
                                   >

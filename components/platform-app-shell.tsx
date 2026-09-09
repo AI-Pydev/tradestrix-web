@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { BBTickerBar } from "@/components/ui/bb-ticker-bar";
 import { BrokerHealth, fetchBrokerHealthByBroker } from "@/lib/api";
 
 type PlatformAppShellProps = {
@@ -544,6 +545,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
         <div className="platform-sidebar-head">
           <Link className="platform-brand" href="/">
             <span className="platform-brand-mark">TK</span>
+            <span className="platform-brand-mark">TS</span>
             <span className="platform-brand-copy">
               <span className="platform-brand-title">TradeStrix</span>
               <span className="platform-brand-subtitle">Performance-first desk</span>
@@ -726,6 +728,14 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             </button>
           </div>
         </header>
+        <BBTickerBar
+          items={[
+            { symbol: "NIFTY 50", ltp: 24090.85, changePercent: 0.42, direction: "up" },
+            { symbol: "BANKNIFTY", ltp: 51240.30, changePercent: -0.18, direction: "down" },
+            { symbol: "FINNIFTY", ltp: 23680.15, changePercent: 0.31, direction: "up" },
+            { symbol: "SENSEX", ltp: 79120.40, changePercent: 0.38, direction: "up" },
+          ]}
+        />
         <div className="platform-content">{children}</div>
       </div>
     </div>

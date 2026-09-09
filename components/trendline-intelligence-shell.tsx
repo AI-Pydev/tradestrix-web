@@ -3,10 +3,10 @@
 import { TrendlineCustomStudio } from "@/components/trendline-custom-studio";
 import { TrendlineVisualChart } from "@/components/trendline-visual-chart";
 import {
-  fetchTrendLineChartData,
-  runTrendLineScanner,
-  TrendLineChartResponse,
-  TrendLineScanItem,
+    fetchTrendLineChartData,
+    runTrendLineScanner,
+    TrendLineChartResponse,
+    TrendLineScanItem,
 } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 

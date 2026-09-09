@@ -1,23 +1,22 @@
-import type { Metadata } from "next";
-import type { Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "bootstrap/dist/css/bootstrap.min.css";
+import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 import { AuthProvider } from "@/components/auth-provider";
 import { DevServiceWorkerReset } from "@/components/dev-service-worker-reset";
 import { PlatformAppShell } from "@/components/platform-app-shell";
 
-const inter = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -43,9 +42,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#081321",
+  themeColor: "#020617",
 };
-
 
 export default function RootLayout({
   children,
@@ -54,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} selection:bg-emerald-500 selection:text-slate-950`}>
         <DevServiceWorkerReset />
         <AuthProvider>
           <PlatformAppShell>{children}</PlatformAppShell>

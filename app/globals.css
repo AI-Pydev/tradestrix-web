@@ -1,13 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --bg: #081321;
-  --panel: #11243e;
-  --panel-alt: #172c4a;
-  --line: #26486f;
-  --text: #e7f0ff;
-  --muted: #9eb4d1;
-  --accent: #f1b24d;
-  --positive: #34d399;
-  --negative: #fb7185;
+  --bg: #020617;
+  --panel: #0f172a;
+  --panel-alt: rgba(15, 23, 42, 0.85);
+  --panel-elevated: rgba(30, 41, 59, 0.45);
+  --line: #1e293b;
+  --line-contrast: #334155;
+  --text: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+  --accent: #14b8a6;
+  --positive: #10b981;
+  --positive-light: #34d399;
+  --positive-bg: rgba(16, 185, 129, 0.1);
+  --negative: #f43f5e;
+  --negative-light: #fb7185;
+  --negative-bg: rgba(244, 63, 94, 0.1);
+  --warning: #f59e0b;
+  --warning-light: #fcd34d;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --cyan: #14b8a6;
+  --cyan-light: #2dd4bf;
+  --cyan-bg: rgba(20, 184, 166, 0.1);
 }
 
 * {
@@ -19,20 +37,259 @@ body {
   margin: 0;
   min-height: 100%;
   scroll-behavior: smooth;
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
-    linear-gradient(180deg, #07111d 0%, var(--bg) 100%);
+  background-color: #020617;
+  background-image: radial-gradient(#1e293b 1px, transparent 1px);
+  background-size: 20px 20px;
   color: var(--text);
 }
 
 body {
-  font-family: var(--font-sans), "Inter", "Roboto", system-ui, sans-serif;
+  font-family: var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: #10b981;
+  color: #020617;
+}
+
+/* BharatBreakout 5px Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.9);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.9);
+}
+
+/* ==========================================================================
+   BharatBreakout Component & Utility Classes
+   ========================================================================== */
+
+/* A. Primary Action */
+.btn-bb-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-radius: 2px;
+  background-color: #10b981;
+  color: #020617;
+  font-weight: 900;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+  border: 1px solid transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-bb-primary:hover:not(:disabled) {
+  background-color: #34d399;
+  color: #020617;
+}
+
+.btn-bb-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* B. Secondary Action / Outline */
+.btn-bb-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 0.75rem;
+  border-radius: 2px;
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-bb-secondary:hover:not(:disabled) {
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #ffffff;
+}
+
+.btn-bb-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* C. Accent Highlight Button */
+.btn-bb-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 0.75rem;
+  border-radius: 2px;
+  background-color: #0f172a;
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-bb-accent:hover:not(:disabled) {
+  background-color: #1e293b;
+  border-color: rgba(245, 158, 11, 0.7);
+  color: #fef08a;
+}
+
+.btn-bb-accent:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* D. Micro Action / Table Button */
+.btn-bb-micro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background-color: #1e293b;
+  color: #cbd5e1;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.btn-bb-micro:hover:not(:disabled) {
+  background-color: #059669;
+  color: #020617;
+  border-color: #059669;
+}
+
+.btn-bb-micro:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* E. Navigation Bar Tabs */
+.nav-bb-tab-active {
+  height: 4rem;
+  border-bottom: 2px solid #10b981;
+  color: #ffffff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.nav-bb-tab-inactive {
+  height: 4rem;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1rem;
+  transition: color 0.15s ease-in-out;
+}
+
+.nav-bb-tab-inactive:hover {
+  color: #ffffff;
+}
+
+/* Micro Status Chips */
+.chip-bb-micro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 10px;
+  line-height: 1.25;
+  padding: 0.125rem 0.375rem;
+  border-radius: 2px;
+  text-transform: uppercase;
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+}
+
+.chip-bb-bullish {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.chip-bb-bearish {
+  background-color: rgba(244, 63, 94, 0.1);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.chip-bb-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.chip-bb-grade-a {
+  background-color: rgba(20, 184, 166, 0.1);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+}
+
+/* Card & Panel Surfaces */
+.panel-bb {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+  padding: 1rem;
+}
+
+.panel-bb-elevated {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+}
+
+.panel-bb-hud {
+  background-color: rgba(2, 6, 23, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+}
+
+.ticker-bb-bar {
+  height: 2.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  gap: 1.5rem;
+  background-color: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
 
 button,

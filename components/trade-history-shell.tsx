@@ -498,10 +498,9 @@ export function TradeHistoryShell() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={`${row.job_id}-${row.trade_id}`}>
+                {visibleRows.map((row, index) => (
+                  <tr key={`${row.job_id}-${row.trade_id ?? "trade"}-${row.opened_at}-${index}`}>
                     <td>
-                      <div>{row.date}</div>
                       <div className="muted small">{formatDateTime(row.closed_at || row.opened_at)}</div>
                     </td>
                     <td>{row.execution_mode}</td>

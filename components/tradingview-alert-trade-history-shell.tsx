@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  fetchTradingViewTradeHistoryAnalytics,
-  type TradingViewPnlMode,
-  type TradingViewTradeHistoryAnalytics,
-  type TradingViewTradeHistoryTrade,
-  type UpstoxTradeHistoryBucket,
-  type UpstoxTradeHistoryPoint,
+    fetchTradingViewTradeHistoryAnalytics,
+    type TradingViewPnlMode,
+    type TradingViewTradeHistoryAnalytics,
+    type TradingViewTradeHistoryTrade,
+    type UpstoxTradeHistoryBucket,
+    type UpstoxTradeHistoryPoint,
 } from "@/lib/api";
 
 type ExecutionMode = "all" | TradingViewPnlMode;
@@ -302,8 +302,8 @@ export function TradingViewAlertTradeHistoryShell() {
           <span>Index</span>
           <select onChange={(event) => setInstrumentKey(event.target.value)} value={instrumentKey}>
             <option value="all">All Selected</option>
-            {(data?.options.instruments ?? []).map((option) => (
-              <option key={option.value} value={option.value}>
+            {(data?.options.instruments ?? []).map((option, index) => (
+              <option key={`${option.value}-${index}`} value={option.value}>
                 {option.label}
               </option>
             ))}
@@ -313,8 +313,8 @@ export function TradingViewAlertTradeHistoryShell() {
           <span>Template</span>
           <select onChange={(event) => setTemplateId(event.target.value)} value={templateId}>
             <option value="all">All Selected</option>
-            {(data?.options.templates ?? []).map((option) => (
-              <option key={option.value} value={option.value}>
+            {(data?.options.templates ?? []).map((option, index) => (
+              <option key={`${option.value}-${index}`} value={option.value}>
                 {option.label}
               </option>
             ))}
@@ -428,8 +428,8 @@ export function TradingViewAlertTradeHistoryShell() {
                 </tr>
               </thead>
               <tbody>
-                {(data?.monthly ?? []).map((month) => (
-                  <tr key={month.month}>
+                {(data?.monthly ?? []).map((month, index) => (
+                  <tr key={`${month.month || "month"}-${index}`}>
                     <td>{month.month ? monthLabel(month.month) : "-"}</td>
                     <td>{month.trade_count}</td>
                     <td>{month.wins}</td>
@@ -475,8 +475,8 @@ export function TradingViewAlertTradeHistoryShell() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={`${row.template_id}-${row.trade_id ?? row.closed_at}`}>
+                {visibleRows.map((row, index) => (
+                  <tr key={`${row.template_id}-${row.execution_mode}-${row.trade_id ?? "trade"}-${row.opened_at}-${row.closed_at ?? ""}-${index}`}>
                     <td>
                       <div>{row.date}</div>
                       <div className="muted small">{formatDateTime(row.closed_at || row.opened_at)}</div>
