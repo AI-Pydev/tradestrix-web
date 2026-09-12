@@ -20,7 +20,7 @@
   },
   "overrides": {
     "browserslist": "^4.28.7",
-    "postcss": "^8.5.10",
+    "postcss": "$postcss",
     "serialize-javascript": "^7.0.5"
   },
   "devDependencies": {
