@@ -3286,6 +3286,7 @@ export async function getStrategyAnalysis(analysisId: number) {
 }
 
 export * from "@/modules/trendlines";
+export * from "@/modules/prediction";
 
 // ---------------------------------------------------------------------------
 // Equity, ETF & Index BeES Bot Desk Types and Functions
