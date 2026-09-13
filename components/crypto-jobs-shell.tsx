@@ -15,7 +15,7 @@ import {
   startCryptoJob,
   stopAllCryptoJobs,
   stopCryptoJob,
-} from "@/lib/api";
+} from "@/modules/crypto";
 
 const CRYPTO_STRATEGIES = [
   ["CRYPTO_BTC_PULLBACK_V1", "BTC Trend Pullback (Research, BTC 1h only)"],

@@ -12,7 +12,7 @@ import {
     setStoredAuthToken,
     type AuthUser,
     type GoogleLoginResponse,
-} from "@/lib/auth";
+} from "@/modules/auth";
 
 type AuthContextValue = {
   user: AuthUser | null;

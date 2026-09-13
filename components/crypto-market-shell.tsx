@@ -23,7 +23,7 @@ import {
     placeDeltaDemoOrder,
     previewDeltaOptionChain,
     previewDeltaStrategy,
-} from "@/lib/api";
+} from "@/modules/crypto";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
 
 function fmtNumber(value?: number | null, maximumFractionDigits = 2) {

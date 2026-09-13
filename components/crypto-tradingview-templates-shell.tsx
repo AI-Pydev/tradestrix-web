@@ -10,13 +10,15 @@ import {
   DeltaCryptoUnderlying,
   DeltaTradingViewTemplateResponse,
   fetchDeltaCryptoDashboard,
-  fetchTradingViewAlertTemplateEvents,
   listDeltaTradingViewTemplates,
-  listTradingViewAlertTemplates,
   SharedStrategyId,
+} from "@/modules/crypto";
+import {
+  fetchTradingViewAlertTemplateEvents,
+  listTradingViewAlertTemplates,
   TradingViewAlertTemplateStats,
   TradingViewWebhookEvent,
-} from "@/lib/api";
+} from "@/modules/strategies";
 
 function isDemoBaseUrl(url?: string | null) {
   const value = (url || "").toLowerCase();

@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-
-import { CryptoOptimizationResponse, optimizeCryptoStrategy } from "@/lib/api";
+import { CryptoOptimizationResponse, optimizeCryptoStrategy } from "@/modules/crypto";
 
 const CRYPTO_STRATEGIES = [
   ["CRYPTO_BTC_PULLBACK_V1", "BTC Trend Pullback (BTC 1h + confirmed 4h)"],
