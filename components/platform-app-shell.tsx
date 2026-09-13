@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { BBTickerBar } from "@/components/ui/bb-ticker-bar";
-import { BrokerHealth, fetchBrokerHealthByBroker } from "@/lib/api";
+import { BrokerHealth, fetchBrokerHealthByBroker } from "@/modules/brokers";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
