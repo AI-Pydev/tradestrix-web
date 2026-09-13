@@ -28,3 +28,4 @@ export type AuthSessionResponse = {
 export type AdminUserStatusUpdateRequest = {
   status: UserStatus;
 };
+

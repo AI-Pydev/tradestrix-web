@@ -1,8 +1,8 @@
 import type {
-  AuthSessionResponse,
-  AuthUser,
-  GoogleLoginResponse,
-  UserStatus,
+    AuthSessionResponse,
+    AuthUser,
+    GoogleLoginResponse,
+    UserStatus,
 } from "./types";
 
 const BACKEND_BASE_URL =
@@ -151,3 +151,4 @@ export async function updateAdminUserStatus(
   await throwIfApiError(response);
   return (await response.json()) as AuthUser;
 }
+
