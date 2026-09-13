@@ -3,7 +3,7 @@
 import {
     TrendLineChartFormation,
     TrendLineChartLine,
-} from "@/lib/api";
+} from "@/modules/trendlines";
 import { useMemo, useRef, useState } from "react";
 
 interface CandleItem {

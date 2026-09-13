@@ -5,7 +5,7 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
-import type { GoogleLoginResponse } from "@/lib/auth";
+import type { GoogleLoginResponse } from "@/modules/auth";
 
 declare global {
   interface Window {

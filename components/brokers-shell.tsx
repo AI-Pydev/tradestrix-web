@@ -13,7 +13,7 @@ import {
     fetchBrokerConnections,
     fetchBrokerHealthByBroker,
     startBrokerAuth,
-} from "@/lib/api";
+} from "@/modules/brokers";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite", "shoonya"];

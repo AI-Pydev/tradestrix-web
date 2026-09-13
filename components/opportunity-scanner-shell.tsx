@@ -4,17 +4,19 @@ import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
-    closeScannerPaperTrade,
-    createScannerPaperTrade,
-    fetchInstrumentCatalog,
-    fetchScannerPaperLabDashboard,
-    InstrumentCatalogResponse,
-    OpportunityScannerResponse,
-    runOpportunityScanner,
-    runScannerPaperAutoEntryNow,
-    ScannerPaperAutoEntryStatus,
-    ScannerPaperLabDashboard,
-    updateScannerPaperAutoEntrySettings,
+  closeScannerPaperTrade,
+  createScannerPaperTrade,
+  fetchScannerPaperLabDashboard,
+  OpportunityScannerResponse,
+  runOpportunityScanner,
+  runScannerPaperAutoEntryNow,
+  ScannerPaperAutoEntryStatus,
+  ScannerPaperLabDashboard,
+  updateScannerPaperAutoEntrySettings,
+} from "@/modules/scanners";
+import {
+  fetchInstrumentCatalog,
+  InstrumentCatalogResponse,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
 

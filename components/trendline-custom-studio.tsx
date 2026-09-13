@@ -8,7 +8,7 @@ import {
     TrendLineCatalogItem,
     TrendLineChartResponse,
     TrendLineSandboxResult,
-} from "@/lib/api";
+} from "@/modules/trendlines";
 import { useEffect, useState } from "react";
 
 export interface TrendlineCustomStudioProps {

@@ -8,7 +8,7 @@ import {
   type UpstoxTradeHistoryBucket,
   type UpstoxTradeHistoryPoint,
   type UpstoxTradeHistoryTrade,
-} from "@/lib/api";
+} from "@/modules/execution";
 
 type ExecutionMode = "all" | "paper" | "live";
 type ScopeMode = "strategies" | "portfolios";

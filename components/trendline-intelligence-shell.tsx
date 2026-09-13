@@ -7,7 +7,7 @@ import {
     runTrendLineScanner,
     TrendLineChartResponse,
     TrendLineScanItem,
-} from "@/lib/api";
+} from "@/modules/trendlines";
 import { useEffect, useMemo, useState } from "react";
 
 type ViewMode = "universe" | "custom_studio" | "mtf_confluence" | "headroom_governor" | "guide";

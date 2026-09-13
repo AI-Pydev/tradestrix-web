@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
-import { fetchAdminUsers, updateAdminUserStatus, type AuthUser, type UserStatus } from "@/lib/auth";
+import { fetchAdminUsers, updateAdminUserStatus, type AuthUser, type UserStatus } from "@/modules/auth";
 
 function statusBadge(status: UserStatus) {
   if (status === "APPROVED") {

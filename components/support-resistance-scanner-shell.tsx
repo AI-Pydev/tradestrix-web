@@ -4,21 +4,23 @@ import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
-    closeSupportResistanceTrade,
-    createSupportResistanceTrade,
-    fetchInstrumentCatalog,
-    fetchSupportResistanceTradeLabDashboard,
-    InstrumentCatalogResponse,
-    runSupportResistanceAutoEntryNow,
-    runSupportResistanceScanner,
-    SupportResistanceAutoEntrySettings,
-    SupportResistanceAutoEntryStatus,
-    SupportResistanceScannerResponse,
-    SupportResistanceScannerRow,
-    SupportResistanceTradeActionRequest,
-    SupportResistanceTradeLabDashboard,
-    SupportResistanceTradeRecord,
-    updateSupportResistanceAutoEntrySettings,
+  closeSupportResistanceTrade,
+  createSupportResistanceTrade,
+  fetchSupportResistanceTradeLabDashboard,
+  runSupportResistanceAutoEntryNow,
+  runSupportResistanceScanner,
+  SupportResistanceAutoEntrySettings,
+  SupportResistanceAutoEntryStatus,
+  SupportResistanceScannerResponse,
+  SupportResistanceScannerRow,
+  SupportResistanceTradeActionRequest,
+  SupportResistanceTradeLabDashboard,
+  SupportResistanceTradeRecord,
+  updateSupportResistanceAutoEntrySettings,
+} from "@/modules/scanners";
+import {
+  fetchInstrumentCatalog,
+  InstrumentCatalogResponse,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
 
