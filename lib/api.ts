@@ -2688,6 +2688,7 @@ export async function getStrategyAnalysis(analysisId: number) {
   );
 }
 
+export * from "@/modules/auth";
 export * from "@/modules/crypto";
 export * from "@/modules/mcx";
 export * from "@/modules/portfolio";
