@@ -130,3 +130,4 @@ export interface ConstituentsResponse {
   metrics: ConstituentMetrics;
   rationale: string;
 }
+
