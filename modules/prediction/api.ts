@@ -4,11 +4,11 @@
 
 import { getBackendJson } from "@/platform/http/client";
 import type {
-  ConstituentsResponse,
-  LiquidityResponse,
-  OptionsSurfaceResponse,
-  OrderFlowResponse,
-  RealtimePredictionResponse,
+    ConstituentsResponse,
+    LiquidityResponse,
+    OptionsSurfaceResponse,
+    OrderFlowResponse,
+    RealtimePredictionResponse,
 } from "./types";
 
 /**
@@ -70,3 +70,4 @@ export async function fetchConstituentsPrediction(
     `/api/v1/prediction/constituents/${encodeURIComponent(indexSymbol)}`,
   );
 }
+

@@ -729,6 +729,20 @@ export type EquityTradeHistoryTrade = {
   date: string;
 };
 
+export type EquityTradeHistoryBucket = {
+  date?: string;
+  month?: string;
+  pnl: number;
+  trade_count: number;
+  wins: number;
+  losses: number;
+};
+
+export type EquityTradeHistoryPoint = {
+  date: string;
+  pnl: number;
+};
+
 export type EquityTradeHistoryAnalytics = {
   summary: {
     total_pnl: number;
@@ -742,9 +756,9 @@ export type EquityTradeHistoryAnalytics = {
     profit_factor: number;
     average_trade_pnl: number;
   };
-  daily_buckets: UpstoxTradeHistoryBucket[];
-  monthly_buckets: UpstoxTradeHistoryBucket[];
-  equity_points: UpstoxTradeHistoryPoint[];
+  daily_buckets: EquityTradeHistoryBucket[];
+  monthly_buckets: EquityTradeHistoryBucket[];
+  equity_points: EquityTradeHistoryPoint[];
   trades: EquityTradeHistoryTrade[];
 };
 
@@ -773,4 +787,3 @@ export type EquityAutoLaunchStatus = {
   last_scan_at?: string | null;
   last_error?: string | null;
 };
-
