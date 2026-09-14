@@ -16,17 +16,17 @@ export interface BBButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElem
 
 const variantStyles: Record<BBButtonVariant, string> = {
   primary:
-    "py-3 px-4 rounded-sm bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-tight transition-colors cursor-pointer inline-flex items-center justify-center border border-transparent",
+    "py-2.5 px-4 rounded-lg bg-[#55D6A0] hover:bg-[#34D399] disabled:opacity-50 text-[#070B14] font-bold text-xs uppercase tracking-tight transition-all cursor-pointer inline-flex items-center justify-center border border-transparent shadow-sm",
   secondary:
-    "py-2.5 px-3 rounded-sm bg-slate-900 hover:bg-slate-800 hover:border-slate-600 hover:text-white disabled:opacity-50 text-slate-200 border border-slate-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center justify-center",
+    "py-2 px-3.5 rounded-lg bg-[#0F1828] hover:bg-[#132033] hover:border-blue-400/40 hover:text-[#F1F5F9] disabled:opacity-50 text-[#CBD5E1] border border-slate-400/20 text-xs font-semibold transition-all cursor-pointer inline-flex items-center justify-center",
   accent:
-    "py-2.5 px-3 rounded-sm bg-slate-900 hover:bg-slate-800 hover:border-amber-500/70 hover:text-amber-200 disabled:opacity-50 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer inline-flex items-center justify-center",
+    "py-2 px-3.5 rounded-lg bg-[#0F1828] hover:bg-[#132033] hover:border-amber-400/60 hover:text-amber-200 disabled:opacity-50 text-[#E8BC55] border border-amber-400/30 text-xs font-semibold transition-all cursor-pointer inline-flex items-center justify-center",
   micro:
-    "px-2 py-1 bg-slate-800 hover:bg-emerald-600 hover:text-slate-950 disabled:opacity-50 text-slate-300 rounded text-[10px] font-bold uppercase transition-colors inline-flex items-center gap-1 cursor-pointer border border-slate-700/50",
+    "px-2 py-1 bg-[#0F1828] hover:bg-[#132033] hover:text-[#55D6A0] disabled:opacity-50 text-[#A7B1C3] rounded-md text-[10px] font-mono font-medium transition-all inline-flex items-center gap-1 cursor-pointer border border-slate-400/15",
   "tab-active":
-    "h-16 border-b-2 border-emerald-500 text-white font-bold inline-flex items-center px-4 bg-transparent cursor-pointer",
+    "h-14 border-b-2 border-blue-500 text-white font-bold inline-flex items-center px-4 bg-transparent cursor-pointer",
   "tab-inactive":
-    "h-16 border-b-2 border-transparent text-slate-400 hover:text-white font-semibold inline-flex items-center px-4 bg-transparent transition-colors cursor-pointer",
+    "h-14 border-b-2 border-transparent text-[#818EA3] hover:text-[#E4E9F2] font-semibold inline-flex items-center px-4 bg-transparent transition-colors cursor-pointer",
 };
 
 export function BBButton({

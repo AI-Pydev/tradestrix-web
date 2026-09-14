@@ -9,10 +9,10 @@ export interface BBCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles: Record<BBCardVariant, string> = {
-  standard: "bg-slate-900 border border-slate-800 rounded-sm p-4",
-  compact: "bg-slate-900 border border-slate-800 rounded-sm p-3",
-  elevated: "bg-slate-900/60 border border-slate-800 rounded-sm p-4",
-  hud: "bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-sm p-3",
+  standard: "bg-[#0B1322] border border-slate-400/15 rounded-xl p-4 transition-all duration-150 hover:border-blue-400/30",
+  compact: "bg-[#0B1322] border border-slate-400/15 rounded-xl p-3 transition-all duration-150 hover:border-blue-400/30",
+  elevated: "bg-[#0F1828] border border-blue-400/20 rounded-xl p-4 shadow-lg shadow-black/20",
+  hud: "bg-[#070C18]/90 backdrop-blur-md border border-slate-400/15 rounded-xl p-3 shadow-xl",
 };
 
 export function BBCard({
