@@ -2,12 +2,35 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { BBTickerBar } from "@/components/ui/bb-ticker-bar";
 import { BrokerHealth, fetchBrokerHealthByBroker } from "@/modules/brokers";
+import {
+  BellRingIcon,
+  BotIcon,
+  BoxIcon,
+  BrainCircuitIcon,
+  ChartCandlestickIcon,
+  CoinsIcon,
+  FlaskConicalIcon,
+  HistoryIcon,
+  HouseIcon,
+  Layers3Icon,
+  NetworkIcon,
+  PlayCircleIcon,
+  PlugZapIcon,
+  PlusIcon,
+  RadarIcon,
+  RefreshCwIcon,
+  RocketIcon,
+  ScanSearchIcon,
+  ShieldCheckIcon,
+  TargetIcon
+} from "./dashboard/icons";
+import { TradeStrixBrandMark } from "./dashboard/tradestrix-brand-mark";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
@@ -17,17 +40,16 @@ type NavItem = {
   href: string;
   label: string;
   caption: string;
-  monogram: string;
+  icon: React.ComponentType<{ className?: string }>;
   external?: boolean;
 };
 
 type NavGroup = {
-  monogram: string;
   title: string;
   items: NavItem[];
 };
 
-const SIDEBAR_STORAGE_KEY = "tradekotak.sidebar.collapsed";
+const SIDEBAR_STORAGE_KEY = "tradestrix.sidebar.collapsed";
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite"];
 const BROKER_HEALTH_LABELS: Record<string, string> = {
@@ -57,327 +79,259 @@ function normalizeBrokerHealthId(value: string) {
   return normalized;
 }
 
+// 4 Functional Groups matching media_1789393095404.png
 const baseNavGroups: NavGroup[] = [
   {
-    monogram: "OV",
-    title: "Overview",
+    title: "OVERVIEW",
     items: [
       {
         href: "/",
         label: "Platform Home",
         caption: "Landing and module map",
-        monogram: "PH",
+        icon: HouseIcon,
       },
       {
         href: "/dashboard",
         label: "Execution Desk",
         caption: "Bot control center",
-        monogram: "ED",
+        icon: PlayCircleIcon,
       },
       {
         href: "/trade-history",
         label: "Trade History",
         caption: "Daily and monthly PnL",
-        monogram: "TH",
+        icon: HistoryIcon,
       },
       {
         href: "/equity-desk",
         label: "Stock & ETF Desk",
-        caption: "Stock, ETF & BeES bots",
-        monogram: "EQ",
+        caption: "Stock, ETF & BeeS bots",
+        icon: ChartCandlestickIcon,
       },
       {
         href: "/equity-trade-history",
         label: "Stock & ETF History",
         caption: "Stock & ETF PnL",
-        monogram: "EH",
+        icon: HistoryIcon,
       },
+    ],
+  },
+  {
+    title: "RESEARCH",
+    items: [
       {
-        href: "/multi-bot-launcher",
-        label: "Multi-Bot",
-        caption: "Batch launcher",
-        monogram: "MB",
-      },
-      {
-        href: "/brokers",
-        label: "Brokers",
-        caption: "Connections and auth",
-        monogram: "BR",
+        href: "/tradingview-alerts",
+        label: "TradingView Alerts",
+        caption: "Webhook templates",
+        icon: BellRingIcon,
       },
       {
         href: "/symbol-map",
         label: "Symbol Map",
         caption: "Broker symbol mappings",
-        monogram: "SM",
+        icon: NetworkIcon,
       },
-      {
-        href: "/tradingview-alerts",
-        label: "TV Alerts",
-        caption: "Webhook templates",
-        monogram: "TV",
-      },
-      {
-        href: "/tradingview-alerts/trade-history",
-        label: "TV History",
-        caption: "Webhook PnL",
-        monogram: "VH",
-      },
-    ],
-  },
-  {
-    monogram: "RS",
-    title: "Research",
-    items: [
       {
         href: "/support-resistance-scanner",
-        label: "3M S/R",
-        caption: "Intraday level scanner",
-        monogram: "SR",
+        label: "3M S/R Scanner",
+        caption: "Intraday S/R analysis",
+        icon: RadarIcon,
       },
       {
         href: "/opportunity-scanner",
-        label: "Scanner",
-        caption: "Stock and index setups",
-        monogram: "SC",
-      },
-      {
-        href: "/opportunity-scanner#scanner-paper-lab",
-        label: "Paper Lab",
-        caption: "Scanner trade tracking",
-        monogram: "PB",
-      },
-      {
-        href: "/execution-dashboard",
-        label: "Execution Accordion",
-        caption: "Multi-bot and monitor",
-        monogram: "EA",
-      },
-      {
-        href: "/multi-stock-monitor",
-        label: "Multi-Stock Monitor",
-        caption: "Signal and manual trade feed",
-        monogram: "MS",
-      },
-      {
-        href: "/upstox-backtest",
-        label: "Backtest",
-        caption: "Option-chain replay",
-        monogram: "BT",
-      },
-      {
-        href: "/strategy-qualification",
-        label: "Qualification",
-        caption: "Auto backtest cycle + buckets",
-        monogram: "SQ",
-      },
-      {
-        href: "/research-agent",
-        label: "AI Research Agent",
-        caption: "AI strategy diagnosis + fixes",
-        monogram: "AI",
-      },
-      {
-        href: "/trendline-intelligence",
-        label: "Trendlines",
-        caption: "Trendline & headroom gate",
-        monogram: "TL",
-      },
-      {
-        href: "/harmonic-patterns",
-        label: "Harmonics",
-        caption: "Pattern scanner & PRZ chart",
-        monogram: "HP",
-      },
-      {
-        href: "/custom-candle-lab",
-        label: "Candle Lab",
-        caption: "Custom timeframe preview",
-        monogram: "CL",
+        label: "Opportunity Scanner",
+        caption: "Stock and index opportunities",
+        icon: ScanSearchIcon,
       },
     ],
   },
-
   {
-    monogram: "MK",
-    title: "Markets",
+    title: "MARKETS",
     items: [
       {
-        href: "/index-auto-launch",
-        label: "Index Auto",
-        caption: "Indices-only market hours",
-        monogram: "IA",
-      },
-      {
-        href: "/stock-auto-launch",
-        label: "Stock Auto",
-        caption: "Qualified stock universe",
-        monogram: "SA",
+        href: "/custom-candle-lab",
+        label: "Custom Candle Lab",
+        caption: "Custom modes & replay",
+        icon: FlaskConicalIcon,
       },
       {
         href: "/mcx-market",
         label: "MCX Market",
-        caption: "Commodity desk",
-        monogram: "MX",
+        caption: "Commodity market tools",
+        icon: BoxIcon,
       },
       {
         href: "/crypto-market",
         label: "Crypto Market",
-        caption: "Delta workflows",
-        monogram: "CR",
-      },
-      {
-        href: "/crypto-jobs",
-        label: "Crypto Jobs",
-        caption: "Isolated continuous paper runtime",
-        monogram: "CJ",
-      },
-      {
-        href: "/crypto-research",
-        label: "Crypto Research",
-        caption: "Historical strategy optimizer",
-        monogram: "CB",
-      },
-      {
-        href: "/crypto-tradingview-templates",
-        label: "Crypto TV Templates",
-        caption: "Delta alert templates",
-        monogram: "CT",
+        caption: "Delta & demo trading tools",
+        icon: CoinsIcon,
       },
     ],
   },
   {
-    monogram: "BE",
-    title: "Backend",
+    title: "BACKEND",
     items: [
       {
-        href: `${BACKEND_BASE_URL}/api/v1/instruments/catalog`,
-        label: "Instrument API",
-        caption: "Catalog JSON",
-        monogram: "IN",
-        external: true,
+        href: "/multi-bot-launcher",
+        label: "Multi-Bot Launcher",
+        caption: "Batch launch bots",
+        icon: Layers3Icon,
       },
       {
-        href: `${BACKEND_BASE_URL}/docs`,
-        label: "API Docs",
-        caption: "FastAPI reference",
-        monogram: "AP",
-        external: true,
+        href: "/index-auto-launch",
+        label: "Index Auto Launch",
+        caption: "Auto-launch basket",
+        icon: RocketIcon,
+      },
+      {
+        href: "/upstox-backtest",
+        label: "Upstox Backtest",
+        caption: "Options backtest engine",
+        icon: PlayCircleIcon,
       },
     ],
   },
 ];
 
 const adminNavGroup: NavGroup = {
-  monogram: "AD",
-  title: "Admin",
+  title: "ADMIN",
   items: [
     {
       href: "/admin",
       label: "Approvals",
       caption: "Gmail access control",
-      monogram: "AU",
+      icon: ShieldCheckIcon,
     },
   ],
 };
 
 const adminNavGroups: NavGroup[] = [...baseNavGroups, adminNavGroup];
 
-const routeMeta: Record<string, { title: string; subtitle: string }> = {
+const routeMeta: Record<string, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }> }> = {
   "/": {
     title: "Platform Home",
-    subtitle: "Directory-driven landing surface for the trading platform",
+    subtitle: "Command center & operational intelligence",
+    icon: HouseIcon,
   },
   "/dashboard": {
     title: "Execution Desk",
-    subtitle: "Focused surface for bot launch, managed jobs, and trade operations",
+    subtitle: "Bot control center and trade operations",
+    icon: PlayCircleIcon,
   },
   "/trade-history": {
     title: "Trade History",
-    subtitle: "Daily, monthly, paper, and live PnL review",
+    subtitle: "Daily and monthly PnL review",
+    icon: HistoryIcon,
   },
   "/equity-desk": {
     title: "Stock & ETF Desk",
-    subtitle: "Autonomous execution desk for Cash Equities, Sector ETFs, and Index BeES",
+    subtitle: "Stock, ETF & BeeS bots",
+    icon: ChartCandlestickIcon,
   },
   "/equity-trade-history": {
-    title: "Stock & ETF Trade History",
-    subtitle: "Ledger, cumulative equity curve, and daily PnL breakdown for equity bots",
+    title: "Stock & ETF History",
+    subtitle: "Stock & ETF PnL breakdown",
+    icon: HistoryIcon,
   },
   "/execution-dashboard": {
     title: "Execution Accordion",
-    subtitle: "Unified accordion surface for multi-bot launcher and monitor workflows",
+    subtitle: "Multi-bot launcher and monitor workflows",
+    icon: Layers3Icon,
   },
   "/multi-stock-monitor": {
     title: "Multi-Stock Monitor",
-    subtitle: "Dedicated surface for multi-stock trades, P/L, and signal-driven positions",
+    subtitle: "Multi-stock trades, open positions, and realized P/L",
+    icon: ChartCandlestickIcon,
   },
   "/brokers": {
     title: "Brokers",
-    subtitle: "Dedicated surface for broker auth, routing readiness, and connection state",
+    subtitle: "Manage broker connections and authentication flows",
+    icon: PlugZapIcon,
   },
   "/tradingview-alerts": {
     title: "TradingView Alerts",
-    subtitle: "Generate TradingView webhook templates, rotate tokens, and validate signals",
+    subtitle: "Webhook templates and token management",
+    icon: BellRingIcon,
   },
   "/tradingview-alerts/trade-history": {
     title: "TradingView Trade History",
-    subtitle: "Webhook-specific daily, mode-wise, and all-time PnL review",
+    subtitle: "Webhook-specific daily and cumulative PnL",
+    icon: HistoryIcon,
   },
   "/multi-bot-launcher": {
     title: "Multi-Bot Launcher",
-    subtitle: "Batch orchestration surface for option-chain bot deployment",
+    subtitle: "Batch launch CALL and PUT bots from one surface",
+    icon: Layers3Icon,
   },
   "/index-auto-launch": {
     title: "Index Auto Launch",
-    subtitle: "Dedicated automation surface for verified index CALL and PUT jobs",
+    subtitle: "Manage the verified-index auto-launch basket",
+    icon: RocketIcon,
   },
   "/stock-auto-launch": {
     title: "Stock Auto Launch",
-    subtitle: "Assignment-driven automation for the qualified stock universe",
+    subtitle: "Automated assignment for qualified stock universe",
+    icon: RocketIcon,
   },
   "/mcx-market": {
     title: "MCX Market",
-    subtitle: "Commodity launchpad for discovery, monitoring, and execution",
+    subtitle: "Open the commodity market workflow",
+    icon: BoxIcon,
   },
   "/crypto-market": {
     title: "Crypto Market",
-    subtitle: "Delta market analysis, strategy preview, and demo-order surface",
+    subtitle: "Use the delta and demo-order crypto tools",
+    icon: CoinsIcon,
   },
   "/crypto-jobs": {
     title: "Crypto Jobs",
-    subtitle: "Isolated continuous BTC and ETH paper strategy runtime",
+    subtitle: "Continuous paper runtime for crypto",
+    icon: BotIcon,
   },
   "/crypto-research": {
     title: "Crypto Strategy Research",
-    subtitle: "Delta historical candle backtests and out-of-sample optimization",
+    subtitle: "Delta historical candle backtests",
+    icon: ScanSearchIcon,
   },
   "/crypto-tradingview-templates": {
-    title: "Crypto TradingView Templates",
-    subtitle: "Dedicated template desk for Delta alert payloads and backend execution profiles",
+    title: "Crypto TV Templates",
+    subtitle: "Dedicated template desk for Delta alert payloads",
+    icon: BellRingIcon,
   },
   "/upstox-backtest": {
     title: "Upstox Backtest",
-    subtitle: "Historical option-chain replay and review workflow",
+    subtitle: "Options backtest engine and replay",
+    icon: PlayCircleIcon,
   },
   "/strategy-qualification": {
     title: "Strategy Qualification",
-    subtitle: "Rolling auto-backtest cycle, scoring, issues, and launch buckets",
+    subtitle: "Auto-backtest cycle, scoring, and buckets",
+    icon: TargetIcon,
   },
   "/custom-candle-lab": {
     title: "Custom Candle Lab",
-    subtitle: "Replay-driven testbed for internal candle generation across multiple timeframe styles",
+    subtitle: "Preview custom candle modes and replay behavior",
+    icon: FlaskConicalIcon,
   },
   "/support-resistance-scanner": {
-    title: "3M Support / Resistance",
-    subtitle: "Intraday scanner for proximity to strong 3-minute support and resistance zones",
+    title: "3M S/R Scanner",
+    subtitle: "Intraday support and resistance setups",
+    icon: RadarIcon,
   },
   "/opportunity-scanner": {
     title: "Opportunity Scanner",
-    subtitle: "Ranked market scanning and scanner paper-lab workflow",
+    subtitle: "Ranked stock and index opportunities",
+    icon: ScanSearchIcon,
+  },
+  "/research-agent": {
+    title: "AI Research Agent",
+    subtitle: "Quantitative diagnosis and strategy fixes",
+    icon: BrainCircuitIcon,
   },
   "/admin": {
     title: "Admin Approval Desk",
-    subtitle: "Review Gmail signups, approve users, and manage access states",
+    subtitle: "Review Gmail signups and manage access states",
+    icon: ShieldCheckIcon,
   },
 };
 
@@ -390,34 +344,13 @@ function anchorPart(href: string) {
   return anchor ? `#${anchor}` : "";
 }
 
-function isActive(href: string, pathname: string, currentHash: string) {
+function isItemActive(href: string, pathname: string, currentHash: string) {
   const base = basePath(href);
   const anchor = anchorPart(href);
   if (anchor) {
     return base === pathname && currentHash === anchor;
   }
   return base === pathname && !currentHash;
-}
-
-function isGroupActive(group: NavGroup, pathname: string, currentHash: string) {
-  return group.items.some((item) => isActive(item.href, pathname, currentHash));
-}
-
-function activeGroupTitle(groups: NavGroup[], pathname: string, currentHash: string) {
-  return groups.find((group) => isGroupActive(group, pathname, currentHash))?.title ?? groups[0]?.title ?? "";
-}
-
-function brokerHealthTone(health: BrokerHealth | undefined) {
-  if (health === undefined) {
-    return "gold";
-  }
-  if (health.status === "green" || health.valid) {
-    return "green";
-  }
-  if (health.status === "red") {
-    return "red";
-  }
-  return "gold";
 }
 
 export function PlatformAppShell({ children }: PlatformAppShellProps) {
@@ -430,11 +363,10 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const [brokerHealth, setBrokerHealth] = useState<Record<string, BrokerHealth>>({});
   const [brokerHealthRefreshing, setBrokerHealthRefreshing] = useState(false);
   const [brokerHealthRefreshingId, setBrokerHealthRefreshingId] = useState<string | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   const isPublicPath = pathname === "/login";
   const navGroups = user?.role === "ADMIN" ? adminNavGroups : baseNavGroups;
-  const [expandedGroup, setExpandedGroup] = useState(() =>
-    activeGroupTitle(navGroups, "/", ""),
-  );
 
   async function loadBrokerHealth(refresh = false) {
     setBrokerHealthRefreshing(true);
@@ -494,15 +426,10 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
     function syncHash() {
       setCurrentHash(window.location.hash || "");
     }
-
     syncHash();
     window.addEventListener("hashchange", syncHash);
     return () => window.removeEventListener("hashchange", syncHash);
   }, [pathname]);
-
-  useEffect(() => {
-    setExpandedGroup(activeGroupTitle(navGroups, pathname, currentHash));
-  }, [currentHash, navGroups, pathname]);
 
   useEffect(() => {
     void loadBrokerHealth(false);
@@ -516,8 +443,16 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
 
   const meta = routeMeta[pathname] ?? {
     title: "TradeStrix",
-    subtitle: "Operator surface",
+    subtitle: "Directory-driven trading workspace",
+    icon: HouseIcon,
   };
+  const RouteIcon = meta.icon;
+
+  const userEmail = user?.email ?? "operator@tradestrix.io";
+  const userDisplayName =
+    userEmail.split("@")[0].charAt(0).toUpperCase() + userEmail.split("@")[0].slice(1);
+  const userInitials =
+    userDisplayName.slice(0, 2).toUpperCase() || "TS";
 
   if (isPublicPath) {
     return <>{children}</>;
@@ -525,219 +460,309 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
 
   if (loading || user?.status !== "APPROVED") {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          background: "linear-gradient(180deg, #07131f 0%, #0c1f34 100%)",
-          color: "#e7eef8",
-        }}
-      >
-        <div className="muted">Checking operator access...</div>
+      <div className="min-h-screen grid place-items-center bg-slate-950 text-slate-200">
+        <div className="flex items-center gap-3">
+          <TradeStrixBrandMark size={32} />
+          <span className="text-sm text-slate-400 font-mono">Checking operator credentials...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`platform-layout ${collapsed ? "sidebar-collapsed" : ""}`}>
-      <aside className={`platform-sidebar ${mobileOpen ? "mobile-open" : ""}`}>
-        <div className="platform-sidebar-head">
-          <Link className="platform-brand" href="/">
-            <span className="platform-brand-mark">TK</span>
-            <span className="platform-brand-mark">TS</span>
-            <span className="platform-brand-copy">
-              <span className="platform-brand-title">TradeStrix</span>
-              <span className="platform-brand-subtitle">Performance-first desk</span>
-            </span>
+    <div className="min-h-screen flex bg-slate-950 text-slate-100 antialiased font-sans">
+      {/* 1. Modern Sidebar (5 Strong Functional Groups) */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col border-r border-slate-800/80 bg-slate-950 transition-all duration-300 ${
+          collapsed ? "w-20" : "w-72"
+        } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
+        {/* Brand Header */}
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/80 shrink-0">
+          <Link href="/" className="flex items-center gap-3 overflow-hidden group">
+            <TradeStrixBrandMark size={34} />
+            {!collapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-extrabold tracking-tight text-slate-100 group-hover:text-amber-300 transition-colors leading-none">
+                  TradeStrix
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
+                  Sovereign Capital & Trade Fearless
+                </span>
+              </div>
+            )}
           </Link>
+
           <button
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="platform-sidebar-toggle desktop-only"
-            onClick={() => setCollapsed((value) => !value)}
             type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex w-7 h-7 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 items-center justify-center text-xs transition-colors shrink-0"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? ">>" : "<<"}
-          </button>
-          <button
-            aria-label="Close sidebar"
-            className="platform-sidebar-toggle mobile-only"
-            onClick={() => setMobileOpen(false)}
-            type="button"
-          >
-            X
+            {collapsed ? "»" : "«"}
           </button>
         </div>
 
-        <nav className="platform-nav" aria-label="Primary">
+        {/* Navigation Sections */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin scrollbar-thumb-slate-800">
           {navGroups.map((group) => (
-            <div
-              className={`platform-nav-group ${expandedGroup === group.title ? "open" : ""} ${
-                isGroupActive(group, pathname, currentHash) ? "active" : ""
-              }`}
-              key={group.title}
-            >
-              <button
-                aria-controls={`sidebar-group-${group.title.replace(/\s+/g, "-").toLowerCase()}`}
-                aria-expanded={expandedGroup === group.title}
-                className="platform-nav-group-button"
-                onClick={() => setExpandedGroup((value) => (value === group.title ? "" : group.title))}
-                type="button"
-              >
-                <span className="platform-nav-group-button-left">
-                  <span className="platform-nav-group-icon">{group.monogram}</span>
-                  <span className="platform-nav-group-meta">
-                    <span className="platform-nav-group-title">{group.title}</span>
-                    <span className="platform-nav-group-count">{group.items.length} links</span>
-                  </span>
-                </span>
-                <span className="platform-nav-group-chevron">{expandedGroup === group.title ? "-" : "+"}</span>
-              </button>
-              <div
-                className="platform-nav-group-body"
-                id={`sidebar-group-${group.title.replace(/\s+/g, "-").toLowerCase()}`}
-              >
-                <div className="platform-nav-items">
-                  {group.items.map((item) =>
-                    item.external ? (
-                      <a
-                        className={`platform-nav-link ${isActive(item.href, pathname, currentHash) ? "active" : ""}`}
-                        href={item.href}
-                        key={item.href}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        <span className="platform-nav-icon">{item.monogram}</span>
-                        <span className="platform-nav-copy">
-                          <span className="platform-nav-label">{item.label}</span>
-                          <span className="platform-nav-caption">{item.caption}</span>
-                        </span>
-                      </a>
-                    ) : (
-                      <Link
-                        className={`platform-nav-link ${isActive(item.href, pathname, currentHash) ? "active" : ""}`}
-                        href={item.href}
-                        key={item.href}
-                      >
-                        <span className="platform-nav-icon">{item.monogram}</span>
-                        <span className="platform-nav-copy">
-                          <span className="platform-nav-label">{item.label}</span>
-                          <span className="platform-nav-caption">{item.caption}</span>
-                        </span>
-                      </Link>
-                    ),
-                  )}
+            <div key={group.title} className="space-y-1.5">
+              {!collapsed && (
+                <div className="px-3 pb-1 text-[11px] font-extrabold tracking-[0.14em] text-slate-400 uppercase select-none font-mono flex items-center justify-between">
+                  <span>{group.title}</span>
+                  <div className="h-px flex-1 ml-3 bg-gradient-to-r from-slate-800/80 to-transparent" />
                 </div>
+              )}
+
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = isItemActive(item.href, pathname, currentHash);
+                  const Icon = item.icon;
+
+                  const linkClasses = `group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                    active
+                      ? "ts-nav-active"
+                      : "ts-nav-link text-slate-300"
+                  } ${collapsed ? "justify-center px-2" : ""}`;
+
+                  const content = (
+                    <>
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                          active
+                            ? "bg-blue-500 text-white shadow-sm"
+                            : "bg-slate-900 text-slate-400 group-hover:text-slate-200 group-hover:bg-slate-800"
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+
+                      {!collapsed && (
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate leading-snug">{item.label}</span>
+                          <span
+                            className={`text-[10px] font-normal truncate leading-none mt-0.5 ${
+                              active ? "text-blue-300/80" : "text-slate-400"
+                            }`}
+                          >
+                            {item.caption}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  );
+
+                  if (item.external) {
+                    return (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={linkClasses}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        {content}
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={linkClasses}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      {content}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ))}
         </nav>
-
-        <div className="platform-sidebar-foot">
-          <div className="platform-sidebar-note">Target shape: fast path, risk-first, multi-broker, modular monolith.</div>
-        </div>
       </aside>
 
-      {mobileOpen && <button aria-label="Close navigation overlay" className="platform-overlay" onClick={() => setMobileOpen(false)} type="button" />}
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+        />
+      )}
 
-      <div className="platform-main">
-        <header className="platform-topbar">
-          <div className="platform-topbar-left">
+      {/* Main Container */}
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+          collapsed ? "lg:pl-20" : "lg:pl-72"
+        }`}
+      >
+        {/* 2. Modern Glass Topbar */}
+        <header className="sticky top-0 z-20 h-16 px-4 md:px-6 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
+          {/* Left Title / Breadcrumbs */}
+          <div className="flex items-center gap-3 min-w-0">
             <button
-              aria-label={mobileOpen ? "Close sidebar" : "Open sidebar"}
-              className="platform-sidebar-toggle mobile-only"
-              onClick={() => setMobileOpen((value) => !value)}
               type="button"
+              onClick={() => setMobileOpen(true)}
+              className="lg:hidden p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
             >
-              {mobileOpen ? "X" : "Menu"}
+              ☰
             </button>
-            <button
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="platform-sidebar-toggle desktop-only"
-              onClick={() => setCollapsed((value) => !value)}
-              type="button"
-            >
-              {collapsed ? "Expand" : "Collapse"}
-            </button>
-            <div className="platform-topbar-copy">
-              <div className="platform-topbar-title">{meta.title}</div>
-              <div className="platform-topbar-subtitle">{meta.subtitle}</div>
+
+            <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 shrink-0">
+              <RouteIcon className="w-4 h-4 text-slate-300" />
+            </div>
+
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold text-slate-100 tracking-tight leading-none truncate">
+                {meta.title}
+              </span>
+              <span className="text-xs text-slate-400 truncate mt-0.5">
+                {meta.subtitle}
+              </span>
             </div>
           </div>
-          <div className="platform-broker-health" aria-label="Broker API health">
+
+          {/* Middle: Broker Status Badges (Clean styling with zero white boxes) */}
+          <div className="hidden xl:flex items-center gap-2">
             {BROKER_HEALTH_ORDER.map((brokerId) => {
               const health = brokerHealth[brokerId];
-              const tone = brokerHealthTone(health);
               const label = BROKER_HEALTH_LABELS[brokerId] ?? brokerId;
-              const refreshing = brokerHealthRefreshingId === brokerId;
+              const isGreen = health?.status === "green" || health?.valid;
+              const isRefreshing = brokerHealthRefreshingId === brokerId;
+
               return (
-                <div className="d-inline-flex align-items-center gap-1" key={brokerId}>
-                  <Link
-                    className={`platform-broker-health-chip ${tone}`}
-                    href="/brokers"
-                    title={health?.message ?? "Checking broker API token"}
+                <div
+                  key={brokerId}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full ts-card-soft text-xs font-semibold text-slate-200 shadow-sm"
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      isGreen
+                        ? "bg-emerald-400 shadow-sm shadow-emerald-400/50"
+                        : "bg-amber-400 shadow-sm shadow-amber-400/50 animate-pulse"
+                    }`}
+                  />
+                  <span>{label}</span>
+                  <span
+                    className={`text-[11px] font-normal ${
+                      isGreen ? "text-emerald-400" : "text-amber-400"
+                    }`}
                   >
-                    <span className="platform-broker-health-dot" />
-                    <span className="platform-broker-health-label">{label}</span>
-                  </Link>
+                    {isGreen ? "Connected" : "Reconnecting..."}
+                  </span>
                   <button
-                    className="platform-broker-health-refresh"
-                    disabled={brokerHealthRefreshing || refreshing}
-                    onClick={() => void refreshHeaderBrokerHealth(brokerId)}
-                    title={`Refresh ${label} API health`}
                     type="button"
+                    onClick={() => void refreshHeaderBrokerHealth(brokerId)}
+                    disabled={brokerHealthRefreshing || isRefreshing}
+                    className="ml-1 text-slate-400 hover:text-slate-100 bg-transparent border-0 p-0 leading-none focus:outline-none"
+                    title={`Refresh ${label}`}
                   >
-                    {refreshing ? "..." : "↻"}
+                    <RefreshCwIcon className={`w-3 h-3 ${isRefreshing ? "animate-spin text-amber-400" : ""}`} />
                   </button>
                 </div>
               );
             })}
-            <button
-              className="platform-broker-health-refresh"
-              disabled={brokerHealthRefreshing}
-              onClick={() => void loadBrokerHealth(true)}
-              title="Refresh broker API health"
-              type="button"
+
+            <Link
+              href="/brokers"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full ts-btn text-xs font-semibold text-slate-300 hover:text-white transition-colors"
             >
-              {brokerHealthRefreshing ? "..." : "Refresh"}
+              <PlusIcon className="w-3.5 h-3.5" />
+              <span>Add Broker</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => void loadBrokerHealth(true)}
+              disabled={brokerHealthRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full ts-btn text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              <RefreshCwIcon className={`w-3 h-3 text-slate-400 ${brokerHealthRefreshing ? "animate-spin text-amber-400" : ""}`} />
+              <span>Refresh</span>
             </button>
           </div>
-          <div className="platform-topbar-right">
+
+          {/* Right: Quick Links & User Profile */}
+          <div className="flex items-center gap-3">
             <PwaInstallButton />
-            {user.role === "ADMIN" ? (
-              <Link className="platform-topbar-link" href="/admin">
-                Admin
+
+            {user?.role === "ADMIN" && (
+              <Link
+                href="/admin"
+                className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full border ts-border-gold bg-amber-400/10 text-amber-300 text-xs font-bold uppercase tracking-wider"
+              >
+                ADMIN
               </Link>
-            ) : null}
-            <Link className="platform-topbar-link" href="/multi-stock-monitor">
+            )}
+
+            <Link
+              href="/multi-stock-monitor"
+              className="hidden md:inline-flex items-center px-3 py-1 rounded-full ts-btn text-slate-300 text-xs font-medium transition-colors"
+            >
               P/L
             </Link>
-            <a className="platform-topbar-link" href={`${BACKEND_BASE_URL}/docs`} rel="noreferrer" target="_blank">
-              API Docs
-            </a>
-            <span className="platform-topbar-link">{user.email}</span>
-            <button
-              className="platform-topbar-link"
-              onClick={() => {
-                signOut();
-                router.replace("/login");
-              }}
-              type="button"
+
+            <a
+              href={`${BACKEND_BASE_URL}/docs`}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden md:inline-flex items-center px-3 py-1 rounded-full ts-btn text-slate-300 text-xs font-medium transition-colors"
             >
-              Logout
-            </button>
+              API DOCS
+            </a>
+
+            {/* User Profile Pill (Clean layout with non-overlapping initials and email) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2.5 px-2.5 py-1 rounded-full ts-btn hover:border-[#60a5fa] transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center font-extrabold text-[11px] shadow-sm shrink-0">
+                  {userInitials}
+                </div>
+                <div className="hidden sm:flex flex-col text-left min-w-0 pr-1">
+                  <span className="text-xs font-bold text-slate-200 leading-none truncate max-w-[140px]">
+                    {userDisplayName}
+                  </span>
+                  <span className="text-[10px] text-slate-400 truncate max-w-[140px] mt-0.5">
+                    {userEmail}
+                  </span>
+                </div>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur-md p-1.5 shadow-xl z-50">
+                  <div className="px-3 py-2 border-b border-slate-800 mb-1">
+                    <p className="text-xs font-bold text-slate-200 truncate">{userDisplayName}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{userEmail}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      signOut();
+                      router.replace("/login");
+                    }}
+                    className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
-        <BBTickerBar
-          items={[
-            { symbol: "NIFTY 50", ltp: 24090.85, changePercent: 0.42, direction: "up" },
-            { symbol: "BANKNIFTY", ltp: 51240.30, changePercent: -0.18, direction: "down" },
-            { symbol: "FINNIFTY", ltp: 23680.15, changePercent: 0.31, direction: "up" },
-            { symbol: "SENSEX", ltp: 79120.40, changePercent: 0.38, direction: "up" },
-          ]}
-        />
-        <div className="platform-content">{children}</div>
+
+        {/* 3. Market Ticker Bar (Row 1) */}
+        <BBTickerBar />
+
+        {/* 4. Page Content (Starts immediately with KPI strip on the dashboard) */}
+        <main className="flex-1 w-full min-w-0">{children}</main>
       </div>
     </div>
   );
 }
+
+export default PlatformAppShell;
