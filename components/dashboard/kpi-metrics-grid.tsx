@@ -13,44 +13,36 @@ import {
 interface KPICardProps {
   icon: React.ReactNode;
   iconClass: string;
+  cardClass: string;
   title: string;
   value: string;
   valueColor?: string;
   submetric: string;
   submetricColor?: string;
-  isDominant?: boolean;
 }
 
 function OperationalKPICard({
   icon,
   iconClass,
+  cardClass,
   title,
   value,
   valueColor = "text-[#E4E9F2]",
   submetric,
   submetricColor = "text-[#55D6A0]",
-  isDominant = false,
 }: KPICardProps) {
   return (
     <div
-      className={`group relative flex items-center gap-3.5 p-3.5 rounded-xl transition-all duration-150 ${
-        isDominant ? "ts-kpi-dominant" : "ts-card-soft"
-      }`}
+      className={`group relative flex items-center gap-3.5 p-3.5 ts-kpi-card ${cardClass}`}
     >
-      {/* Left Icon Box (48px container, 24px icon) */}
-      <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center border shrink-0 ${iconClass} group-hover:scale-105 transition-transform`}
-      >
+      {/* Left Icon Box (46px container, 24px icon) carrying semantic identity */}
+      <div className={`kpi-icon-box ${iconClass}`}>
         {icon}
       </div>
 
-      {/* Right: 3 lines stacked */}
+      {/* Right: 3 lines stacked (title, value, sub-metric) */}
       <div className="min-w-0 flex-1">
-        <div
-          className={`text-xs font-mono font-medium truncate ${
-            isDominant ? "text-[#55D6A0]" : "text-[#A7B1C3]"
-          }`}
-        >
+        <div className="text-xs font-mono font-medium truncate text-[#A7B1C3]">
           {title}
         </div>
         <div
@@ -72,10 +64,11 @@ export function DashboardKPIGrid() {
   return (
     <section aria-label="Operational Command Metrics" className="w-full">
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {/* 1. Active Bots -> Blue */}
+        {/* 1. Active Bots -> Semantic Blue */}
         <OperationalKPICard
           icon={<BotIcon className="w-6 h-6" />}
           iconClass="kpi-icon-blue"
+          cardClass="ts-kpi-blue"
           title="Active Bots"
           value="7"
           valueColor="text-[#E4E9F2]"
@@ -83,10 +76,11 @@ export function DashboardKPIGrid() {
           submetricColor="text-[#55D6A0]"
         />
 
-        {/* 2. Open Positions -> Teal */}
+        {/* 2. Open Positions -> Semantic Teal */}
         <OperationalKPICard
           icon={<ChartCandlestickIcon className="w-6 h-6" />}
           iconClass="kpi-icon-teal"
+          cardClass="ts-kpi-teal"
           title="Open Positions"
           value="12"
           valueColor="text-[#E4E9F2]"
@@ -94,22 +88,23 @@ export function DashboardKPIGrid() {
           submetricColor="text-[#A7B1C3]"
         />
 
-        {/* 3. Day P/L -> Green (Dominant) */}
+        {/* 3. Day P/L -> Semantic Green */}
         <OperationalKPICard
           icon={<TrendingUpIcon className="w-6 h-6" />}
           iconClass="kpi-icon-green"
+          cardClass="ts-kpi-green"
           title="Day P/L"
           value="+₹12,450"
           valueColor="text-[#55D6A0]"
           submetric="▲ +2.4%"
           submetricColor="text-[#55D6A0]"
-          isDominant={true}
         />
 
-        {/* 4. Win Rate -> Purple */}
+        {/* 4. Win Rate -> Semantic Purple */}
         <OperationalKPICard
           icon={<TargetIcon className="w-6 h-6" />}
           iconClass="kpi-icon-purple"
+          cardClass="ts-kpi-purple"
           title="Win Rate"
           value="68%"
           valueColor="text-[#E4E9F2]"
@@ -117,10 +112,11 @@ export function DashboardKPIGrid() {
           submetricColor="text-[#55D6A0]"
         />
 
-        {/* 5. Broker Health -> Cyan */}
+        {/* 5. Broker Health -> Semantic Cyan */}
         <OperationalKPICard
           icon={<ShieldCheckIcon className="w-6 h-6" />}
           iconClass="kpi-icon-cyan"
+          cardClass="ts-kpi-cyan"
           title="Broker Health"
           value="4 / 4"
           valueColor="text-[#E4E9F2]"
@@ -128,10 +124,11 @@ export function DashboardKPIGrid() {
           submetricColor="text-[#55D6A0]"
         />
 
-        {/* 6. API Status -> Fuchsia */}
+        {/* 6. API Status -> Semantic Pink */}
         <OperationalKPICard
           icon={<PlugZapIcon className="w-6 h-6" />}
-          iconClass="kpi-icon-fuchsia"
+          iconClass="kpi-icon-pink"
+          cardClass="ts-kpi-pink"
           title="API Status"
           value="Healthy"
           valueColor="text-[#55D6A0]"

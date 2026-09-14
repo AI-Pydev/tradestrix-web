@@ -3116,6 +3116,14 @@ a {
   --cyan-soft: #62C7D8;
   --brand-gold: #E6B94B;
 
+  /* KPI Semantic Atmosphere Tokens */
+  --kpi-blue: #6EA8FE;
+  --kpi-teal: #55C7B4;
+  --kpi-green: #55D6A0;
+  --kpi-purple: #B08AF5;
+  --kpi-cyan: #62C7D8;
+  --kpi-pink: #D477C7;
+
   /* High-Density Table & Data-Grid Tokens (Rule 22) */
   --table-bg: #0B1322;
   --table-row: #0B1322;
@@ -3195,19 +3203,92 @@ a {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
 }
 
-/* 4. Dominant KPI Card (Today's P&L) */
-.ts-kpi-dominant {
-  background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, rgba(11, 16, 32, 0.98) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+/* 4. KPI Semantic Color Atmosphere Cards */
+.ts-kpi-card {
+  position: relative;
   border-radius: 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  background-color: #0c1423;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  overflow: hidden;
 }
 
+.ts-kpi-blue {
+  background: linear-gradient(145deg, rgba(110, 168, 254, 0.06) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(110, 168, 254, 0.16);
+  box-shadow: 0 0 20px rgba(110, 168, 254, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-blue:hover {
+  background: linear-gradient(145deg, rgba(110, 168, 254, 0.085) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(110, 168, 254, 0.28);
+  box-shadow: 0 0 22px rgba(110, 168, 254, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ts-kpi-teal {
+  background: linear-gradient(145deg, rgba(85, 199, 180, 0.055) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(85, 199, 180, 0.16);
+  box-shadow: 0 0 20px rgba(85, 199, 180, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-teal:hover {
+  background: linear-gradient(145deg, rgba(85, 199, 180, 0.08) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(85, 199, 180, 0.28);
+  box-shadow: 0 0 22px rgba(85, 199, 180, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ts-kpi-green {
+  background: linear-gradient(145deg, rgba(85, 214, 160, 0.055) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(85, 214, 160, 0.16);
+  box-shadow: 0 0 20px rgba(85, 214, 160, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-green:hover {
+  background: linear-gradient(145deg, rgba(85, 214, 160, 0.08) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(85, 214, 160, 0.28);
+  box-shadow: 0 0 22px rgba(85, 214, 160, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ts-kpi-purple {
+  background: linear-gradient(145deg, rgba(176, 138, 245, 0.055) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(176, 138, 245, 0.16);
+  box-shadow: 0 0 20px rgba(176, 138, 245, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-purple:hover {
+  background: linear-gradient(145deg, rgba(176, 138, 245, 0.08) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(176, 138, 245, 0.28);
+  box-shadow: 0 0 22px rgba(176, 138, 245, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ts-kpi-cyan {
+  background: linear-gradient(145deg, rgba(98, 199, 216, 0.055) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(98, 199, 216, 0.16);
+  box-shadow: 0 0 20px rgba(98, 199, 216, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-cyan:hover {
+  background: linear-gradient(145deg, rgba(98, 199, 216, 0.08) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(98, 199, 216, 0.28);
+  box-shadow: 0 0 22px rgba(98, 199, 216, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ts-kpi-pink {
+  background: linear-gradient(145deg, rgba(212, 119, 199, 0.05) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(212, 119, 199, 0.15);
+  box-shadow: 0 0 20px rgba(212, 119, 199, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+.ts-kpi-pink:hover {
+  background: linear-gradient(145deg, rgba(212, 119, 199, 0.075) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border-color: rgba(212, 119, 199, 0.26);
+  box-shadow: 0 0 22px rgba(212, 119, 199, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Backward compatibility for dominant KPI */
+.ts-kpi-dominant {
+  background: linear-gradient(145deg, rgba(85, 214, 160, 0.08) 0%, rgba(12, 20, 35, 0.96) 42%, #0c1423 100%);
+  border: 1px solid rgba(85, 214, 160, 0.20);
+  box-shadow: 0 0 20px rgba(85, 214, 160, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
 .ts-kpi-dominant:hover {
-  border-color: rgba(16, 185, 129, 0.55);
-  box-shadow: 0 0 24px rgba(16, 185, 129, 0.14);
-  transform: translateY(-1px);
+  border-color: rgba(85, 214, 160, 0.32);
+  box-shadow: 0 0 24px rgba(85, 214, 160, 0.10);
 }
 
 /* 5. Live Intelligence Radar Panel */
@@ -3280,63 +3361,71 @@ a {
   color: #facc15;
 }
 
-/* 10. KPI Metric Icon Box (Compact 32px, rounded 8px, 16px svg) */
+/* 10. KPI Metric Icon Box (Semantic Atmosphere 46px, rounded 12px, 24px svg) */
 .kpi-icon-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 160ms ease, background-color 160ms ease;
 }
 
 .kpi-icon-box svg {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
 }
 
 .kpi-icon-blue {
-  background: rgba(59, 130, 246, 0.10);
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  color: #60a5fa;
+  background: rgba(110, 168, 254, 0.12);
+  border: 1px solid rgba(110, 168, 254, 0.25);
+  box-shadow: inset 0 0 8px rgba(110, 168, 254, 0.06);
+  color: #6EA8FE;
 }
 
 .kpi-icon-teal {
-  background: rgba(20, 184, 166, 0.10);
-  border: 1px solid rgba(20, 184, 166, 0.28);
-  color: #2dd4bf;
+  background: rgba(85, 199, 180, 0.12);
+  border: 1px solid rgba(85, 199, 180, 0.25);
+  box-shadow: inset 0 0 8px rgba(85, 199, 180, 0.06);
+  color: #55C7B4;
 }
 
 .kpi-icon-green {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.32);
-  color: #34d399;
-}
-
-.kpi-icon-amber {
-  background: rgba(245, 158, 11, 0.10);
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  color: #fbbf24;
+  background: rgba(85, 214, 160, 0.12);
+  border: 1px solid rgba(85, 214, 160, 0.25);
+  box-shadow: inset 0 0 8px rgba(85, 214, 160, 0.06);
+  color: #55D6A0;
 }
 
 .kpi-icon-purple {
-  background: rgba(168, 85, 247, 0.10);
-  border: 1px solid rgba(168, 85, 247, 0.28);
-  color: #c084fc;
+  background: rgba(176, 138, 245, 0.12);
+  border: 1px solid rgba(176, 138, 245, 0.25);
+  box-shadow: inset 0 0 8px rgba(176, 138, 245, 0.06);
+  color: #B08AF5;
 }
 
 .kpi-icon-cyan {
-  background: rgba(6, 182, 212, 0.10);
-  border: 1px solid rgba(6, 182, 212, 0.28);
-  color: #22d3ee;
+  background: rgba(98, 199, 216, 0.12);
+  border: 1px solid rgba(98, 199, 216, 0.25);
+  box-shadow: inset 0 0 8px rgba(98, 199, 216, 0.06);
+  color: #62C7D8;
 }
 
+.kpi-icon-pink,
 .kpi-icon-fuchsia {
-  background: rgba(217, 70, 239, 0.10);
-  border: 1px solid rgba(217, 70, 239, 0.28);
-  color: #e879f9;
+  background: rgba(212, 119, 199, 0.12);
+  border: 1px solid rgba(212, 119, 199, 0.25);
+  box-shadow: inset 0 0 8px rgba(212, 119, 199, 0.06);
+  color: #D477C7;
+}
+
+.kpi-icon-amber {
+  background: rgba(232, 188, 85, 0.12);
+  border: 1px solid rgba(232, 188, 85, 0.25);
+  box-shadow: inset 0 0 8px rgba(232, 188, 85, 0.06);
+  color: #E8BC55;
 }
 
 
