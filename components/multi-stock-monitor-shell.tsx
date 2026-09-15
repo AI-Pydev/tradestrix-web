@@ -196,7 +196,7 @@ export function MultiStockMonitorShell() {
                   <div className="col-12 col-sm-6 col-lg-4 col-xl" key={metric.label}>
                     <div className={`metric-card ${metric.tone} p-3`}>
                       <div className="metric-label">{metric.label}</div>
-                      <div className="metric-value mt-2">{metric.value}</div>
+                      <div className="metric-value font-mono fw-bold mt-2">{metric.value}</div>
                     </div>
                   </div>
                 ))}
@@ -212,8 +212,8 @@ export function MultiStockMonitorShell() {
           </div>
           {effectiveTradeMode && (
             <div className="px-3 pt-2 small">
-              <span className={`badge-soft ${effectiveTradeMode === "live" ? "red" : "green"} me-2`}>
-                {effectiveTradeMode === "live" ? "🔴 LIVE MODE" : "🟢 PAPER MODE"}
+              <span className={`badge-soft ${effectiveTradeMode === "live" ? "blue" : "gold"} me-2 font-mono`}>
+                {effectiveTradeMode === "live" ? "LIVE MODE" : "PAPER MODE"}
               </span>
               <span className="muted">
                 Showing only {effectiveTradeMode} trades
@@ -240,17 +240,17 @@ export function MultiStockMonitorShell() {
                 {visibleTrades.length ? (
                   visibleTrades.map((trade) => (
                     <tr key={trade.trade_id}>
-                      <td>{trade.symbol}</td>
+                      <td className="font-mono fw-semibold text-slate-100">{trade.symbol}</td>
                       <td>
                         <span className={`badge-soft ${trade.direction === "LONG" ? "green" : "red"}`}>
                           {trade.direction}
                         </span>
                       </td>
-                      <td>{fmtNumber(trade.quantity)}</td>
-                      <td>{fmtMoney(trade.entry_price)}</td>
-                      <td>{trade.exit_price == null ? "-" : fmtMoney(trade.exit_price)}</td>
+                      <td className="font-mono text-sm">{fmtNumber(trade.quantity)}</td>
+                      <td className="font-mono text-sm">{fmtMoney(trade.entry_price)}</td>
+                      <td className="font-mono text-sm">{trade.exit_price == null ? "-" : fmtMoney(trade.exit_price)}</td>
                       <td>
-                        <span className={`badge-soft ${pnlTone(trade.pnl)}`}>
+                        <span className={`badge-soft ${pnlTone(trade.pnl)} font-mono fw-semibold`}>
                           {trade.pnl == null ? "-" : fmtMoney(trade.pnl)}
                         </span>
                       </td>
@@ -259,8 +259,12 @@ export function MultiStockMonitorShell() {
                           {trade.status}
                         </span>
                       </td>
-                      <td>{trade.mode}</td>
-                      <td>{fmtDate(trade.opened_at)}</td>
+                      <td>
+                        <span className={`badge-soft ${trade.mode === "live" ? "blue" : "gold"} font-mono`}>
+                          {trade.mode.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="font-mono text-xs text-slate-300">{fmtDate(trade.opened_at)}</td>
                     </tr>
                   ))
                 ) : (

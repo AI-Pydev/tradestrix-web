@@ -61,28 +61,35 @@ function fmtDateTime(value?: string | null) {
 
 function badgeTone(status: string) {
   if (status === "NEAR_SUPPORT") {
-    return "text-bg-success";
+    return "badge-soft green";
   }
   if (status === "NEAR_RESISTANCE") {
-    return "text-bg-danger";
+    return "badge-soft red";
   }
   if (status === "ERROR") {
-    return "text-bg-dark";
+    return "badge-soft red";
   }
-  return "text-bg-warning";
+  return "badge-soft gold";
 }
 
 function readinessTone(readiness: string) {
   if (readiness === "strong") {
-    return "text-bg-success";
+    return "badge-soft green";
   }
   if (readiness === "tradable") {
-    return "text-bg-warning";
+    return "badge-soft gold";
   }
   if (readiness === "weak") {
-    return "text-bg-secondary";
+    return "badge-soft blue";
   }
-  return "text-bg-dark";
+  return "badge-soft blue";
+}
+
+function pnlClass(amount?: number | null) {
+  if (!amount) return "";
+  if (amount > 0) return "positive";
+  if (amount < 0) return "negative";
+  return "";
 }
 
 function qualityTone(quality?: string | null) {
@@ -947,7 +954,7 @@ export function SupportResistanceScannerShell() {
                                 {autoEntrySaving ? "Saving..." : "Save Auto Entry Settings"}
                               </button>
                               <button
-                                className="btn btn-warning"
+                                className="btn btn-primary fw-semibold"
                                 disabled={autoEntryRunning}
                                 onClick={handleRunAutoEntryNow}
                               >
@@ -1060,44 +1067,44 @@ export function SupportResistanceScannerShell() {
                         <tr>
                           <td>
                             <div className="d-flex flex-column gap-2">
-                              <span className={`badge ${badgeTone(row.status)}`}>{row.status.replaceAll("_", " ")}</span>
-                              <span className={`badge ${readinessTone(row.trade_readiness)}`}>
+                              <span className={badgeTone(row.status)}>{row.status.replaceAll("_", " ")}</span>
+                              <span className={readinessTone(row.trade_readiness)}>
                                 {row.trade_readiness.toUpperCase()}
                               </span>
-                              <span className="muted">Score {fmtNumber(row.selection_score, 1)}</span>
+                              <span className="muted font-mono text-xs">Score {fmtNumber(row.selection_score, 1)}</span>
                             </div>
                           </td>
                           <td>
-                            <div className="fw-semibold">{row.label}</div>
-                            <div className="muted text-uppercase">
+                            <div className="fw-semibold text-slate-100">{row.label}</div>
+                            <div className="muted small font-mono text-uppercase">
                               {row.kind} {row.verified ? "| verified" : ""}
                             </div>
-                            <div className="muted">{row.instrument_key}</div>
+                            <div className="muted small font-mono">{row.instrument_key}</div>
                           </td>
                           <td>
-                            <div>{fmtPrice(row.current_price)}</div>
-                            <div className="muted">Closest: {row.closest_zone}</div>
-                            <div className="muted">Snapshot: {fmtDateTime(row.snapshot_time)}</div>
+                            <div className="font-mono fw-semibold text-slate-100">{fmtPrice(row.current_price)}</div>
+                            <div className="muted small">Closest: {row.closest_zone}</div>
+                            <div className="muted small">{fmtDateTime(row.snapshot_time)}</div>
                           </td>
                           <td>
-                            <div>{fmtPrice(row.nearest_support)}</div>
-                            <div className="muted">
-                              Strength {row.support_strength_score ?? "-"} | Touches {row.support_touch_count ?? "-"}
+                            <div className="font-mono text-sm text-[#55D6A0]">{fmtPrice(row.nearest_support)}</div>
+                            <div className="muted small">
+                              Str {row.support_strength_score ?? "-"} | Touch {row.support_touch_count ?? "-"}
                             </div>
-                            <div className="muted">{distanceText(row.support_distance_pct, row.support_distance_atr)}</div>
-                            <div className="muted">{row.support_sources.join(", ") || "-"}</div>
+                            <div className="muted small font-mono">{distanceText(row.support_distance_pct, row.support_distance_atr)}</div>
+                            <div className="muted small">{row.support_sources.join(", ") || "-"}</div>
                           </td>
                           <td>
-                            <div>{fmtPrice(row.nearest_resistance)}</div>
-                            <div className="muted">
-                              Strength {row.resistance_strength_score ?? "-"} | Touches {row.resistance_touch_count ?? "-"}
+                            <div className="font-mono text-sm text-[#F77F88]">{fmtPrice(row.nearest_resistance)}</div>
+                            <div className="muted small">
+                              Str {row.resistance_strength_score ?? "-"} | Touch {row.resistance_touch_count ?? "-"}
                             </div>
-                            <div className="muted">
+                            <div className="muted small font-mono">
                               {distanceText(row.resistance_distance_pct, row.resistance_distance_atr)}
                             </div>
-                            <div className="muted">{row.resistance_sources.join(", ") || "-"}</div>
+                            <div className="muted small">{row.resistance_sources.join(", ") || "-"}</div>
                           </td>
-                          <td>
+                          <td className="font-mono text-xs text-slate-300">
                             <div>ATR: {fmtNumber(row.atr_3m, 3)}</div>
                             <div>VWAP: {fmtPrice(row.vwap_3m)}</div>
                             <div>EMA9: {fmtPrice(row.ema9_3m)}</div>
@@ -1105,13 +1112,13 @@ export function SupportResistanceScannerShell() {
                             <div>EMA20: {fmtPrice(row.ema20_3m)}</div>
                             <div>EMA50: {fmtPrice(row.ema50_3m)}</div>
                           </td>
-                          <td>
+                          <td className="font-mono text-xs text-slate-300">
                             <div>Prev Low: {fmtPrice(row.previous_session_low)}</div>
                             <div>Prev High: {fmtPrice(row.previous_session_high)}</div>
-                            <div className="muted">Daily Align: {row.daily_alignment ? "Yes" : "No"}</div>
-                            <div className="muted">Weekly Align: {row.weekly_alignment ? "Yes" : "No"}</div>
+                            <div className="muted font-sans small">Daily Align: {row.daily_alignment ? "Yes" : "No"}</div>
+                            <div className="muted font-sans small">Weekly Align: {row.weekly_alignment ? "Yes" : "No"}</div>
                           </td>
-                          <td className="text-wrap">
+                          <td className="text-wrap small text-slate-300">
                             {row.status_reason}
                           </td>
                           <td>
@@ -1141,9 +1148,10 @@ export function SupportResistanceScannerShell() {
                           </td>
                         </tr>
                         <tr>
-                          <td colSpan={9}>
-                            <div className="muted">
-                              <strong>Suggested action:</strong> {actionLabel(recommendedAction(row))} | Entry filters:{" "}
+                          <td colSpan={9} className="scanner-detail-cell">
+                            <div className="muted small">
+                              <strong className="text-slate-200">Suggested action:</strong>{" "}
+                              <span className="badge-soft gold font-mono">{actionLabel(recommendedAction(row))}</span> | Entry filters:{" "}
                               {form.entry_lots} lot, min quality {form.min_quality}, max option LTP{" "}
                               {fmtPrice(form.max_entry_ltp)} | Risk model {form.risk_model}
                             </div>
@@ -1219,21 +1227,21 @@ export function SupportResistanceScannerShell() {
                               <td>
                                 <span className={paperTradeTone(trade.status)}>{trade.status}</span>
                               </td>
-                              <td>{fmtDateTime(trade.opened_at)}</td>
+                              <td className="font-mono text-xs">{fmtDateTime(trade.opened_at)}</td>
                               <td>
-                                <div className="fw-semibold">{trade.label}</div>
-                                <div className="muted small">{trade.option_symbol}</div>
+                                <div className="fw-semibold text-slate-100">{trade.label}</div>
+                                <div className="muted small font-mono">{trade.option_symbol}</div>
                               </td>
                               <td>
-                                <div>{trade.trade_label}</div>
+                                <span className="badge-soft gold font-mono">{trade.trade_label}</span>
                                 <div className="muted small">{trade.market_bias}</div>
                               </td>
-                              <td>{fmtNumber(trade.quantity)}</td>
-                              <td>{fmtPrice(trade.entry_price)}</td>
-                              <td>
+                              <td className="font-mono text-sm">{fmtNumber(trade.quantity)}</td>
+                              <td className="font-mono text-sm">{fmtPrice(trade.entry_price)}</td>
+                              <td className="font-mono text-sm">
                                 {trade.status === "OPEN" ? (
                                   <input
-                                    className="form-control form-control-sm"
+                                    className="form-control form-control-sm font-mono"
                                     onChange={(e) =>
                                       setExitInputs((prev) => ({ ...prev, [trade.trade_id]: e.target.value }))
                                     }
@@ -1247,36 +1255,38 @@ export function SupportResistanceScannerShell() {
                                   "-"
                                 )}
                               </td>
-                              <td>{trade.pnl != null ? fmtPrice(trade.pnl) : "-"}</td>
+                              <td className={`font-mono fw-semibold text-sm ${pnlClass(trade.pnl)}`}>
+                                {trade.pnl != null ? fmtPrice(trade.pnl) : "-"}
+                              </td>
                               <td>
                                 {trade.quality ? <span className={qualityTone(trade.quality)}>{trade.quality}</span> : "-"}
                               </td>
                               <td>
                                 {trade.status === "OPEN" ? (
                                   <button
-                                    className="btn btn-sm btn-warning"
+                                    className="btn btn-sm btn-outline-warning"
                                     disabled={closeActionKey === trade.trade_id}
                                     onClick={() => handleCloseTrade(trade.trade_id)}
                                   >
                                     {closeActionKey === trade.trade_id ? "Closing..." : "Manual Close"}
                                   </button>
                                 ) : (
-                                  <span className="muted">{trade.close_reason ?? fmtDateTime(trade.closed_at)}</span>
+                                  <span className="muted small font-mono">{trade.close_reason ?? fmtDateTime(trade.closed_at)}</span>
                                 )}
                               </td>
                             </tr>
                             <tr>
-                              <td colSpan={10}>
-                                <div className="muted">
-                                  <strong>Snapshot:</strong> {trade.scanner_row.status} | {trade.scanner_row.closest_zone} |{" "}
+                              <td colSpan={10} className="scanner-detail-cell">
+                                <div className="muted small">
+                                  <strong className="text-slate-200">Snapshot:</strong> {trade.scanner_row.status} | {trade.scanner_row.closest_zone} |{" "}
                                   Score {fmtNumber(trade.selection_score, 1)} | Readiness {trade.trade_readiness}
                                 </div>
-                                <div className="muted">
-                                  <strong>Option:</strong> {trade.option_symbol} | Expiry {trade.resolved_expiry} | Strike{" "}
+                                <div className="muted small font-mono">
+                                  <strong className="text-slate-200 font-sans">Option:</strong> {trade.option_symbol} | Expiry {trade.resolved_expiry} | Strike{" "}
                                   {fmtNumber(trade.strike, 0)} | R:R {trade.rr_ratio != null ? fmtNumber(trade.rr_ratio) : "-"}
                                 </div>
-                                <div className="muted">
-                                  <strong>Why:</strong> {trade.rationale}
+                                <div className="muted small">
+                                  <strong className="text-slate-200">Why:</strong> {trade.rationale}
                                 </div>
                               </td>
                             </tr>

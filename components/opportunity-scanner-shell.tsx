@@ -32,6 +32,13 @@ function fmtMoney(value: number) {
   }).format(value);
 }
 
+function pnlClass(value: number | null | undefined) {
+  const amount = Number(value || 0);
+  if (amount > 0) return "positive";
+  if (amount < 0) return "negative";
+  return "";
+}
+
 function fmtDateTime(value?: string | null) {
   if (!value) {
     return "-";
@@ -902,8 +909,8 @@ export function OpportunityScannerShell() {
               ))}
             </div>
             {recommendedRow ? (
-              <div className="dashboard-panel mb-4" id="scanner-recommendation">
-                <h2 className="panel-title">Recommended Setup</h2>
+              <div className="dashboard-panel scanner-recommendation-panel mb-4" id="scanner-recommendation">
+                <h2 className="panel-title text-[#55D6A0]">⭐ Top Recommended Setup</h2>
                 <div className="p-3">
                   <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap">
                     <div>
@@ -1041,12 +1048,12 @@ export function OpportunityScannerShell() {
                             <span className="badge-soft gold ms-2">Top</span>
                           ) : null}
                         </td>
-                        <td>{row.kind.toUpperCase()}</td>
+                        <td><span className="badge-soft blue">{row.kind.toUpperCase()}</span></td>
                         <td>
-                          <div className="fw-semibold">{row.label}</div>
-                          <div className="muted small">{row.instrument_key}</div>
+                          <div className="fw-semibold text-slate-100">{row.label}</div>
+                          <div className="muted small font-mono">{row.instrument_key}</div>
                         </td>
-                        <td>{fmtNumber(row.selection_score)}</td>
+                        <td className="font-mono fw-bold text-slate-200">{fmtNumber(row.selection_score)}</td>
                         <td>
                           <div>
                             <span className={`badge-soft ${row.readiness_bucket === "PAPER_READY" ? "green" : "blue"}`}>
@@ -1057,7 +1064,7 @@ export function OpportunityScannerShell() {
                             <div className="muted small">{row.readiness_strategy_label}</div>
                           ) : null}
                         </td>
-                        <td>{row.market_bias}</td>
+                        <td><span className="text-slate-300 small">{row.market_bias}</span></td>
                         <td>
                           <span className={`badge-soft ${dailyTrendTone(row.daily_trend)}`}>{row.daily_trend}</span>
                         </td>
@@ -1071,14 +1078,28 @@ export function OpportunityScannerShell() {
                             "-"
                           )}
                         </td>
-                        <td>{row.trade_label ?? "-"}</td>
-                        <td>{row.option_side ?? "-"}</td>
-                        <td>{row.strike != null ? fmtNumber(row.strike) : "-"}</td>
-                        <td>{row.option_ltp != null ? fmtMoney(row.option_ltp) : "-"}</td>
-                        <td>{row.rr_ratio != null ? row.rr_ratio.toFixed(2) : "-"}</td>
-                        <td>{row.zone_score != null ? row.zone_score.toFixed(1) : "-"}</td>
-                        <td>{row.oi_velocity != null ? row.oi_velocity.toFixed(2) : "-"}</td>
-                        <td>{row.resolved_expiry ?? "-"}</td>
+                        <td>
+                          {row.trade_label ? (
+                            <span className="badge-soft gold font-mono">{row.trade_label}</span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td>
+                          {row.option_side ? (
+                            <span className={`badge-soft ${row.option_side.toUpperCase() === "CE" ? "green" : "red"}`}>
+                              {row.option_side.toUpperCase()}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="font-mono text-sm">{row.strike != null ? fmtNumber(row.strike) : "-"}</td>
+                        <td className="font-mono text-sm">{row.option_ltp != null ? fmtMoney(row.option_ltp) : "-"}</td>
+                        <td className="font-mono text-sm">{row.rr_ratio != null ? row.rr_ratio.toFixed(2) : "-"}</td>
+                        <td className="font-mono text-sm">{row.zone_score != null ? row.zone_score.toFixed(1) : "-"}</td>
+                        <td className="font-mono text-sm">{row.oi_velocity != null ? row.oi_velocity.toFixed(2) : "-"}</td>
+                        <td className="font-mono text-xs">{row.resolved_expiry ?? "-"}</td>
                         <td>
                           {(row.status === "ACTIONABLE" || row.status === "WATCHLIST") &&
                           row.trade_label &&
@@ -1097,7 +1118,7 @@ export function OpportunityScannerShell() {
                         </td>
                       </tr>
                       <tr>
-                        <td colSpan={18}>
+                        <td colSpan={18} className="scanner-detail-cell">
                           <div className="muted">
                             <strong>Reason:</strong> {row.status_reason}
                           </div>
@@ -1326,15 +1347,15 @@ export function OpportunityScannerShell() {
                                 <div className="muted small">{trade.option_symbol ?? trade.instrument_key}</div>
                               </td>
                               <td>
-                                <div>{trade.trade_label}</div>
+                                <span className="badge-soft gold font-mono">{trade.trade_label}</span>
                                 <div className="muted small">{trade.market_bias}</div>
                               </td>
-                              <td>{fmtNumber(trade.quantity)}</td>
-                              <td>{fmtMoney(trade.entry_price)}</td>
-                              <td>
+                              <td className="font-mono text-sm">{fmtNumber(trade.quantity)}</td>
+                              <td className="font-mono text-sm">{fmtMoney(trade.entry_price)}</td>
+                              <td className="font-mono text-sm">
                                 {trade.status === "OPEN" ? (
                                   <input
-                                    className="form-control form-control-sm"
+                                    className="form-control form-control-sm font-mono"
                                     onChange={(e) =>
                                       setExitInputs((prev) => ({ ...prev, [trade.trade_id]: e.target.value }))
                                     }
@@ -1348,8 +1369,10 @@ export function OpportunityScannerShell() {
                                   "-"
                                 )}
                               </td>
-                              <td>{trade.pnl != null ? fmtMoney(trade.pnl) : "-"}</td>
-                              <td>{fmtNumber(trade.selection_score)}</td>
+                              <td className={`font-mono fw-semibold text-sm ${pnlClass(trade.pnl)}`}>
+                                {trade.pnl != null ? fmtMoney(trade.pnl) : "-"}
+                              </td>
+                              <td className="font-mono fw-semibold text-sm">{fmtNumber(trade.selection_score)}</td>
                               <td>
                                 {trade.quality ? (
                                   <span className={`badge-soft ${qualityTone(trade.quality)}`}>{trade.quality}</span>
@@ -1372,7 +1395,7 @@ export function OpportunityScannerShell() {
                               </td>
                             </tr>
                             <tr>
-                              <td colSpan={11}>
+                              <td colSpan={11} className="scanner-detail-cell">
                                 <div className="muted">
                                   <strong>Setup:</strong> {trade.scanner_row.rationale ?? trade.scanner_row.status_reason}
                                 </div>
