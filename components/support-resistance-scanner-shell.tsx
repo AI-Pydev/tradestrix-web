@@ -4,25 +4,25 @@ import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
-  closeSupportResistanceTrade,
-  createSupportResistanceTrade,
-  fetchSupportResistanceTradeLabDashboard,
-  runSupportResistanceAutoEntryNow,
-  runSupportResistanceScanner,
-  SupportResistanceAutoEntrySettings,
-  SupportResistanceAutoEntryStatus,
-  SupportResistanceScannerResponse,
-  SupportResistanceScannerRow,
-  SupportResistanceTradeActionRequest,
-  SupportResistanceTradeLabDashboard,
-  SupportResistanceTradeRecord,
-  updateSupportResistanceAutoEntrySettings,
-} from "@/modules/scanners";
-import {
-  fetchInstrumentCatalog,
-  InstrumentCatalogResponse,
+    fetchInstrumentCatalog,
+    InstrumentCatalogResponse,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
+import {
+    closeSupportResistanceTrade,
+    createSupportResistanceTrade,
+    fetchSupportResistanceTradeLabDashboard,
+    runSupportResistanceAutoEntryNow,
+    runSupportResistanceScanner,
+    SupportResistanceAutoEntrySettings,
+    SupportResistanceAutoEntryStatus,
+    SupportResistanceScannerResponse,
+    SupportResistanceScannerRow,
+    SupportResistanceTradeActionRequest,
+    SupportResistanceTradeLabDashboard,
+    SupportResistanceTradeRecord,
+    updateSupportResistanceAutoEntrySettings,
+} from "@/modules/scanners";
 
 function fmtNumber(value?: number | null, digits = 2) {
   if (value == null || Number.isNaN(value)) {

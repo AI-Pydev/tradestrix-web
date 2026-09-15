@@ -1,7 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+
+import {
+    ActivityIcon,
+    BotIcon,
+    ChartCandlestickIcon,
+    ChevronDownIcon,
+    ChevronUpIcon,
+    CoinsIcon,
+    FilterIcon,
+    Layers3Icon,
+    RefreshCwIcon,
+    SlidersHorizontalIcon,
+    TargetIcon,
+    TerminalIcon,
+    TrendingDownIcon,
+    TrendingUpIcon,
+} from "@/components/dashboard/icons";
 
 import {
     bulkDeleteUpstoxManagedBots,
@@ -110,6 +127,13 @@ function pnlTone(value?: number | null) {
     return "red";
   }
   return "blue";
+}
+
+function pnlClass(amount?: number | null) {
+  if (!amount) return "";
+  if (amount > 0) return "text-[#55D6A0]";
+  if (amount < 0) return "text-[#F17884]";
+  return "";
 }
 
 function instrumentOptions(data: DashboardState | null) {
@@ -377,6 +401,10 @@ export function DashboardShell() {
   const [managedBotsTotalPages, setManagedBotsTotalPages] = useState(1);
   const [managedBotsPageSize, setManagedBotsPageSize] = useState(20);
   const [selectedManagedBotIds, setSelectedManagedBotIds] = useState<string[]>([]);
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
+  const [showFullLogModal, setShowFullLogModal] = useState(false);
+  const [fleetSearchQuery, setFleetSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [botForm, setBotForm] = useState<UpstoxOptionChainBotRunRequest>({
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
@@ -1113,1232 +1141,1404 @@ export function DashboardShell() {
   ];
   const topRejectionReasons = (rejectionSummary?.reason_counts ?? []).slice(0, 5);
 
+  const searchedManagedBots = useMemo(() => {
+    if (!fleetSearchQuery.trim()) return reasonFilteredManagedBots;
+    const query = fleetSearchQuery.toLowerCase().trim();
+    return reasonFilteredManagedBots.filter(
+      (job) =>
+        job.job_name.toLowerCase().includes(query) ||
+        job.instrument_key.toLowerCase().includes(query) ||
+        job.strategy_label.toLowerCase().includes(query) ||
+        job.job_id.toLowerCase().includes(query),
+    );
+  }, [reasonFilteredManagedBots, fleetSearchQuery]);
+
+  async function handleRefreshAll() {
+    try {
+      setRefreshing(true);
+      const [dashRes, sumRes] = await Promise.allSettled([
+        fetchDashboardData(),
+        fetchUpstoxManagedBotDashboardSummary(),
+      ]);
+      if (dashRes.status === "fulfilled") {
+        setData(dashRes.value);
+      }
+      if (sumRes.status === "fulfilled") {
+        setManagedBotsSummary(sumRes.value);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <main className="app-shell">
-      <div className="app-frame">
-        <section className="app-hero mb-4">
-          <div id="dashboard-top" />
-          <div className="hero-tabs">
-            <a className="hero-tab active" href="#dashboard-top">
-              Overview
-            </a>
-            <a className="hero-tab" href="#bot-control-panel">
-              Bot Control
-            </a>
+      <div className="app-frame execution-desk-workspace">
+        {/* D. Compact Execution Desk Header (~60-72px) */}
+        <header className="execution-desk-header">
+          <div className="execution-desk-header-left">
+            <h1 className="execution-desk-title">Execution Desk</h1>
+            <p className="execution-desk-subtitle">Configure, launch and monitor your trading bots</p>
           </div>
-          <div className="hero-header">
-            <h1 className="hero-title">Execution Desk</h1>
-            <p className="hero-subtitle">
-              Focused surface for launching option-chain bots and reviewing managed jobs. Platform summary counters now
-              live on Platform Home.
-            </p>
+          <div className="execution-desk-summary-pill">
+            <span className={`badge-soft ${botForm.execution_mode === "live" ? "blue" : "gold"} font-mono`}>
+              {botForm.execution_mode === "live" ? "LIVE" : "PAPER"}
+            </span>
+            <div className="execution-desk-summary-item">
+              <span>Active:</span>
+              <strong className="font-mono">{activeManagedBots}</strong>
+            </div>
+            <div className="execution-desk-summary-item">
+              <span>Open:</span>
+              <strong className="font-mono">{openManagedTrades}</strong>
+            </div>
+            <div className="execution-desk-summary-item">
+              <span>Today P/L:</span>
+              <strong className={`font-mono ${pnlClass(todayRealizedPnl)}`}>
+                {fmtMoney(todayRealizedPnl)}
+              </strong>
+            </div>
+            <div className="execution-desk-summary-item">
+              <span>Invested:</span>
+              <strong className="font-mono">{fmtMoney(totalManagedInvestment)}</strong>
+            </div>
+            <button
+              className="btn btn-outline-light btn-sm ms-1"
+              disabled={loading || managedBotsLoading || refreshing}
+              onClick={() => void handleRefreshAll()}
+              title="Refresh desk"
+              type="button"
+            >
+              <RefreshCwIcon style={{ width: 13, height: 13 }} />
+            </button>
           </div>
-          <div className="p-3">
-            {(loading || managedBotsLoading) && <div className="muted">Loading execution desk...</div>}
-            {error && <div className="alert alert-danger mb-0">{error}</div>}
-            {!error && !loading && !managedBotsLoading && (
-              <>
-                <div className="row g-3">
-                  {executionMetrics.map((metric) => (
-                    <div className="col-12 col-sm-6 col-lg-4 col-xl-3" key={metric.label}>
-                      <div className={`metric-card ${executionMetricTone(metric.label, metric.value)} p-3`}>
-                        <div className="metric-label">{metric.label}</div>
-                        <div className="metric-value mt-2">{metric.display}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="dashboard-panel p-3 mt-3">
-                  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                    <h3 className="panel-title mb-0">
-                      Entry Rejection Telemetry (last {rejectionSinceHours}h)
-                    </h3>
-                    <span className="small muted">
-                      Total events: {rejectionSummary?.total_events ?? 0}
-                    </span>
-                  </div>
-                  <div className="row g-2 mb-2">
-                    <div className="col-12 col-md-4">
-                      <label className="form-label small mb-1">Window</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={rejectionSinceHours}
-                        onChange={(e) => setRejectionSinceHours(Number(e.target.value) || 24)}
-                      >
-                        <option value={6}>Last 6h</option>
-                        <option value={24}>Last 24h</option>
-                        <option value={72}>Last 72h</option>
-                        <option value={168}>Last 7d</option>
-                      </select>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <label className="form-label small mb-1">Instrument</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={rejectionInstrumentFilter}
-                        onChange={(e) => setRejectionInstrumentFilter(e.target.value)}
-                      >
-                        <option value="all">All</option>
-                        {rejectionInstrumentOptions.map((instrumentKey) => (
-                          <option key={instrumentKey} value={instrumentKey}>
-                            {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <label className="form-label small mb-1">Strategy</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={rejectionStrategyFilter}
-                        onChange={(e) => setRejectionStrategyFilter(e.target.value)}
-                      >
-                        <option value="all">All</option>
-                        {rejectionStrategyOptions.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <button
-                      className="btn btn-sm btn-outline-light"
-                      onClick={() => jumpToManagedFleetWithTelemetryFilters()}
-                      type="button"
-                    >
-                      Open Matching Managed Jobs
-                    </button>
-                  </div>
-                  {rejectionSummaryError ? (
-                    <div className="small text-danger mb-2">{rejectionSummaryError}</div>
-                  ) : null}
-                  {topRejectionReasons.length === 0 ? (
-                    <div className="small muted">
-                      No rejection events recorded in the selected window.
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-sm align-middle mb-0">
-                        <thead>
-                          <tr>
-                            <th scope="col">Reason</th>
-                            <th className="text-end" scope="col">Count</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {topRejectionReasons.map((item) => (
-                            <tr
-                              key={item.reason_code}
-                              onClick={() =>
-                                jumpToManagedFleetWithTelemetryFilters(item.reason_code)
-                              }
-                              style={{ cursor: "pointer" }}
-                              title="Open managed jobs with current telemetry filters"
-                            >
-                              <td>{item.reason_code}</td>
-                              <td className="text-end">{fmtNumber(item.total)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+        </header>
+
+        {/* Global Notifications */}
+        {botMessage && (
+          <div className={`alert ${botMessageTone === "success" ? "alert-success" : "alert-danger"} py-2 mb-0`}>
+            {botMessage}
+          </div>
+        )}
+        {error && <div className="alert alert-danger py-2 mb-0">{error}</div>}
+
+        {/* E. Compact KPI Strip (8 cards in one row on desktop) */}
+        <section className="execution-desk-kpi-grid">
+          {/* 1. Managed Jobs (blue) */}
+          <div className="compact-kpi-card kpi-blue">
+            <div className="compact-kpi-icon kpi-icon-blue">
+              <BotIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Managed Jobs</span>
+              <span className="compact-kpi-value">{managedBotsSummary?.managed_jobs ?? managedBotsTotalCount}</span>
+            </div>
+          </div>
+
+          {/* 2. Active Jobs (teal) */}
+          <div className="compact-kpi-card kpi-teal">
+            <div className="compact-kpi-icon kpi-icon-teal">
+              <ActivityIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Active Jobs</span>
+              <span className="compact-kpi-value">{activeManagedBots}</span>
+            </div>
+          </div>
+
+          {/* 3. Open Trades (purple) */}
+          <div className="compact-kpi-card kpi-purple">
+            <div className="compact-kpi-icon kpi-icon-purple">
+              <Layers3Icon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Open Trades</span>
+              <span className="compact-kpi-value">{openManagedTrades}</span>
+            </div>
+          </div>
+
+          {/* 4. Today P/L (green/red) */}
+          <div className={`compact-kpi-card ${todayRealizedPnl >= 0 ? "kpi-green" : "kpi-red"}`}>
+            <div className={`compact-kpi-icon ${todayRealizedPnl >= 0 ? "kpi-icon-green" : "kpi-icon-red"}`}>
+              {todayRealizedPnl >= 0 ? <TrendingUpIcon /> : <TrendingDownIcon />}
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Today P/L</span>
+              <span className={`compact-kpi-value ${pnlClass(todayRealizedPnl)}`}>{fmtMoney(todayRealizedPnl)}</span>
+            </div>
+          </div>
+
+          {/* 5. Gross Profit (green) */}
+          <div className="compact-kpi-card kpi-green">
+            <div className="compact-kpi-icon kpi-icon-green">
+              <CoinsIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Gross Profit</span>
+              <span className="compact-kpi-value text-[#55D6A0]">{fmtMoney(grossProfit)}</span>
+            </div>
+          </div>
+
+          {/* 6. Gross Loss (red) */}
+          <div className="compact-kpi-card kpi-red">
+            <div className="compact-kpi-icon kpi-icon-red">
+              <TrendingDownIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Gross Loss</span>
+              <span className="compact-kpi-value text-[#F17884]">{fmtMoney(grossLoss)}</span>
+            </div>
+          </div>
+
+          {/* 7. Fleet P/L (cyan/blue) */}
+          <div className={`compact-kpi-card ${fleetRealizedPnl >= 0 ? "kpi-cyan" : "kpi-red"}`}>
+            <div className={`compact-kpi-icon ${fleetRealizedPnl >= 0 ? "kpi-icon-cyan" : "kpi-icon-red"}`}>
+              <TargetIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Fleet P/L</span>
+              <span className={`compact-kpi-value ${pnlClass(fleetRealizedPnl)}`}>{fmtMoney(fleetRealizedPnl)}</span>
+            </div>
+          </div>
+
+          {/* 8. Tradable Symbols (amber) */}
+          <div className="compact-kpi-card kpi-amber">
+            <div className="compact-kpi-icon kpi-icon-amber">
+              <ChartCandlestickIcon />
+            </div>
+            <div className="compact-kpi-body">
+              <span className="compact-kpi-label">Tradable Symbols</span>
+              <span className="compact-kpi-value text-[#E8BC55]">{trackedExecutionSymbols}</span>
+            </div>
           </div>
         </section>
 
-        <div className="row g-4">
-          <div className="col-12">
-            <section className="dashboard-panel mb-4" id="bot-control-panel">
-              <h2 className="panel-title">Upstox Option Chain Bot</h2>
-              <div className="p-3">
-                {botMessage && (
-                  <div className={`alert ${botMessageTone === "success" ? "alert-success" : "alert-danger"}`}>
-                    {botMessage}
-                  </div>
-                )}
-                <div className="row g-3 dashboard-bot-form-grid">
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Instrument Key</label>
-                    <select
-                      className="form-select"
-                      value={botForm.instrument_key}
-                      onChange={(e) => {
-                        const nextInstrumentKey = e.target.value;
-                        const nextInstrument = findInstrumentByKey(data, nextInstrumentKey);
-                        setBotForm((prev) => ({
-                          ...prev,
-                          instrument_key: nextInstrumentKey,
-                          lot_size: nextInstrument?.lot_size ?? prev.lot_size,
-                        }));
-                      }}
-                      disabled={instruments.indices.length === 0 && instruments.stocks.length === 0 && !data}
-                    >
-                      {!data && !instruments.indices.length && !instruments.stocks.length && (
-                        <option value={botForm.instrument_key}>Loading instruments...</option>
-                      )}
-                      <optgroup label="Indices">
-                        {instruments.indices.map((item) => (
-                          <option key={item.instrument_key} value={item.instrument_key}>
-                            {instrumentLabel(item)}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Stocks">
-                        {instruments.stocks.slice(0, 500).map((item) => (
-                          <option key={item.instrument_key} value={item.instrument_key}>
-                            {instrumentLabel(item)}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Side</label>
-                    <select
-                      className="form-select"
-                      value={botForm.side}
-                      onChange={(e) => {
-                        const side = e.target.value as BotSide;
-                        setBotForm((prev) => ({
-                          ...prev,
-                          side,
-                          strategy_id: supportsStrategy(side, prev.strategy_id)
-                            ? prev.strategy_id
-                            : defaultStrategyIdForSide(side),
-                        }));
-                      }}
-                    >
-                      <option value="call">Call</option>
-                      <option value="put">Put</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Strategy</label>
-                    <select
-                      className="form-select"
-                      value={botForm.strategy_id}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, strategy_id: e.target.value }))}
-                    >
-                      {strategyOptionsForSide(botForm.side).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="small muted mt-1">
-                      Classic TV-HA engine for the selected side.
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Data Broker</label>
-                    <select
-                      className="form-select"
-                      value={botForm.market_data_broker}
-                      onChange={(e) =>
-                        setBotForm((prev) => {
-                          const marketDataBroker = e.target.value as MarketDataBrokerId;
-                          const fallbackBroker =
-                            prev.fallback_broker === marketDataBroker ? null : prev.fallback_broker;
-                          return {
-                            ...prev,
-                            market_data_broker: marketDataBroker,
-                            fallback_broker: fallbackBroker,
-                          };
-                        })
-                      }
-                    >
-                      {MARKET_DATA_BROKERS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Execution Mode</label>
-                    <select
-                      className="form-select"
-                      value={botForm.execution_mode}
-                      onChange={(e) =>
-                        setBotForm((prev) => ({
-                          ...prev,
-                          execution_mode: e.target.value as "paper" | "live",
-                        }))
-                      }
-                    >
-                      <option value="paper">Paper</option>
-                      <option value="live">Live</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Execution Broker</label>
-                    <select
-                      className="form-select"
-                      disabled={botForm.execution_mode !== "live"}
-                      value={botForm.execution_broker ?? "kotak"}
-                      onChange={(e) =>
-                        setBotForm((prev) => ({
-                          ...prev,
-                          execution_broker: e.target.value as "kotak" | "upstox" | "kite",
-                        }))
-                      }
-                    >
-                      <option value="kotak">Kotak Neo</option>
-                      <option value="upstox">Upstox</option>
-                      <option value="kite">Kite (Zerodha)</option>
-                    </select>
-                    {botForm.execution_mode !== "live" && (
-                      <div className="small muted mt-1">Switch to Live to select broker.</div>
-                    )}
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Fallback Broker</label>
-                    <select
-                      className="form-select"
-                      value={botForm.fallback_broker ?? ""}
-                      onChange={(e) =>
-                        setBotForm((prev) => ({
-                          ...prev,
-                          fallback_broker: e.target.value
-                            ? (e.target.value as MarketDataBrokerId)
-                            : null,
-                        }))
-                      }
-                    >
-                      <option value="">None</option>
-                      {MARKET_DATA_BROKERS.map((option) => (
-                        <option
-                          key={option.value}
-                          value={option.value}
-                          disabled={botForm.market_data_broker === option.value}
-                        >
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
-                    <div className="form-check mb-2">
-                      <input
-                        checked={botForm.force_fallback_for_test}
-                        className="form-check-input"
-                        id="bot-force-fallback-for-test"
-                        onChange={(e) =>
-                          setBotForm((prev) => ({ ...prev, force_fallback_for_test: e.target.checked }))
-                        }
-                        type="checkbox"
-                      />
-                      <label className="form-check-label" htmlFor="bot-force-fallback-for-test">
-                        Force Fallback Test
-                        <div className="small text-muted">Skips the primary data broker once to test failover.</div>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Candle Interval</label>
-                    <input
-                      className="form-control"
-                      value={botForm.candle_interval}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, candle_interval: e.target.value }))}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label" title="-1 = 1 Strike ITM (Best for Momentum), 0 = ATM, +1 = 1 Strike OTM">
-                      Strike Offset
-                    </label>
-                    <input
-                      className="form-control"
-                      type="number"
-                      value={botForm.strike_offset}
-                      placeholder="-1 for ITM, 0 for ATM"
-                      onChange={(e) =>
-                        setBotForm((prev) => ({ ...prev, strike_offset: Number(e.target.value) || 0 }))
-                      }
-                    />
-                    <div className="text-muted small" style={{ fontSize: "0.72rem" }}>
-                      -1 = ITM, 0 = ATM, +1 = OTM
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Max Entry LTP</label>
-                    <input
-                      className="form-control"
-                      type="number"
-                      value={botForm.max_entry_ltp}
-                      onChange={(e) =>
-                        setBotForm((prev) => ({ ...prev, max_entry_ltp: Number(e.target.value) || 0 }))
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <div className="form-check mt-4 pt-2">
-                      <input
-                        checked={botForm.use_greek_selection}
-                        className="form-check-input"
-                        id="bot-use-greek-selection"
-                        onChange={(e) =>
-                          setBotForm((prev) => ({ ...prev, use_greek_selection: e.target.checked }))
-                        }
-                        type="checkbox"
-                      />
-                      <label className="form-check-label" htmlFor="bot-use-greek-selection">
-                        Use Greek Selection
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Expiry</label>
-                    <input
-                      className="form-control"
-                      placeholder="YYYY-MM-DD"
-                      value={botForm.expiry ?? ""}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, expiry: e.target.value }))}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Risk Model</label>
-                    <select
-                      className="form-select"
-                      value={botForm.risk_model}
-                      onChange={(e) =>
-                        setBotForm((prev) => ({ ...prev, risk_model: e.target.value as "dynamic" | "fixed" | "risk_amount" }))
-                      }
-                    >
-                      <option value="dynamic">Dynamic</option>
-                      <option value="fixed">Fixed %</option>
-                      <option value="risk_amount">Risk Amount (₹)</option>
-                    </select>
-                  </div>
-                  {botForm.risk_model === "risk_amount" && (
-                    <div className="col-12 col-md-6 col-xl-2">
-                      <label className="form-label">Risk Amount (₹)</label>
-                      <input
-                        className="form-control"
-                        type="number"
-                        min={1}
-                        placeholder="e.g. 1000"
-                        value={botForm.risk_amount ?? ""}
-                        onChange={(e) =>
-                          setBotForm((prev) => ({ ...prev, risk_amount: e.target.value ? Number(e.target.value) : null }))
-                        }
-                      />
-                      <div className="small muted mt-1">
-                        SL = {botForm.risk_amount && botForm.lots && botForm.lot_size
-                          ? `${(botForm.risk_amount / (botForm.lots * botForm.lot_size)).toFixed(2)} pts`
-                          : "—"}
-                      </div>
-                    </div>
-                  )}
-                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
-                    <div className="form-check mb-2">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="useTimeWindowsDash"
-                        checked={botForm.use_time_windows}
-                        onChange={(e) => setBotForm((prev) => ({ ...prev, use_time_windows: e.target.checked }))}
-                      />
-                      <label className="form-check-label" htmlFor="useTimeWindowsDash">
-                        Time Windows
-                        <div className="small text-muted">ORB / FII / MOM · EOD 15:30</div>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
-                    <div className="form-check mb-2">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="useEma20EntryFilterDash"
-                        checked={botForm.use_ema20_entry_filter}
-                        onChange={(e) =>
-                          setBotForm((prev) => ({ ...prev, use_ema20_entry_filter: e.target.checked }))
-                        }
-                      />
-                      <label className="form-check-label" htmlFor="useEma20EntryFilterDash">
-                        EMA20 Entry Filter
-                        <div className="small text-muted">Fresh entries must align with EMA20 direction.</div>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Lots</label>
-                    <input
-                      className="form-control"
-                      type="number"
-                      value={botForm.lots}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, lots: Number(e.target.value) || 1 }))}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Lot Size</label>
-                    <input
-                      className="form-control"
-                      type="number"
-                      value={botForm.lot_size}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, lot_size: Number(e.target.value) || 1 }))}
-                    />
-                    {selectedInstrument?.lot_size ? (
-                      <div className="small muted mt-1">Detected lot size: {fmtNumber(selectedInstrument.lot_size)}</div>
-                    ) : null}
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Max Cycles</label>
-                    <input
-                      className="form-control"
-                      type="number"
-                      min={1}
-                      placeholder="Unlimited"
-                      value={botForm.max_cycles ?? ""}
-                      onChange={(e) => {
-                        const value = e.target.value.trim();
-                        setBotForm((prev) => ({
-                          ...prev,
-                          max_cycles: value ? Math.max(1, Number(value) || 1) : null,
-                        }));
-                      }}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Store Path</label>
-                    <input
-                      className="form-control"
-                      value={botForm.store_path}
-                      onChange={(e) => setBotForm((prev) => ({ ...prev, store_path: e.target.value }))}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2">
-                    <label className="form-label">Managed Job Name</label>
-                    <input
-                      className="form-control"
-                      placeholder="Optional"
-                      value={managedJobName}
-                      onChange={(e) => setManagedJobName(e.target.value)}
-                    />
-                  </div>
-                  <div className="col-12 col-md-6 col-xl-2 d-flex align-items-end">
-                    <div className="form-check mb-2">
-                      <input
-                        checked={managedAutoStorePath}
-                        className="form-check-input"
-                        id="managed-auto-store-path"
-                        onChange={(e) => setManagedAutoStorePath(e.target.checked)}
-                        type="checkbox"
-                      />
-                      <label className="form-check-label small" htmlFor="managed-auto-store-path">
-                        Auto DB
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12 col-xl-6 d-flex align-items-end">
-                    <div className="dashboard-bot-actions w-100">
-                      <Link className="btn btn-outline-light w-100" href="/upstox-backtest">
-                        Open Backtest Tab
-                      </Link>
-                      <button className="btn btn-outline-light w-100" disabled={previewRunning} onClick={handlePreviewUpstoxBot}>
-                        {previewRunning ? "Previewing..." : "Preview Strategy"}
-                      </button>
-                      <button className="btn btn-warning w-100" disabled={botRunning} onClick={handleRunUpstoxBot}>
-                        {botRunning ? "Running..." : "Run Bot Cycle"}
-                      </button>
-                      <button
-                        className="btn btn-outline-warning w-100"
-                        disabled={managedBotAction === "start"}
-                        onClick={handleStartManagedBot}
-                      >
-                        {managedBotAction === "start" ? "Starting..." : "Start Managed Bot"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {botPreview && (
-                  <div className="mt-4 border rounded p-3" style={{ borderColor: "var(--line)" }}>
-                    <div className="fw-semibold mb-2">Strategy Preview</div>
-                    <div className="small muted mb-2">Strategy: {botPreview.strategy_label}</div>
-                    <div className="small muted mb-2">Resolved expiry: {botPreview.resolved_expiry ?? "Not resolved"}</div>
-                    <div className="small muted mb-3">Open trade present: {botPreview.has_open_trade ? "Yes" : "No"}</div>
-                    {botPreview.signal && (
-                      <div className="mb-3">
-                        <div className="fw-semibold small mb-2">Latest signal snapshot</div>
-                        <pre className="mb-0 small">{JSON.stringify(botPreview.signal, null, 2)}</pre>
-                      </div>
-                    )}
-                    {botPreview.candidate && (
-                      <div>
-                        <div className="fw-semibold small mb-2">Selected option candidate</div>
-                        <pre className="mb-0 small">{JSON.stringify(botPreview.candidate, null, 2)}</pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div
-                  className="mt-4 border rounded p-3"
-                  id="managed-bot-fleet"
-                  style={{ borderColor: "var(--line)" }}
+        {/* F. Main 2-Column Working Area (~65% / ~35%) */}
+        <div className="execution-desk-grid">
+          {/* LEFT: Bot Configuration Panel */}
+          <div className="desk-panel">
+            <div className="desk-panel-header">
+              <h2 className="desk-panel-title">
+                <SlidersHorizontalIcon />
+                <span>Bot Configuration</span>
+              </h2>
+              <span className="text-xs text-slate-400 font-mono">
+                {botForm.side.toUpperCase()} • {strategyOptionsForSide(botForm.side).find((s) => s.value === botForm.strategy_id)?.label ?? botForm.strategy_id}
+              </span>
+            </div>
+
+            {/* Compact Field Grid */}
+            <div className="row g-2">
+              <div className="col-12 col-sm-6 col-xl-4">
+                <label className="bot-field-label">Instrument</label>
+                <select
+                  className="bot-field-select font-mono"
+                  value={botForm.instrument_key}
+                  onChange={(e) => {
+                    const nextInstrumentKey = e.target.value;
+                    const nextInstrument = findInstrumentByKey(data, nextInstrumentKey);
+                    setBotForm((prev) => ({
+                      ...prev,
+                      instrument_key: nextInstrumentKey,
+                      lot_size: nextInstrument?.lot_size ?? prev.lot_size,
+                    }));
+                  }}
+                  disabled={instruments.indices.length === 0 && instruments.stocks.length === 0 && !data}
                 >
-                  <div className="fw-semibold mb-2">Live Bot Log</div>
-                  <div className="small muted mb-2">Shows output captured from the latest bot cycle run inside FastAPI.</div>
-                  <pre className="mb-0 small" style={{ maxHeight: 260, overflow: "auto", whiteSpace: "pre-wrap" }}>
-                    {botLogs.length ? botLogs.join("\n") : "No bot log captured yet."}
-                  </pre>
+                  <optgroup label="Indices">
+                    {instruments.indices.map((item) => (
+                      <option key={item.instrument_key} value={item.instrument_key}>
+                        {instrumentLabel(item)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Stocks">
+                    {instruments.stocks.slice(0, 500).map((item) => (
+                      <option key={item.instrument_key} value={item.instrument_key}>
+                        {instrumentLabel(item)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="col-6 col-sm-3 col-xl-2">
+                <label className="bot-field-label">Side</label>
+                <select
+                  className="bot-field-select"
+                  value={botForm.side}
+                  onChange={(e) => {
+                    const side = e.target.value as BotSide;
+                    setBotForm((prev) => ({
+                      ...prev,
+                      side,
+                      strategy_id: supportsStrategy(side, prev.strategy_id)
+                        ? prev.strategy_id
+                        : defaultStrategyIdForSide(side),
+                    }));
+                  }}
+                >
+                  <option value="call">Call</option>
+                  <option value="put">Put</option>
+                </select>
+              </div>
+
+              <div className="col-12 col-sm-6 col-xl-3">
+                <label className="bot-field-label">Strategy</label>
+                <select
+                  className="bot-field-select"
+                  value={botForm.strategy_id}
+                  onChange={(e) => setBotForm((prev) => ({ ...prev, strategy_id: e.target.value }))}
+                >
+                  {strategyOptionsForSide(botForm.side).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-6 col-sm-3 col-xl-3">
+                <label className="bot-field-label">Data Broker</label>
+                <select
+                  className="bot-field-select"
+                  value={botForm.market_data_broker}
+                  onChange={(e) =>
+                    setBotForm((prev) => {
+                      const marketDataBroker = e.target.value as MarketDataBrokerId;
+                      const fallbackBroker =
+                        prev.fallback_broker === marketDataBroker ? null : prev.fallback_broker;
+                      return {
+                        ...prev,
+                        market_data_broker: marketDataBroker,
+                        fallback_broker: fallbackBroker,
+                      };
+                    })
+                  }
+                >
+                  {MARKET_DATA_BROKERS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 2 */}
+              <div className="col-6 col-sm-4 col-xl-2">
+                <label className="bot-field-label">Mode</label>
+                <select
+                  className="bot-field-select"
+                  value={botForm.execution_mode}
+                  onChange={(e) =>
+                    setBotForm((prev) => ({
+                      ...prev,
+                      execution_mode: e.target.value as "paper" | "live",
+                    }))
+                  }
+                >
+                  <option value="paper">Paper</option>
+                  <option value="live">Live</option>
+                </select>
+              </div>
+
+              <div className="col-6 col-sm-4 col-xl-3">
+                <label className="bot-field-label">Execution Broker</label>
+                <select
+                  className="bot-field-select"
+                  disabled={botForm.execution_mode !== "live"}
+                  value={botForm.execution_broker ?? "kotak"}
+                  onChange={(e) =>
+                    setBotForm((prev) => ({
+                      ...prev,
+                      execution_broker: e.target.value as "kotak" | "upstox" | "kite",
+                    }))
+                  }
+                >
+                  <option value="kotak">Kotak Neo</option>
+                  <option value="upstox">Upstox</option>
+                  <option value="kite">Kite (Zerodha)</option>
+                </select>
+              </div>
+
+              <div className="col-4 col-sm-4 col-xl-2">
+                <label className="bot-field-label">Interval</label>
+                <input
+                  className="bot-field-input font-mono"
+                  value={botForm.candle_interval}
+                  onChange={(e) => setBotForm((prev) => ({ ...prev, candle_interval: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-4 col-sm-4 col-xl-2">
+                <label className="bot-field-label" title="-1 ITM / 0 ATM / +1 OTM">Offset</label>
+                <input
+                  className="bot-field-input font-mono"
+                  type="number"
+                  value={botForm.strike_offset}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setBotForm((prev) => ({ ...prev, strike_offset: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+
+              <div className="col-4 col-sm-4 col-xl-3">
+                <label className="bot-field-label">Max Entry LTP</label>
+                <input
+                  className="bot-field-input font-mono"
+                  type="number"
+                  value={botForm.max_entry_ltp}
+                  onChange={(e) =>
+                    setBotForm((prev) => ({ ...prev, max_entry_ltp: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+
+              {/* Row 3 */}
+              <div className="col-4 col-sm-4 col-xl-2">
+                <label className="bot-field-label">Lots</label>
+                <input
+                  className="bot-field-input font-mono"
+                  type="number"
+                  value={botForm.lots}
+                  onChange={(e) => setBotForm((prev) => ({ ...prev, lots: Number(e.target.value) || 1 }))}
+                />
+              </div>
+
+              <div className="col-4 col-sm-4 col-xl-2">
+                <label className="bot-field-label">Lot Size</label>
+                <input
+                  className="bot-field-input font-mono"
+                  type="number"
+                  value={botForm.lot_size}
+                  onChange={(e) => setBotForm((prev) => ({ ...prev, lot_size: Number(e.target.value) || 1 }))}
+                />
+              </div>
+
+              <div className="col-4 col-sm-4 col-xl-3">
+                <label className="bot-field-label">Expiry</label>
+                <input
+                  className="bot-field-input font-mono"
+                  placeholder="YYYY-MM-DD"
+                  value={botForm.expiry ?? ""}
+                  onChange={(e) => setBotForm((prev) => ({ ...prev, expiry: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-6 col-sm-4 col-xl-3">
+                <label className="bot-field-label">Risk Model</label>
+                <select
+                  className="bot-field-select"
+                  value={botForm.risk_model}
+                  onChange={(e) =>
+                    setBotForm((prev) => ({ ...prev, risk_model: e.target.value as "dynamic" | "fixed" | "risk_amount" }))
+                  }
+                >
+                  <option value="dynamic">Dynamic</option>
+                  <option value="fixed">Fixed %</option>
+                  <option value="risk_amount">Risk Amount (₹)</option>
+                </select>
+              </div>
+
+              <div className="col-6 col-sm-4 col-xl-2">
+                <label className="bot-field-label">Max Cycles</label>
+                <input
+                  className="bot-field-input font-mono"
+                  type="number"
+                  min={1}
+                  placeholder="∞"
+                  value={botForm.max_cycles ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    setBotForm((prev) => ({
+                      ...prev,
+                      max_cycles: value ? Math.max(1, Number(value) || 1) : null,
+                    }));
+                  }}
+                />
+              </div>
+
+              {botForm.risk_model === "risk_amount" && (
+                <div className="col-12 col-sm-6 col-xl-4">
+                  <label className="bot-field-label">Risk Amount (₹)</label>
+                  <input
+                    className="bot-field-input font-mono"
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 1000"
+                    value={botForm.risk_amount ?? ""}
+                    onChange={(e) =>
+                      setBotForm((prev) => ({ ...prev, risk_amount: e.target.value ? Number(e.target.value) : null }))
+                    }
+                  />
+                  <div className="small muted mt-1 font-mono text-xs">
+                    SL = {botForm.risk_amount && botForm.lots && botForm.lot_size
+                      ? `${(botForm.risk_amount / (botForm.lots * botForm.lot_size)).toFixed(2)} pts`
+                      : "—"}
+                  </div>
                 </div>
-                <div className="mt-4 border rounded p-3" style={{ borderColor: "var(--line)" }}>
-                  <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
-                    <div>
-                      <div className="fw-semibold">Managed Bot Fleet</div>
-                      <div className="small muted">
-                        Table overview for all managed bots, with live P&L and manual square-off for open trades.
-                        Square Off exits the current position only. Use Stop as well if you do not want re-entry.
-                      </div>
-                    </div>
-                    <div className="small muted align-self-center">
-                      {managedAutoStorePath
-                        ? "Managed starts generate a unique DB automatically."
-                        : "Managed starts will use the exact Store Path from the form."}
-                    </div>
-                  </div>
-                  <div className="execution-jobs-view-switcher mb-3">
-                    <button
-                      className={`execution-jobs-view-tab ${managedJobsView === "today" ? "active" : ""}`}
-                      onClick={() => setManagedJobsView("today")}
-                      type="button"
-                    >
-                      <span>Today</span>
-                      <strong>{managedBotsSummary?.active_jobs ?? filteredTodayManagedBots.length}</strong>
-                    </button>
-                    <button
-                      className={`execution-jobs-view-tab ${managedJobsView === "history" ? "active" : ""}`}
-                      onClick={() => setManagedJobsView("history")}
-                      type="button"
-                    >
-                      <span>History</span>
-                      <strong>
-                        {managedBotsSummary
-                          ? Math.max(0, managedBotsSummary.managed_jobs - managedBotsSummary.active_jobs)
-                          : managedBotsTotalCount}
-                      </strong>
-                    </button>
-                  </div>
-                  <div className="execution-jobs-toolbar mb-3">
-                    <div>
-                      <div className="fw-semibold">
-                        {managedJobsView === "today" ? "Active execution queue" : "Recent historical jobs"}
-                      </div>
-                      <div className="small muted">
-                        {managedJobsView === "today"
-                          ? "Active jobs are paged so the desk stays responsive even with a larger live fleet."
-                          : "History is filtered on the backend first, then paged so counts stay aligned with what you see."}
-                      </div>
-                      <div className="d-flex flex-wrap gap-2 mt-2">
-                        {managedJobsView === "today" ? (
-                          <>
-                            <span className="badge-soft blue">Started today {todayStartedManagedBots}</span>
-                            <span className="badge-soft gold">Carry-forward live {carryForwardManagedBots}</span>
-                            <span className="badge-soft blue">
-                              Showing {reasonFilteredManagedBots.length} of {managedBotsTotalCount} active jobs
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="badge-soft blue">
-                              Showing {reasonFilteredManagedBots.length} of {managedBotsTotalCount} historical jobs
-                            </span>
-                          </>
-                        )}
-                        <span className="badge-soft gold">
-                          Page {managedBotsCurrentPage} of {managedBotsTotalPages}
-                        </span>
-                        <span className={`badge-soft ${pnlTone(visibleManagedRealizedPnl)}`}>
-                          Realized P/L {fmtMoney(visibleManagedRealizedPnl)}
-                        </span>
-                        <span className={`badge-soft ${pnlTone(visibleManagedTotalPnl)}`}>
-                          Total P/L {fmtMoney(visibleManagedTotalPnl)}
-                        </span>
-                        <span className={`badge-soft ${visibleManagedTotalLoss > 0 ? "red" : "blue"}`}>
-                          Total Loss {fmtMoney(visibleManagedTotalLoss)}
-                        </span>
-                        {managedJobsReasonHint ? (
-                          <span className="badge-soft blue">
-                            Reason hint: {managedJobsReasonHint} (matched {highlightedManagedJobsCount})
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="execution-jobs-filter-shell">
-                      <label className="execution-jobs-filter-field">
-                        <span>Strategy</span>
-                        <select
-                          className="execution-jobs-filter-input"
-                          onChange={(e) => setManagedJobsStrategyFilter(e.target.value)}
-                          value={managedJobsStrategyFilter}
-                        >
-                          <option value="all">All strategies</option>
-                          {managedJobsStrategyOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="execution-jobs-filter-field">
-                        <span>Instrument</span>
-                        <select
-                          className="execution-jobs-filter-input"
-                          onChange={(e) => setManagedJobsInstrumentFilter(e.target.value)}
-                          value={managedJobsInstrumentFilter}
-                        >
-                          <option value="all">All instruments</option>
-                          {managedJobsInstrumentOptions.map((instrumentKey) => (
-                            <option key={instrumentKey} value={instrumentKey}>
-                              {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="execution-jobs-filter-field">
-                        <span>Live only</span>
-                        <div className="d-flex align-items-center gap-2">
-                          <input
-                            checked={managedJobsLiveOnly}
-                            onChange={(e) => setManagedJobsLiveOnly(e.target.checked)}
-                            type="checkbox"
-                          />
-                          <span className="muted small">execution_mode=live</span>
-                        </div>
-                      </label>
-                      <label className="execution-jobs-filter-field">
-                        <span>Reason Hint</span>
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="muted small">
-                            {managedJobsReasonHint ?? "None"}
-                          </span>
-                          <button
-                            className="btn btn-outline-light btn-sm"
-                            disabled={!managedJobsReasonHint}
-                            onClick={() => {
-                              setManagedJobsReasonHint(null);
-                              setManagedJobsMatchedOnly(false);
-                            }}
-                            type="button"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      </label>
-                      <label className="execution-jobs-filter-field">
-                        <span>Show Only Matched</span>
-                        <div className="d-flex align-items-center gap-2">
-                          <input
-                            checked={managedJobsMatchedOnly}
-                            disabled={!managedJobsReasonHint}
-                            onChange={(e) => setManagedJobsMatchedOnly(e.target.checked)}
-                            type="checkbox"
-                          />
-                          <span className="muted small">reason hint matches only</span>
-                        </div>
-                      </label>
-                      <label className="execution-jobs-filter-field">
-                        <span>Rows</span>
-                        <select
-                          className="execution-jobs-filter-input"
-                          onChange={(e) => setManagedBotsPageSize(Number(e.target.value))}
-                          value={managedBotsPageSize}
-                        >
-                          <option value={10}>10</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                          <option value={0}>All</option>
-                        </select>
-                      </label>
-                      {managedJobsView === "history" && (
-                        <div className="execution-jobs-filter-pills">
-                          {[
-                            { value: "yesterday", label: "Yesterday" },
-                            { value: "last7", label: "Last 7 Days" },
-                            { value: "last30", label: "Last 30 Days" },
-                            { value: "custom", label: "Custom Range" },
-                          ].map((option) => (
-                            <button
-                              key={option.value}
-                              className={`execution-jobs-filter-pill ${
-                                managedJobsHistoryPreset === option.value ? "active" : ""
-                              }`}
-                              onClick={() =>
-                                setManagedJobsHistoryPreset(option.value as ManagedJobsHistoryPreset)
-                              }
-                              type="button"
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {managedJobsView === "history" && managedJobsHistoryPreset === "custom" && (
-                          <div className="execution-jobs-filter-grid">
-                            <label className="execution-jobs-filter-field">
-                              <span>From</span>
-                              <input
-                                className="execution-jobs-filter-input"
-                                max={managedJobsHistoryTo || undefined}
-                                onChange={(e) => setManagedJobsHistoryFrom(e.target.value)}
-                                type="date"
-                                value={managedJobsHistoryFrom}
-                              />
-                            </label>
-                            <label className="execution-jobs-filter-field">
-                              <span>To</span>
-                              <input
-                                className="execution-jobs-filter-input"
-                                min={managedJobsHistoryFrom || undefined}
-                                onChange={(e) => setManagedJobsHistoryTo(e.target.value)}
-                                type="date"
-                                value={managedJobsHistoryTo}
-                              />
-                            </label>
-                          </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <div className="small muted">
-                      {managedBotsTotalCount === 0
-                        ? "No jobs in this view."
-                        : `Page ${managedBotsCurrentPage} of ${managedBotsTotalPages} • ${managedBotsTotalCount} total job(s)`}
-                    </div>
-                    <div className="small muted d-flex align-items-center gap-2">
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 999,
-                          background: "rgba(46, 186, 143, 0.5)",
-                          display: "inline-block",
-                        }}
-                      />
-                      Highlighted rows match current reason hint.
-                    </div>
-                    <div className="d-flex flex-wrap gap-2">
-                      {managedJobsView === "history" ? (
-                        <>
-                          <button
-                            className="btn btn-outline-light btn-sm"
-                            disabled={!deletableVisibleManagedBotIds.length}
-                            onClick={() =>
-                              setSelectedManagedBotIds((prev) =>
-                                allVisibleManagedBotsSelected
-                                  ? prev.filter((jobId) => !deletableVisibleManagedBotIds.includes(jobId))
-                                  : Array.from(new Set([...prev, ...deletableVisibleManagedBotIds])),
-                              )
-                            }
-                            type="button"
-                          >
-                            {allVisibleManagedBotsSelected ? "Clear Page Selection" : "Select Page"}
-                          </button>
-                          <button
-                            className="btn btn-outline-danger btn-sm"
-                            disabled={!selectedManagedBotIds.length || managedBotAction === "bulk-delete"}
-                            onClick={handleBulkDeleteManagedBots}
-                            type="button"
-                          >
-                            {managedBotAction === "bulk-delete"
-                              ? "Deleting..."
-                              : `Delete Selected (${selectedManagedBotIds.length})`}
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            disabled={managedBotsTotalCount === 0 || managedBotAction === "delete-all-history"}
-                            onClick={handleDeleteAllManagedBotHistory}
-                            type="button"
-                          >
-                            {managedBotAction === "delete-all-history" ? "Deleting..." : "Delete All Logs"}
-                          </button>
-                        </>
-                      ) : null}
-                      <button
-                        className="btn btn-outline-light btn-sm"
-                        disabled={managedBotsLoading || managedBotsCurrentPage <= 1}
-                        onClick={() => setManagedBotsCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        type="button"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        className="btn btn-outline-light btn-sm"
-                        disabled={managedBotsLoading || managedBotsCurrentPage >= managedBotsTotalPages}
-                        onClick={() =>
-                          setManagedBotsCurrentPage((prev) => Math.min(prev + 1, managedBotsTotalPages))
+              )}
+            </div>
+
+            {/* Collapsible Advanced Settings (8 optional parameters) */}
+            <div className="mt-3">
+              <button
+                type="button"
+                className="bot-advanced-toggle-btn"
+                onClick={() => setAdvancedSettingsOpen((prev) => !prev)}
+              >
+                <span>Advanced Settings (8 optional parameters)</span>
+                {advancedSettingsOpen ? <ChevronUpIcon style={{ width: 15, height: 15 }} /> : <ChevronDownIcon style={{ width: 15, height: 15 }} />}
+              </button>
+
+              {advancedSettingsOpen && (
+                <div className="p-3 mt-2 border rounded" style={{ borderColor: "rgba(148, 163, 184, 0.12)", background: "rgba(15, 24, 40, 0.5)" }}>
+                  <div className="row g-2">
+                    <div className="col-12 col-sm-6 col-xl-3">
+                      <label className="bot-field-label">Fallback Broker</label>
+                      <select
+                        className="bot-field-select"
+                        value={botForm.fallback_broker ?? ""}
+                        onChange={(e) =>
+                          setBotForm((prev) => ({
+                            ...prev,
+                            fallback_broker: e.target.value ? (e.target.value as MarketDataBrokerId) : null,
+                          }))
                         }
-                        type="button"
                       >
-                        Next
-                      </button>
+                        <option value="">None</option>
+                        {MARKET_DATA_BROKERS.map((option) => (
+                          <option
+                            key={option.value}
+                            value={option.value}
+                            disabled={botForm.market_data_broker === option.value}
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-12 col-sm-6 col-xl-4">
+                      <label className="bot-field-label">Managed Job Name</label>
+                      <input
+                        className="bot-field-input"
+                        placeholder="Optional descriptive name"
+                        value={managedJobName}
+                        onChange={(e) => setManagedJobName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="col-12 col-sm-6 col-xl-5">
+                      <label className="bot-field-label">Store Path</label>
+                      <input
+                        className="bot-field-input font-mono text-xs"
+                        value={botForm.store_path}
+                        onChange={(e) => setBotForm((prev) => ({ ...prev, store_path: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="col-6 col-md-3">
+                      <div className="form-check pt-1">
+                        <input
+                          checked={botForm.force_fallback_for_test}
+                          className="form-check-input"
+                          id="bot-force-fallback-for-test"
+                          onChange={(e) =>
+                            setBotForm((prev) => ({ ...prev, force_fallback_for_test: e.target.checked }))
+                          }
+                          type="checkbox"
+                        />
+                        <label className="form-check-label small text-slate-300" htmlFor="bot-force-fallback-for-test">
+                          Force Fallback Test
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-6 col-md-3">
+                      <div className="form-check pt-1">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="useTimeWindowsDash"
+                          checked={botForm.use_time_windows}
+                          onChange={(e) => setBotForm((prev) => ({ ...prev, use_time_windows: e.target.checked }))}
+                        />
+                        <label className="form-check-label small text-slate-300" htmlFor="useTimeWindowsDash">
+                          Time Windows
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-6 col-md-3">
+                      <div className="form-check pt-1">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="useEma20EntryFilterDash"
+                          checked={botForm.use_ema20_entry_filter}
+                          onChange={(e) =>
+                            setBotForm((prev) => ({ ...prev, use_ema20_entry_filter: e.target.checked }))
+                          }
+                        />
+                        <label className="form-check-label small text-slate-300" htmlFor="useEma20EntryFilterDash">
+                          EMA20 Entry Filter
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-6 col-md-3">
+                      <div className="form-check pt-1">
+                        <input
+                          checked={botForm.use_greek_selection}
+                          className="form-check-input"
+                          id="bot-use-greek-selection"
+                          onChange={(e) =>
+                            setBotForm((prev) => ({ ...prev, use_greek_selection: e.target.checked }))
+                          }
+                          type="checkbox"
+                        />
+                        <label className="form-check-label small text-slate-300" htmlFor="bot-use-greek-selection">
+                          Greek Selection
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-6 col-md-3">
+                      <div className="form-check pt-1">
+                        <input
+                          checked={managedAutoStorePath}
+                          className="form-check-input"
+                          id="managed-auto-store-path"
+                          onChange={(e) => setManagedAutoStorePath(e.target.checked)}
+                          type="checkbox"
+                        />
+                        <label className="form-check-label small text-slate-300" htmlFor="managed-auto-store-path">
+                          Auto DB (Unique)
+                        </label>
+                      </div>
                     </div>
                   </div>
-                  <div className="table-responsive managed-bots-table-wrap">
-                    <table className="table table-dark-shell align-middle managed-bots-table">
-                      <thead>
-                        <tr>
-                          {managedJobsView === "history" ? <th>Select</th> : null}
-                          <th>Status</th>
-                          <th>Mode</th>
-                          <th>Job</th>
-                          <th>Instrument</th>
-                          <th>Store</th>
-                          <th>Open Trade</th>
-                          <th>LTP / P&amp;L</th>
-                          <th>Started</th>
-                          <th>Last Log</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {managedBotsLoading ? (
-                          <tr>
-                            <td colSpan={managedJobsView === "history" ? 11 : 10} className="empty-state">
-                              Loading managed bot jobs...
-                            </td>
-                          </tr>
-                        ) : reasonFilteredManagedBots.length ? (
-                          reasonFilteredManagedBots.map((job) => {
-                            const latestExecutionLine = latestManagedBotExecutionLine(job);
-                            const reasonMatch = highlightedManagedJobIds.has(job.job_id);
-                            return (
-                            <Fragment key={job.job_id}>
-                              <tr
-                                style={
-                                  managedJobsReasonHint && reasonMatch
-                                    ? { backgroundColor: "rgba(46, 186, 143, 0.08)" }
-                                    : undefined
-                                }
-                              >
-                                {managedJobsView === "history" ? (
-                                  <td data-label="Select">
-                                    {isManagedBotDeletable(job) ? (
-                                      <input
-                                        checked={selectedManagedBotIds.includes(job.job_id)}
-                                        onChange={(e) =>
-                                          setSelectedManagedBotIds((prev) =>
-                                            e.target.checked
-                                              ? Array.from(new Set([...prev, job.job_id]))
-                                              : prev.filter((jobId) => jobId !== job.job_id),
-                                          )
-                                        }
-                                        type="checkbox"
-                                      />
-                                    ) : (
-                                      <span className="muted">-</span>
-                                    )}
-                                  </td>
-                                ) : null}
-                                <td data-label="Status">
-                                  <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
-                                </td>
-                                <td data-label="Mode">
-                                  <label className="d-flex align-items-center gap-2 mb-0">
-                                    <input
-                                      checked={job.execution_mode === "live"}
-                                      disabled={managedBotModeId === job.job_id}
-                                      onChange={(e) => void handleSetManagedBotMode(job, e.target.checked ? "live" : "paper")}
-                                      type="checkbox"
-                                    />
-                                    <span className={`badge-soft ${job.execution_mode === "live" ? "blue" : "gold"}`}>
-                                      {managedBotModeId === job.job_id
-                                        ? "Saving..."
-                                        : job.execution_mode === "live"
-                                          ? "LIVE"
-                                          : "PAPER"}
-                                    </span>
-                                  </label>
-                                </td>
-                                <td data-label="Job">
-                                  <div className="fw-semibold">{job.job_name}</div>
-                                  <div className="muted small">{job.strategy_label}</div>
-                                  <div className="muted small">{job.job_id}</div>
-                                </td>
-                                <td data-label="Instrument">
-                                  <div>{job.instrument_key}</div>
-                                  <div className="muted small">
-                                    {job.side.toUpperCase()} | PID {job.pid ?? "-"}
-                                  </div>
-                                </td>
-                                <td data-label="Store">
-                                  <div className="small">{job.store_path}</div>
-                                  <div className="muted small">
-                                    <button
-                                      className="dashboard-trades-link"
-                                      onClick={() => handleOpenManagedBotTrades(job)}
-                                      type="button"
-                                    >
-                                      Trades {job.trade_count} | Closed {job.closed_trade_count}
-                                    </button>
-                                  </div>
-                                  {latestExecutionLine ? (
-                                    <div className="mt-2">
-                                      <span className={`badge-soft execution-status-line ${managedBotExecutionTone(latestExecutionLine)}`}>
-                                        {latestExecutionLine}
-                                      </span>
-                                    </div>
-                                  ) : null}
-                                </td>
-                                <td data-label="Open Trade">
-                                  {job.has_open_trade ? (
-                                    <div>
-                                      <div className="fw-semibold">{job.open_trade_option ?? "Open"}</div>
-                                      <div className="muted small">
-                                        {job.open_trade_opened_at ? fmtDate(job.open_trade_opened_at) : "-"}
-                                      </div>
-                                      <div className="muted small">
-                                        Entry {job.open_trade_entry_ltp?.toFixed(2) ?? "-"} | SL{" "}
-                                        {job.open_trade_stop_ltp?.toFixed(2) ?? "-"} | TGT{" "}
-                                        {job.open_trade_target_ltp?.toFixed(2) ?? "-"}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="muted">No</span>
-                                  )}
-                                </td>
-                                <td data-label="LTP / P&L">
-                                  {job.has_open_trade ? (
-                                    <div>
-                                      <div className="fw-semibold">
-                                        {job.current_option_ltp != null ? job.current_option_ltp.toFixed(2) : "-"}
-                                      </div>
-                                      {job.unrealized_pnl_amount != null ? (
-                                        <span className={`badge-soft ${pnlTone(job.unrealized_pnl_amount)}`}>
-                                          MTM {fmtMoney(job.unrealized_pnl_amount)}
-                                        </span>
-                                      ) : (
-                                        <div className="muted small">{job.quote_error ?? "Live quote pending"}</div>
-                                      )}
-                                      <div className="muted small">Realized {fmtMoney(job.total_realized_pnl)}</div>
-                                    </div>
-                                  ) : (
-                                    <div>
-                                      <span className={`badge-soft ${pnlTone(job.total_realized_pnl)}`}>
-                                        Realized {fmtMoney(job.total_realized_pnl)}
-                                      </span>
-                                    </div>
-                                  )}
-                                </td>
-                                <td data-label="Started">{fmtDate(job.started_at)}</td>
-                                <td data-label="Last Log">{job.last_log_at ? fmtDate(job.last_log_at) : "-"}</td>
-                                <td data-label="Actions">
-                                  <div className="d-flex flex-wrap gap-2">
-                                    <button
-                                      className="btn btn-outline-light btn-sm"
-                                      onClick={() => setExpandedBotJobId((prev) => (prev === job.job_id ? "" : job.job_id))}
-                                    >
-                                      {expandedBotJobId === job.job_id ? "Hide" : "Details"}
-                                    </button>
-                                    {job.has_open_trade && (
-                                      <button
-                                        className="btn btn-outline-danger btn-sm"
-                                        disabled={
-                                          managedBotAction === `square:${job.job_id}` ||
-                                          managedBotAction === `stop:${job.job_id}`
-                                        }
-                                        onClick={() => handleSquareOffManagedBot(job.job_id)}
-                                      >
-                                        {managedBotAction === `square:${job.job_id}` ? "Squaring..." : "Square Off"}
-                                      </button>
-                                    )}
-                                    {(job.status === "starting" || job.status === "running" || job.status === "stopping") && (
-                                      <button
-                                        className="btn btn-warning btn-sm"
-                                        disabled={
-                                          managedBotAction === `stop:${job.job_id}` ||
-                                          managedBotAction === `square:${job.job_id}`
-                                        }
-                                        onClick={() => handleStopManagedBot(job.job_id)}
-                                      >
-                                        {managedBotAction === `stop:${job.job_id}` ? "Stopping..." : "Stop"}
-                                      </button>
-                                    )}
-                                    {managedJobsView === "history" && isManagedBotDeletable(job) && (
-                                      <button
-                                        className="btn btn-outline-danger btn-sm"
-                                        disabled={managedBotAction === `delete:${job.job_id}`}
-                                        onClick={() => handleDeleteManagedBot(job)}
-                                        type="button"
-                                      >
-                                        {managedBotAction === `delete:${job.job_id}` ? "Deleting..." : "Delete"}
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                              {expandedBotJobId === job.job_id && (
-                                <tr>
-                                  <td colSpan={managedJobsView === "history" ? 10 : 9}>
-                                    <div className="row g-3">
-                                      <div className="col-12 col-xl-4">
-                                        <div className="small muted">
-                                          <strong>Run Mode:</strong> {job.once ? "Single pass" : "Managed loop"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Cycles Limit:</strong> {job.max_cycles ?? "Unlimited"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Polling:</strong> entry {job.entry_interval_sec}s / exit {job.exit_interval_sec}s
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Greek Selection:</strong> {job.use_greek_selection ? "Enabled" : "Disabled"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Lots:</strong> {job.lots} x {job.lot_size}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Qty:</strong> {job.open_trade_quantity || job.lots * job.lot_size}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Current Option LTP:</strong>{" "}
-                                          {job.current_option_ltp != null ? job.current_option_ltp.toFixed(2) : "-"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Current Spot:</strong> {job.current_spot != null ? job.current_spot.toFixed(2) : "-"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>MTM:</strong>{" "}
-                                          {job.unrealized_pnl_amount != null
-                                            ? `${fmtMoney(job.unrealized_pnl_amount)} (${job.unrealized_pnl_points?.toFixed(2) ?? "-"} pts)`
-                                            : job.quote_error ?? "-"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Total Realized:</strong> {fmtMoney(job.total_realized_pnl)}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Stopped:</strong> {job.stopped_at ? fmtDate(job.stopped_at) : "-"}
-                                        </div>
-                                        <div className="small muted">
-                                          <strong>Last Error:</strong> {job.last_error ?? "-"}
-                                        </div>
-                                      </div>
-                                      <div className="col-12 col-xl-8">
-                                        <div className="fw-semibold small mb-2 text-slate-300">Recent Logs</div>
-                                        <pre className="dashboard-terminal-logs mb-0">
-                                          {job.recent_logs.length ? job.recent_logs.join("\n") : "No logs captured yet."}
-                                        </pre>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
-                              {managedJobsView === "today"
-                                ? "No jobs are active for today yet."
-                                : "No historical jobs match the selected date range."}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
-              </div>
-            </section>
+              )}
+            </div>
 
-          </div>
-        </div>
-      </div>
+            {/* Bot Action Bar */}
+            <div className="bot-action-row">
+              <button
+                className="btn btn-outline-light bot-action-btn"
+                disabled={previewRunning}
+                onClick={handlePreviewUpstoxBot}
+                type="button"
+              >
+                {previewRunning ? "Previewing..." : "Preview Strategy"}
+              </button>
 
-      {managedBotTradesJob ? (
-        <div className="dashboard-trades-modal-backdrop" onClick={closeManagedBotTrades} role="presentation">
-          <div
-            className="dashboard-trades-modal"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Managed bot trades"
-          >
-            <div className="dashboard-trades-modal-header">
-              <div>
-                <div className="dashboard-trades-modal-title">Managed Bot Trades</div>
-                <div className="dashboard-trades-modal-subtitle">
-                  {managedBotTradesJob.job_name} | {managedBotTradesJob.instrument_key} |{" "}
-                  {managedBotTradesJob.side.toUpperCase()} | {managedBotTradesJob.strategy_label}
-                </div>
-              </div>
-              <button className="dashboard-trades-close" onClick={closeManagedBotTrades} type="button">
-                Close
+              <Link className="btn btn-outline-info bot-action-btn" href="/upstox-backtest">
+                Open Backtest
+              </Link>
+
+              <button
+                className="btn btn-outline-warning bot-action-btn"
+                disabled={botRunning}
+                onClick={handleRunUpstoxBot}
+                type="button"
+              >
+                {botRunning ? "Running..." : "Run Bot Cycle"}
+              </button>
+
+              <button
+                className="btn btn-success bot-action-btn"
+                disabled={managedBotAction === "start"}
+                onClick={handleStartManagedBot}
+                type="button"
+              >
+                {managedBotAction === "start" ? "Starting..." : "Start Managed Bot"}
               </button>
             </div>
 
-            {managedBotTradesError ? (
-              <div className="alert alert-danger mb-0">{managedBotTradesError}</div>
-            ) : managedBotTradesLoading ? (
-              <div className="muted">Loading trades...</div>
-            ) : managedBotTrades.length ? (
-              <div className="table-responsive">
-                <table className="table table-dark-shell align-middle dashboard-trades-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Status</th>
-                      <th>Opened</th>
-                      <th>Closed</th>
-                      <th>Option</th>
-                      <th>Qty</th>
-                      <th>Entry</th>
-                      <th>Exit</th>
-                      <th>P&amp;L</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {managedBotTrades.map((trade) => (
-                      <tr key={trade.id}>
-                        <td className="mono">{trade.id}</td>
-                        <td>
-                          <span className={`badge-soft ${trade.status === "OPEN" ? "blue" : "gold"}`}>
-                            {trade.status}
-                          </span>
-                        </td>
-                        <td className="small">{trade.opened_at ? fmtDate(trade.opened_at) : "-"}</td>
-                        <td className="small">{trade.closed_at ? fmtDate(trade.closed_at) : "-"}</td>
-                        <td>
-                          <div className="fw-semibold">{trade.option_symbol}</div>
-                          <div className="muted small">
-                            {trade.expiry} | {trade.option_type} {trade.strike}
-                          </div>
-                        </td>
-                        <td className="mono">{trade.quantity}</td>
-                        <td className="mono">{trade.entry_ltp?.toFixed(2) ?? "-"}</td>
-                        <td className="mono">{trade.exit_ltp != null ? trade.exit_ltp.toFixed(2) : "-"}</td>
-                        <td>
-                          {trade.pnl_amount != null ? (
-                            <span className={`badge-soft ${pnlTone(trade.pnl_amount)}`}>
-                              {fmtMoney(trade.pnl_amount)}
-                            </span>
-                          ) : (
-                            <span className="muted">-</span>
-                          )}
-                        </td>
-                        <td className="small">
-                          <div>{trade.entry_reason || "-"}</div>
-                          <div className="muted">{trade.exit_reason || ""}</div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Optional Strategy Preview */}
+            {botPreview && (
+              <div className="mt-3 p-3 border rounded" style={{ borderColor: "rgba(148, 163, 184, 0.16)", background: "rgba(15, 24, 40, 0.8)" }}>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <div className="fw-semibold text-slate-100 text-sm">Strategy Preview</div>
+                  <button
+                    className="btn btn-sm btn-link text-slate-400 p-0 text-decoration-none"
+                    onClick={() => setBotPreview(null)}
+                    type="button"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <div className="small muted mb-1">Strategy: {botPreview.strategy_label}</div>
+                <div className="small muted mb-1">Resolved expiry: {botPreview.resolved_expiry ?? "Not resolved"}</div>
+                <div className="small muted mb-2">Open trade present: {botPreview.has_open_trade ? "Yes" : "No"}</div>
+                {botPreview.signal && (
+                  <div className="mb-2">
+                    <div className="fw-semibold small mb-1 text-slate-300">Latest Signal Snapshot</div>
+                    <pre className="dashboard-terminal-logs mb-0" style={{ maxHeight: 120 }}>{JSON.stringify(botPreview.signal, null, 2)}</pre>
+                  </div>
+                )}
+                {botPreview.candidate && (
+                  <div>
+                    <div className="fw-semibold small mb-1 text-slate-300">Selected Option Candidate</div>
+                    <pre className="dashboard-terminal-logs mb-0" style={{ maxHeight: 120 }}>{JSON.stringify(botPreview.candidate, null, 2)}</pre>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="muted">No trades recorded for this bot store yet.</div>
             )}
           </div>
+
+          {/* RIGHT: Telemetry + Live Bot Log Column */}
+          <div className="d-flex flex-column gap-3">
+            {/* Top: Entry Rejection Telemetry */}
+            <div className="desk-panel">
+              <div className="desk-panel-header">
+                <h3 className="desk-panel-title">
+                  <FilterIcon />
+                  <span>Rejection Telemetry</span>
+                </h3>
+                <span className="badge-soft blue font-mono">
+                  {rejectionSummary?.total_events ?? 0} events ({rejectionSinceHours}h)
+                </span>
+              </div>
+
+              {/* Filter controls */}
+              <div className="row g-2 mb-2">
+                <div className="col-4">
+                  <select
+                    className="bot-field-select"
+                    value={rejectionSinceHours}
+                    onChange={(e) => setRejectionSinceHours(Number(e.target.value) || 24)}
+                  >
+                    <option value={6}>6h</option>
+                    <option value={24}>24h</option>
+                    <option value={72}>72h</option>
+                    <option value={168}>7d</option>
+                  </select>
+                </div>
+                <div className="col-4">
+                  <select
+                    className="bot-field-select"
+                    value={rejectionInstrumentFilter}
+                    onChange={(e) => setRejectionInstrumentFilter(e.target.value)}
+                  >
+                    <option value="all">All Inst</option>
+                    {rejectionInstrumentOptions.map((instrumentKey) => (
+                      <option key={instrumentKey} value={instrumentKey}>
+                        {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-4">
+                  <select
+                    className="bot-field-select"
+                    value={rejectionStrategyFilter}
+                    onChange={(e) => setRejectionStrategyFilter(e.target.value)}
+                  >
+                    <option value="all">All Strat</option>
+                    {rejectionStrategyOptions.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 4 Stat Tiles */}
+              <div className="telemetry-grid-tiles">
+                <div className="telemetry-stat-tile">
+                  <div className="telemetry-stat-tile-label">Total</div>
+                  <div className="telemetry-stat-tile-value">{rejectionSummary?.total_events ?? 0}</div>
+                </div>
+                <div className="telemetry-stat-tile">
+                  <div className="telemetry-stat-tile-label">Unique</div>
+                  <div className="telemetry-stat-tile-value">{(rejectionSummary?.reason_counts ?? []).length}</div>
+                </div>
+                <div className="telemetry-stat-tile">
+                  <div className="telemetry-stat-tile-label">Top Reason</div>
+                  <div className="telemetry-stat-tile-value text-truncate" title={topRejectionReasons[0]?.reason_code ?? "None"}>
+                    {topRejectionReasons[0]?.reason_code ? topRejectionReasons[0].reason_code.slice(0, 8) : "—"}
+                  </div>
+                </div>
+                <div className="telemetry-stat-tile">
+                  <div className="telemetry-stat-tile-label">Affected</div>
+                  <div className="telemetry-stat-tile-value">
+                    {topRejectionReasons.reduce((sum, r) => sum + (r.total > 0 ? 1 : 0), 0)}
+                  </div>
+                </div>
+              </div>
+
+              {rejectionSummaryError ? (
+                <div className="small text-danger mb-2">{rejectionSummaryError}</div>
+              ) : null}
+
+              {topRejectionReasons.length === 0 ? (
+                <div className="p-3 text-center text-slate-400 small border rounded" style={{ borderColor: "rgba(148, 163, 184, 0.08)" }}>
+                  No rejection events in the selected window.
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ maxHeight: 130 }}>
+                  <table className="table table-sm align-middle mb-0">
+                    <tbody>
+                      {topRejectionReasons.map((item) => (
+                        <tr
+                          key={item.reason_code}
+                          onClick={() => jumpToManagedFleetWithTelemetryFilters(item.reason_code)}
+                          style={{ cursor: "pointer" }}
+                          title="Click to filter managed jobs by this reason"
+                        >
+                          <td className="small text-truncate text-slate-300" style={{ maxWidth: 170 }}>{item.reason_code}</td>
+                          <td className="text-end font-mono small fw-bold text-slate-300">{fmtNumber(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom: Live Bot Log */}
+            <div className="desk-panel">
+              <div className="desk-panel-header">
+                <h3 className="desk-panel-title">
+                  <TerminalIcon />
+                  <span>Live Bot Log</span>
+                  <span className="live-log-status-dot ms-1" />
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm text-info p-0 text-decoration-none small"
+                  onClick={() => setShowFullLogModal(true)}
+                >
+                  View Full Log
+                </button>
+              </div>
+              <pre className="live-log-terminal">
+                {botLogs.length ? botLogs.slice(-4).join("\n") : "Waiting for next cycle / system initialized."}
+              </pre>
+            </div>
+          </div>
         </div>
-      ) : null}
+
+        {/* G. Managed Bot Fleet Section */}
+        <section className="desk-panel mt-2" id="managed-bot-fleet">
+          <div className="desk-panel-header flex-wrap">
+            <div>
+              <h2 className="desk-panel-title">
+                <BotIcon />
+                <span>Managed Bot Fleet</span>
+              </h2>
+              <div className="text-xs text-slate-400 mt-1">
+                All your running and managed bots in one place.
+              </div>
+            </div>
+
+            {/* Right Summary */}
+            <div className="d-flex flex-wrap gap-2 align-items-center">
+              <span className="badge-soft blue">Today: {todayStartedManagedBots}</span>
+              <span className="badge-soft gold">Carry: {carryForwardManagedBots}</span>
+              <span className={`badge-soft ${pnlTone(visibleManagedRealizedPnl)} font-mono`}>
+                Realized: {fmtMoney(visibleManagedRealizedPnl)}
+              </span>
+              <span className={`badge-soft ${pnlTone(visibleManagedTotalPnl)} font-mono`}>
+                Total P/L: {fmtMoney(visibleManagedTotalPnl)}
+              </span>
+            </div>
+          </div>
+
+          {/* Fleet Horizontal Filter Toolbar */}
+          <div className="fleet-single-toolbar">
+            {/* Today / History tabs */}
+            <div className="execution-jobs-view-switcher mb-0">
+              <button
+                className={`execution-jobs-view-tab ${managedJobsView === "today" ? "active" : ""}`}
+                onClick={() => setManagedJobsView("today")}
+                type="button"
+              >
+                <span>Today</span>
+                <strong>{managedBotsSummary?.active_jobs ?? filteredTodayManagedBots.length}</strong>
+              </button>
+              <button
+                className={`execution-jobs-view-tab ${managedJobsView === "history" ? "active" : ""}`}
+                onClick={() => setManagedJobsView("history")}
+                type="button"
+              >
+                <span>History</span>
+                <strong>
+                  {managedBotsSummary
+                    ? Math.max(0, managedBotsSummary.managed_jobs - managedBotsSummary.active_jobs)
+                    : managedBotsTotalCount}
+                </strong>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="d-flex align-items-center gap-1">
+              <input
+                className="fleet-filter-input"
+                placeholder="Search bots..."
+                value={fleetSearchQuery}
+                onChange={(e) => setFleetSearchQuery(e.target.value)}
+                style={{ width: 130 }}
+              />
+            </div>
+
+            {/* Strategy Filter */}
+            <select
+              className="fleet-filter-select"
+              onChange={(e) => setManagedJobsStrategyFilter(e.target.value)}
+              value={managedJobsStrategyFilter}
+            >
+              <option value="all">All Strategies</option>
+              {managedJobsStrategyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Instrument Filter */}
+            <select
+              className="fleet-filter-select"
+              onChange={(e) => setManagedJobsInstrumentFilter(e.target.value)}
+              value={managedJobsInstrumentFilter}
+            >
+              <option value="all">All Instruments</option>
+              {managedJobsInstrumentOptions.map((instrumentKey) => (
+                <option key={instrumentKey} value={instrumentKey}>
+                  {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                </option>
+              ))}
+            </select>
+
+            {/* Live Only Checkbox */}
+            <label className="d-flex align-items-center gap-1 small text-slate-300 mb-0 cursor-pointer">
+              <input
+                checked={managedJobsLiveOnly}
+                onChange={(e) => setManagedJobsLiveOnly(e.target.checked)}
+                type="checkbox"
+              />
+              <span>Live only</span>
+            </label>
+
+            {/* Reason hint if present */}
+            {managedJobsReasonHint ? (
+              <div className="d-flex align-items-center gap-1">
+                <span className="badge-soft blue text-xs">
+                  Reason: {managedJobsReasonHint}
+                </span>
+                <label className="d-flex align-items-center gap-1 small text-slate-300 mb-0 cursor-pointer">
+                  <input
+                    checked={managedJobsMatchedOnly}
+                    onChange={(e) => setManagedJobsMatchedOnly(e.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Matched</span>
+                </label>
+                <button
+                  className="btn btn-outline-light btn-sm py-0 px-1 text-xs"
+                  onClick={() => {
+                    setManagedJobsReasonHint(null);
+                    setManagedJobsMatchedOnly(false);
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : null}
+
+            {/* Rows selector */}
+            <select
+              className="fleet-filter-select"
+              onChange={(e) => setManagedBotsPageSize(Number(e.target.value))}
+              value={managedBotsPageSize}
+            >
+              <option value={10}>10 rows</option>
+              <option value={20}>20 rows</option>
+              <option value={50}>50 rows</option>
+              <option value={100}>100 rows</option>
+              <option value={0}>All rows</option>
+            </select>
+
+            {/* Refresh */}
+            <button
+              className="btn btn-outline-light btn-sm py-1 px-2"
+              disabled={managedBotsLoading || refreshing}
+              onClick={() => void handleRefreshAll()}
+              type="button"
+              title="Refresh fleet"
+            >
+              <RefreshCwIcon style={{ width: 13, height: 13 }} />
+            </button>
+          </div>
+
+          {/* History Controls Bar if in History Mode */}
+          {managedJobsView === "history" && (
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 p-2 rounded" style={{ background: "rgba(15, 24, 40, 0.4)", border: "1px solid rgba(148, 163, 184, 0.08)" }}>
+              <div className="execution-jobs-filter-pills mb-0">
+                {[
+                  { value: "yesterday", label: "Yesterday" },
+                  { value: "last7", label: "Last 7 Days" },
+                  { value: "last30", label: "Last 30 Days" },
+                  { value: "custom", label: "Custom" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    className={`execution-jobs-filter-pill ${
+                      managedJobsHistoryPreset === option.value ? "active" : ""
+                    }`}
+                    onClick={() => setManagedJobsHistoryPreset(option.value as ManagedJobsHistoryPreset)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {managedJobsHistoryPreset === "custom" && (
+                <div className="d-flex align-items-center gap-2">
+                  <input
+                    className="fleet-filter-input font-mono"
+                    max={managedJobsHistoryTo || undefined}
+                    onChange={(e) => setManagedJobsHistoryFrom(e.target.value)}
+                    type="date"
+                    value={managedJobsHistoryFrom}
+                  />
+                  <span className="text-slate-500">to</span>
+                  <input
+                    className="fleet-filter-input font-mono"
+                    min={managedJobsHistoryFrom || undefined}
+                    onChange={(e) => setManagedJobsHistoryTo(e.target.value)}
+                    type="date"
+                    value={managedJobsHistoryTo}
+                  />
+                </div>
+              )}
+
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  className="btn btn-outline-light btn-sm"
+                  disabled={!deletableVisibleManagedBotIds.length}
+                  onClick={() =>
+                    setSelectedManagedBotIds((prev) =>
+                      allVisibleManagedBotsSelected
+                        ? prev.filter((jobId) => !deletableVisibleManagedBotIds.includes(jobId))
+                        : Array.from(new Set([...prev, ...deletableVisibleManagedBotIds])),
+                    )
+                  }
+                  type="button"
+                >
+                  {allVisibleManagedBotsSelected ? "Deselect Page" : "Select Page"}
+                </button>
+
+                <button
+                  className="btn btn-outline-danger btn-sm"
+                  disabled={!selectedManagedBotIds.length || managedBotAction === "bulk-delete"}
+                  onClick={handleBulkDeleteManagedBots}
+                  type="button"
+                >
+                  {managedBotAction === "bulk-delete" ? "Deleting..." : `Delete Selected (${selectedManagedBotIds.length})`}
+                </button>
+
+                <button
+                  className="btn btn-danger btn-sm"
+                  disabled={managedBotsTotalCount === 0 || managedBotAction === "delete-all-history"}
+                  onClick={handleDeleteAllManagedBotHistory}
+                  type="button"
+                >
+                  {managedBotAction === "delete-all-history" ? "Deleting..." : "Delete All Logs"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Modern Managed Bot Table */}
+          <div className="table-responsive managed-bots-table-wrap">
+            <table className="table table-dark-shell align-middle fleet-dense-table">
+              <thead>
+                <tr>
+                  {managedJobsView === "history" ? <th style={{ width: 40 }}>Select</th> : null}
+                  <th style={{ width: 90 }}>Status</th>
+                  <th style={{ width: 85 }}>Mode</th>
+                  <th>Bot Name</th>
+                  <th>Instrument</th>
+                  <th>Trades</th>
+                  <th>P&amp;L</th>
+                  <th>Last Log</th>
+                  <th>Started</th>
+                  <th style={{ minWidth: 160 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {managedBotsLoading ? (
+                  <tr>
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                      Loading managed bot jobs...
+                    </td>
+                  </tr>
+                ) : searchedManagedBots.length ? (
+                  searchedManagedBots.map((job) => {
+                    const reasonMatch = highlightedManagedJobIds.has(job.job_id);
+                    return (
+                      <Fragment key={job.job_id}>
+                        <tr style={managedJobsReasonHint && reasonMatch ? { backgroundColor: "rgba(46, 186, 143, 0.08)" } : undefined}>
+                          {managedJobsView === "history" ? (
+                            <td>
+                              {isManagedBotDeletable(job) ? (
+                                <input
+                                  checked={selectedManagedBotIds.includes(job.job_id)}
+                                  onChange={(e) =>
+                                    setSelectedManagedBotIds((prev) =>
+                                      e.target.checked
+                                        ? Array.from(new Set([...prev, job.job_id]))
+                                        : prev.filter((id) => id !== job.job_id),
+                                    )
+                                  }
+                                  type="checkbox"
+                                />
+                              ) : (
+                                <span className="text-slate-500">-</span>
+                              )}
+                            </td>
+                          ) : null}
+
+                          <td>
+                            <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
+                          </td>
+
+                          <td>
+                            <label className="d-flex align-items-center gap-1 mb-0 cursor-pointer">
+                              <input
+                                checked={job.execution_mode === "live"}
+                                disabled={managedBotModeId === job.job_id}
+                                onChange={(e) => void handleSetManagedBotMode(job, e.target.checked ? "live" : "paper")}
+                                type="checkbox"
+                              />
+                              <span className={`badge-soft ${job.execution_mode === "live" ? "blue" : "gold"} font-mono text-xs`}>
+                                {managedBotModeId === job.job_id ? "..." : job.execution_mode === "live" ? "LIVE" : "PAPER"}
+                              </span>
+                            </label>
+                          </td>
+
+                          <td>
+                            <div className="fw-semibold text-slate-100">{job.job_name}</div>
+                            <div className="text-xs text-slate-400">{job.strategy_label}</div>
+                          </td>
+
+                          <td>
+                            <div className="font-mono text-xs text-slate-200">{job.instrument_key}</div>
+                            <div className="text-xs text-slate-400">
+                              <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono me-1`}>
+                                {job.side.toUpperCase()}
+                              </span>
+                              {job.pid ? `PID ${job.pid}` : ""}
+                            </div>
+                          </td>
+
+                          <td>
+                            <button
+                              className="dashboard-trades-link font-mono"
+                              onClick={() => handleOpenManagedBotTrades(job)}
+                              type="button"
+                            >
+                              {job.trade_count} trades ({job.closed_trade_count} closed)
+                            </button>
+                            {job.has_open_trade && (
+                              <div className="text-xs text-[#55D6A0] font-mono mt-1">
+                                Open: {job.open_trade_option ?? "1 Active"}
+                              </div>
+                            )}
+                          </td>
+
+                          <td>
+                            {job.has_open_trade ? (
+                              <div>
+                                <div className="font-mono text-xs text-slate-200">
+                                  LTP: {job.current_option_ltp != null ? job.current_option_ltp.toFixed(2) : "-"}
+                                </div>
+                                {job.unrealized_pnl_amount != null ? (
+                                  <span className={`badge-soft ${pnlTone(job.unrealized_pnl_amount)} font-mono`}>
+                                    MTM {fmtMoney(job.unrealized_pnl_amount)}
+                                  </span>
+                                ) : (
+                                  <div className="text-xs text-slate-400">{job.quote_error ?? "Pending"}</div>
+                                )}
+                                <div className="text-xs text-slate-400 font-mono">Realized: {fmtMoney(job.total_realized_pnl)}</div>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className={`badge-soft ${pnlTone(job.total_realized_pnl)} font-mono`}>
+                                  {fmtMoney(job.total_realized_pnl)}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="font-mono text-xs text-slate-400">
+                            {job.last_log_at ? fmtDate(job.last_log_at) : "-"}
+                          </td>
+
+                          <td className="font-mono text-xs text-slate-400">
+                            {fmtDate(job.started_at)}
+                          </td>
+
+                          <td>
+                            <div className="d-flex flex-wrap gap-1">
+                              <button
+                                className="btn btn-outline-light btn-sm py-0 px-2 text-xs"
+                                onClick={() => setExpandedBotJobId((prev) => (prev === job.job_id ? "" : job.job_id))}
+                                type="button"
+                              >
+                                {expandedBotJobId === job.job_id ? "Hide" : "Details"}
+                              </button>
+
+                              {job.has_open_trade && (
+                                <button
+                                  className="btn btn-outline-danger btn-sm py-0 px-2 text-xs"
+                                  disabled={
+                                    managedBotAction === `square:${job.job_id}` ||
+                                    managedBotAction === `stop:${job.job_id}`
+                                  }
+                                  onClick={() => handleSquareOffManagedBot(job.job_id)}
+                                  type="button"
+                                >
+                                  {managedBotAction === `square:${job.job_id}` ? "..." : "Square Off"}
+                                </button>
+                              )}
+
+                              {(job.status === "starting" || job.status === "running" || job.status === "stopping") && (
+                                <button
+                                  className="btn btn-warning btn-sm py-0 px-2 text-xs"
+                                  disabled={
+                                    managedBotAction === `stop:${job.job_id}` ||
+                                    managedBotAction === `square:${job.job_id}`
+                                  }
+                                  onClick={() => handleStopManagedBot(job.job_id)}
+                                  type="button"
+                                >
+                                  {managedBotAction === `stop:${job.job_id}` ? "..." : "Stop"}
+                                </button>
+                              )}
+
+                              {managedJobsView === "history" && isManagedBotDeletable(job) && (
+                                <button
+                                  className="btn btn-outline-danger btn-sm py-0 px-2 text-xs"
+                                  disabled={managedBotAction === `delete:${job.job_id}`}
+                                  onClick={() => handleDeleteManagedBot(job)}
+                                  type="button"
+                                >
+                                  {managedBotAction === `delete:${job.job_id}` ? "..." : "Delete"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Collapsible Details Row */}
+                        {expandedBotJobId === job.job_id && (
+                          <tr>
+                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="scanner-detail-cell">
+                              <div className="row g-3">
+                                <div className="col-12 col-xl-4">
+                                  <div className="small text-slate-300 font-mono mb-1">
+                                    <strong className="text-slate-400 font-sans">Store DB:</strong> {job.store_path}
+                                  </div>
+                                  <div className="small text-slate-300 font-mono mb-1">
+                                    <strong className="text-slate-400 font-sans">Job ID:</strong> {job.job_id}
+                                  </div>
+                                  <div className="small text-slate-300 mb-1">
+                                    <strong className="text-slate-400">Run Mode:</strong> {job.once ? "Single pass" : "Managed loop"} | Limits: {job.max_cycles ?? "Unlimited"}
+                                  </div>
+                                  <div className="small text-slate-300 mb-1">
+                                    <strong className="text-slate-400">Lots:</strong> {job.lots} x {job.lot_size} (Qty: {job.open_trade_quantity || job.lots * job.lot_size})
+                                  </div>
+                                  <div className="small text-slate-300 mb-1">
+                                    <strong className="text-slate-400">Polling:</strong> {job.entry_interval_sec}s entry / {job.exit_interval_sec}s exit
+                                  </div>
+                                  {job.stopped_at && (
+                                    <div className="small text-slate-300 mb-1">
+                                      <strong className="text-slate-400">Stopped At:</strong> {fmtDate(job.stopped_at)}
+                                    </div>
+                                  )}
+                                  {job.last_error && (
+                                    <div className="small text-danger mb-1">
+                                      <strong>Last Error:</strong> {job.last_error}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="col-12 col-xl-8">
+                                  <div className="fw-semibold small mb-1 text-slate-300">Recent Bot Cycle Logs</div>
+                                  <pre className="dashboard-terminal-logs mb-0" style={{ maxHeight: 150 }}>
+                                    {job.recent_logs.length ? job.recent_logs.join("\n") : "No cycle logs captured yet."}
+                                  </pre>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                      {managedJobsView === "today"
+                        ? "No jobs are active for today yet."
+                        : "No historical jobs match the selected filters."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2 pt-2 border-top" style={{ borderColor: "rgba(148, 163, 184, 0.08)" }}>
+            <div className="text-xs text-slate-400 font-mono">
+              Page {managedBotsCurrentPage} of {managedBotsTotalPages} • {managedBotsTotalCount} total jobs
+            </div>
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-outline-light btn-sm py-0 px-2 text-xs"
+                disabled={managedBotsLoading || managedBotsCurrentPage <= 1}
+                onClick={() => setManagedBotsCurrentPage((prev) => Math.max(prev - 1, 1))}
+                type="button"
+              >
+                Previous
+              </button>
+              <button
+                className="btn btn-outline-light btn-sm py-0 px-2 text-xs"
+                disabled={managedBotsLoading || managedBotsCurrentPage >= managedBotsTotalPages}
+                onClick={() => setManagedBotsCurrentPage((prev) => Math.min(prev + 1, managedBotsTotalPages))}
+                type="button"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Full Log Viewer Modal */}
+        {showFullLogModal && (
+          <div className="full-log-modal-backdrop" onClick={() => setShowFullLogModal(false)}>
+            <div className="full-log-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="full-log-modal-header">
+                <div className="d-flex align-items-center gap-2">
+                  <TerminalIcon style={{ width: 18, height: 18, color: "#6EA8FE" }} />
+                  <span className="fw-semibold text-slate-100">Live Bot Log Telemetry</span>
+                  <span className="live-log-status-dot ms-1" />
+                </div>
+                <button
+                  className="btn btn-outline-light btn-sm py-0 px-2 text-xs"
+                  onClick={() => setShowFullLogModal(false)}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="full-log-modal-body">
+                <pre className="full-log-modal-terminal">
+                  {botLogs.length ? botLogs.join("\n") : "No live logs captured yet."}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Managed Bot Trades Modal */}
+        {managedBotTradesJob ? (
+          <div className="dashboard-trades-modal-backdrop" onClick={closeManagedBotTrades} role="presentation">
+            <div
+              className="dashboard-trades-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Managed bot trades"
+            >
+              <div className="dashboard-trades-modal-header">
+                <div>
+                  <div className="dashboard-trades-modal-title">Managed Bot Trades</div>
+                  <div className="dashboard-trades-modal-subtitle">
+                    {managedBotTradesJob.job_name} | {managedBotTradesJob.instrument_key} |{" "}
+                    {managedBotTradesJob.side.toUpperCase()} | {managedBotTradesJob.strategy_label}
+                  </div>
+                </div>
+                <button className="dashboard-trades-close" onClick={closeManagedBotTrades} type="button">
+                  Close
+                </button>
+              </div>
+
+              {managedBotTradesError ? (
+                <div className="alert alert-danger mb-0">{managedBotTradesError}</div>
+              ) : managedBotTradesLoading ? (
+                <div className="muted">Loading trades...</div>
+              ) : managedBotTrades.length ? (
+                <div className="table-responsive">
+                  <table className="table table-dark-shell align-middle dashboard-trades-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Status</th>
+                        <th>Opened</th>
+                        <th>Closed</th>
+                        <th>Option</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>P&amp;L</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {managedBotTrades.map((trade) => (
+                        <tr key={trade.id}>
+                          <td className="mono">{trade.id}</td>
+                          <td>
+                            <span className={`badge-soft ${trade.status === "OPEN" ? "blue" : "gold"}`}>
+                              {trade.status}
+                            </span>
+                          </td>
+                          <td className="small font-mono">{trade.opened_at ? fmtDate(trade.opened_at) : "-"}</td>
+                          <td className="small font-mono">{trade.closed_at ? fmtDate(trade.closed_at) : "-"}</td>
+                          <td>
+                            <div className="fw-semibold text-slate-100">{trade.option_symbol}</div>
+                            <div className="muted small font-mono">
+                              {trade.expiry} | {trade.option_type} {trade.strike}
+                            </div>
+                          </td>
+                          <td className="mono">{trade.quantity}</td>
+                          <td className="mono">{trade.entry_ltp?.toFixed(2) ?? "-"}</td>
+                          <td className="mono">{trade.exit_ltp != null ? trade.exit_ltp.toFixed(2) : "-"}</td>
+                          <td>
+                            {trade.pnl_amount != null ? (
+                              <span className={`badge-soft ${pnlTone(trade.pnl_amount)} font-mono`}>
+                                {fmtMoney(trade.pnl_amount)}
+                              </span>
+                            ) : (
+                              <span className="muted">-</span>
+                            )}
+                          </td>
+                          <td className="small">
+                            <div>{trade.entry_reason || "-"}</div>
+                            <div className="muted">{trade.exit_reason || ""}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="muted">No trades recorded for this bot store yet.</div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </main>
   );
 }

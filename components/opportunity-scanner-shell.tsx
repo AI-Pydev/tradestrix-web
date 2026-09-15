@@ -4,21 +4,21 @@ import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 
 import { TodayHistoryToolbar } from "@/components/today-history-toolbar";
 import {
-  closeScannerPaperTrade,
-  createScannerPaperTrade,
-  fetchScannerPaperLabDashboard,
-  OpportunityScannerResponse,
-  runOpportunityScanner,
-  runScannerPaperAutoEntryNow,
-  ScannerPaperAutoEntryStatus,
-  ScannerPaperLabDashboard,
-  updateScannerPaperAutoEntrySettings,
-} from "@/modules/scanners";
-import {
-  fetchInstrumentCatalog,
-  InstrumentCatalogResponse,
+    fetchInstrumentCatalog,
+    InstrumentCatalogResponse,
 } from "@/lib/api";
 import { HistoryPreset, HistoryView, localDateKey, matchesHistoryWindow, parseIsoDate } from "@/lib/history-window";
+import {
+    closeScannerPaperTrade,
+    createScannerPaperTrade,
+    fetchScannerPaperLabDashboard,
+    OpportunityScannerResponse,
+    runOpportunityScanner,
+    runScannerPaperAutoEntryNow,
+    ScannerPaperAutoEntryStatus,
+    ScannerPaperLabDashboard,
+    updateScannerPaperAutoEntrySettings,
+} from "@/modules/scanners";
 
 function fmtNumber(value: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
