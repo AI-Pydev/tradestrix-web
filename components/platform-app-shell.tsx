@@ -99,6 +99,12 @@ const baseNavGroups: NavGroup[] = [
         icon: PlayCircleIcon,
       },
       {
+        href: "/execution-dashboard",
+        label: "Execution Accordion",
+        caption: "Multi-bot launcher & monitor",
+        icon: Layers3Icon,
+      },
+      {
         href: "/equity-desk",
         label: "Stock & ETF Desk",
         caption: "Stock, ETF & BeeS bots",
@@ -209,6 +215,24 @@ const baseNavGroups: NavGroup[] = [
         caption: "Delta & demo trading tools",
         icon: CoinsIcon,
       },
+      {
+        href: "/crypto-jobs",
+        label: "Crypto Jobs",
+        caption: "Continuous paper runtime",
+        icon: BotIcon,
+      },
+      {
+        href: "/crypto-research",
+        label: "Crypto Research",
+        caption: "Strategy optimizer & backtest",
+        icon: ScanSearchIcon,
+      },
+      {
+        href: "/crypto-tradingview-templates",
+        label: "Crypto TV Templates",
+        caption: "Delta webhook templates",
+        icon: BellRingIcon,
+      },
     ],
   },
   {
@@ -243,6 +267,13 @@ const baseNavGroups: NavGroup[] = [
         label: "Upstox Backtest",
         caption: "Options backtest engine",
         icon: PlayCircleIcon,
+      },
+      {
+        href: `${BACKEND_BASE_URL}/docs`,
+        label: "API Docs",
+        caption: "FastAPI Swagger docs",
+        icon: NetworkIcon,
+        external: true,
       },
     ],
   },
@@ -392,6 +423,16 @@ const routeMeta: Record<string, { title: string; subtitle: string; icon: React.C
     title: "Harmonic Patterns",
     subtitle: "Fibonacci geometric ratios, PRZ zones, and predictive pattern scanner",
     icon: ActivityIcon,
+  },
+  "/symbol-map": {
+    title: "Symbol Map",
+    subtitle: "Broker symbol mappings and canonical instrument resolution",
+    icon: NetworkIcon,
+  },
+  "/login": {
+    title: "Authentication",
+    subtitle: "Sign in to TradeStrix platform",
+    icon: ShieldCheckIcon,
   },
   "/admin": {
     title: "Admin Approval Desk",
