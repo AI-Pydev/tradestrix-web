@@ -2220,8 +2220,8 @@ export function DashboardShell() {
                                         </div>
                                       </div>
                                       <div className="col-12 col-xl-8">
-                                        <div className="fw-semibold small mb-2">Recent Logs</div>
-                                        <pre className="mb-0 small" style={{ maxHeight: 260, overflow: "auto", whiteSpace: "pre-wrap" }}>
+                                        <div className="fw-semibold small mb-2 text-slate-300">Recent Logs</div>
+                                        <pre className="dashboard-terminal-logs mb-0">
                                           {job.recent_logs.length ? job.recent_logs.join("\n") : "No logs captured yet."}
                                         </pre>
                                       </div>

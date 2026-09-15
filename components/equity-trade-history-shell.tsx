@@ -132,16 +132,36 @@ function EquityChart({ points }: { points: EquityTradeHistoryPoint[] }) {
     .map((point, index) => `${index === 0 ? "M" : "L"} ${xFor(index).toFixed(1)} ${yFor(point.pnl).toFixed(1)}`)
     .join(" ");
   const zeroY = yFor(0);
+  const isNegative = Boolean(values.at(-1) && values.at(-1)! < 0);
+  const areaPath = points.length > 1
+    ? `${path} L ${xFor(points.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${xFor(0).toFixed(1)} ${zeroY.toFixed(1)} Z`
+    : "";
 
   return (
     <div className="trade-history-chart-shell">
       <svg aria-label="Cumulative PnL chart" className="trade-history-chart" viewBox={`0 0 ${width} ${height}`}>
+        <defs>
+          <linearGradient id="equityGradientProfitEquity" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#55D6A0" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#55D6A0" stopOpacity="0.01" />
+          </linearGradient>
+          <linearGradient id="equityGradientLossEquity" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#F17884" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#F17884" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
         {[0, 1, 2, 3, 4].map((index) => {
           const y = padding + (index / 4) * innerHeight;
           return <line className="trade-history-chart-grid" key={index} x1={padding} x2={width - padding} y1={y} y2={y} />;
         })}
         <line className="trade-history-chart-zero" x1={padding} x2={width - padding} y1={zeroY} y2={zeroY} />
-        {path ? <path className={`trade-history-chart-line ${values.at(-1) && values.at(-1)! < 0 ? "negative" : ""}`} d={path} /> : null}
+        {areaPath ? (
+          <path
+            d={areaPath}
+            fill={isNegative ? "url(#equityGradientLossEquity)" : "url(#equityGradientProfitEquity)"}
+          />
+        ) : null}
+        {path ? <path className={`trade-history-chart-line ${isNegative ? "negative" : ""}`} d={path} /> : null}
         {points.length === 0 ? (
           <text className="trade-history-chart-empty" x={width / 2} y={height / 2}>
             No closed trades
@@ -507,18 +527,30 @@ export function EquityTradeHistoryShell() {
                       <div className="muted small">{formatDateTime(row.closed_at || row.opened_at)}</div>
                     </td>
                     <td>
-                      <div className="fw-bold">{row.symbol}</div>
-                      <div className="muted small">{row.product_type} • Qty {row.quantity}</div>
+                      <div className="fw-semibold text-slate-100">{row.symbol}</div>
+                      <div className="muted small font-mono">{row.product_type} • Qty {row.quantity}</div>
                     </td>
-                    <td>{row.category}</td>
-                    <td>{row.strategy_label || row.strategy_id}</td>
-                    <td>{row.trade_mode.toUpperCase()}</td>
                     <td>
-                      <div>{formatMoney(row.entry_price)}</div>
-                      <div className="muted small">{row.exit_price ? formatMoney(row.exit_price) : "-"}</div>
+                      <span className="badge-soft cyan">{row.category}</span>
                     </td>
-                    <td>{row.exit_reason || row.status}</td>
-                    <td className={pnlClass(row.net_pnl)}>
+                    <td>
+                      <div className="small text-slate-300">{row.strategy_label || row.strategy_id}</div>
+                    </td>
+                    <td>
+                      <span className={`badge-soft ${row.trade_mode === "live" ? "blue" : "gold"}`}>
+                        {row.trade_mode.toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="font-mono text-sm">{formatMoney(row.entry_price)}</div>
+                      <div className="muted small font-mono">{row.exit_price ? formatMoney(row.exit_price) : "-"}</div>
+                    </td>
+                    <td>
+                      <span className={`badge-soft ${row.status === "CLOSED" ? "green" : row.status === "REJECTED" ? "red" : "gold"}`}>
+                        {row.exit_reason || row.status}
+                      </span>
+                    </td>
+                    <td className={`font-mono font-semibold ${pnlClass(row.net_pnl)}`}>
                       {row.net_pnl == null ? "-" : formatMoney(row.net_pnl)}
                     </td>
                   </tr>

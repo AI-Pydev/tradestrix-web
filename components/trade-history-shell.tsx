@@ -150,16 +150,36 @@ function EquityChart({ points }: { points: UpstoxTradeHistoryPoint[] }) {
     .map((point, index) => `${index === 0 ? "M" : "L"} ${xFor(index).toFixed(1)} ${yFor(point.pnl).toFixed(1)}`)
     .join(" ");
   const zeroY = yFor(0);
+  const isNegative = Boolean(values.at(-1) && values.at(-1)! < 0);
+  const areaPath = points.length > 1
+    ? `${path} L ${xFor(points.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${xFor(0).toFixed(1)} ${zeroY.toFixed(1)} Z`
+    : "";
 
   return (
     <div className="trade-history-chart-shell">
       <svg aria-label="Cumulative PnL chart" className="trade-history-chart" viewBox={`0 0 ${width} ${height}`}>
+        <defs>
+          <linearGradient id="equityGradientProfit" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#55D6A0" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#55D6A0" stopOpacity="0.01" />
+          </linearGradient>
+          <linearGradient id="equityGradientLoss" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#F17884" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#F17884" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
         {[0, 1, 2, 3, 4].map((index) => {
           const y = padding + (index / 4) * innerHeight;
           return <line className="trade-history-chart-grid" key={index} x1={padding} x2={width - padding} y1={y} y2={y} />;
         })}
         <line className="trade-history-chart-zero" x1={padding} x2={width - padding} y1={zeroY} y2={zeroY} />
-        {path ? <path className={`trade-history-chart-line ${values.at(-1) && values.at(-1)! < 0 ? "negative" : ""}`} d={path} /> : null}
+        {areaPath ? (
+          <path
+            d={areaPath}
+            fill={isNegative ? "url(#equityGradientLoss)" : "url(#equityGradientProfit)"}
+          />
+        ) : null}
+        {path ? <path className={`trade-history-chart-line ${isNegative ? "negative" : ""}`} d={path} /> : null}
         {points.length === 0 ? (
           <text className="trade-history-chart-empty" x={width / 2} y={height / 2}>
             No closed trades
@@ -503,15 +523,29 @@ export function TradeHistoryShell() {
                     <td>
                       <div className="muted small">{formatDateTime(row.closed_at || row.opened_at)}</div>
                     </td>
-                    <td>{row.execution_mode}</td>
-                    <td>{row.instrument_label}</td>
-                    <td>{row.strategy_label}</td>
                     <td>
-                      <div>{row.option_symbol || "-"}</div>
-                      <div className="muted small">{row.side.toUpperCase()} Qty {row.quantity}</div>
+                      <span className={`badge-soft ${row.execution_mode === "live" ? "blue" : "gold"}`}>
+                        {row.execution_mode.toUpperCase()}
+                      </span>
                     </td>
-                    <td>{row.status}</td>
-                    <td className={pnlClass(row.pnl_amount)}>{row.pnl_amount == null ? "-" : formatMoney(row.pnl_amount)}</td>
+                    <td>
+                      <div className="fw-semibold">{row.instrument_label}</div>
+                    </td>
+                    <td>
+                      <div className="small text-slate-300">{row.strategy_label}</div>
+                    </td>
+                    <td>
+                      <div className="font-mono text-sm">{row.option_symbol || "-"}</div>
+                      <div className="muted small font-mono">{row.side.toUpperCase()} Qty {row.quantity}</div>
+                    </td>
+                    <td>
+                      <span className={`badge-soft ${row.status === "CLOSED" ? "green" : row.status === "REJECTED" ? "red" : "gold"}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className={`font-mono font-semibold ${pnlClass(row.pnl_amount)}`}>
+                      {row.pnl_amount == null ? "-" : formatMoney(row.pnl_amount)}
+                    </td>
                   </tr>
                 ))}
                 {!loading && visibleRows.length === 0 ? (

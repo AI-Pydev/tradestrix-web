@@ -482,21 +482,21 @@ export function EquityDashboardShell() {
         </section>
 
         {/* NIFTY 50 AUTO-PILOT PAPER FLEET SUITE */}
-        <section className="dashboard-panel mb-4" id="nifty-fleet" style={{ borderColor: "rgba(241, 178, 77, 0.4)" }}>
+        <section className="dashboard-panel equity-fleet-panel mb-4" id="nifty-fleet">
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div className="d-flex align-items-center gap-2">
-              <h2 className="panel-title mb-0" style={{ color: "#f1b24d" }}>⚡ Nifty 50 Auto-Pilot Paper Fleet</h2>
-              <span className={`badge ${autoStatus?.enabled ? "bg-success" : "bg-secondary"}`}>
+              <h2 className="panel-title mb-0 text-[#E8BC55]">⚡ Nifty 50 Auto-Pilot Paper Fleet</h2>
+              <span className={`badge-soft ${autoStatus?.enabled ? "green" : "blue"}`}>
                 {autoStatus?.enabled ? "AUTO-PILOT ACTIVE" : "AUTO-PILOT OFF"}
               </span>
-              <span className="badge bg-dark border border-warning text-warning">
+              <span className="badge-soft gold">
                 {autoStatus?.active_nifty50_bots ?? 0} / {autoStatus?.total_nifty50_universe ?? 50} Nifty Stocks Active
               </span>
             </div>
 
             <div className="d-flex flex-wrap gap-2">
               <button
-                className={`btn btn-sm ${autoStatus?.enabled ? "btn-outline-danger" : "btn-warning"}`}
+                className={`btn btn-sm ${autoStatus?.enabled ? "btn-outline-danger" : "btn-outline-warning"}`}
                 disabled={fleetActionLoading}
                 onClick={handleToggleAutoPilot}
                 type="button"
@@ -504,7 +504,7 @@ export function EquityDashboardShell() {
                 {autoStatus?.enabled ? "Disable Auto-Pilot" : "Enable Auto-Pilot Loop"}
               </button>
               <button
-                className="btn btn-sm btn-warning fw-bold"
+                className="btn btn-sm btn-primary fw-semibold"
                 disabled={fleetActionLoading}
                 onClick={handleLaunchFullFleet}
                 type="button"
@@ -530,7 +530,7 @@ export function EquityDashboardShell() {
             </div>
           </div>
 
-          <div className="p-3 bg-dark-subtle rounded">
+          <div className="equity-fleet-config-box">
             <div className="row g-3">
               <div className="col-12 col-md-3">
                 <label className="form-label small">Fleet Strategy Decision Maker</label>
@@ -605,21 +605,21 @@ export function EquityDashboardShell() {
             <h2 className="panel-title mb-0">Launch Single Custom Bot</h2>
             <div className="btn-group btn-group-sm">
               <button
-                className={`btn ${selectedCategory === "index_bees" ? "btn-warning" : "btn-outline-secondary"}`}
+                className={`btn ${selectedCategory === "index_bees" ? "btn-primary" : "btn-outline-secondary"}`}
                 onClick={() => setSelectedCategory("index_bees")}
                 type="button"
               >
                 Index BeES
               </button>
               <button
-                className={`btn ${selectedCategory === "thematic_etfs" ? "btn-warning" : "btn-outline-secondary"}`}
+                className={`btn ${selectedCategory === "thematic_etfs" ? "btn-primary" : "btn-outline-secondary"}`}
                 onClick={() => setSelectedCategory("thematic_etfs")}
                 type="button"
               >
                 Thematic ETFs
               </button>
               <button
-                className={`btn ${selectedCategory === "top_stocks" ? "btn-warning" : "btn-outline-secondary"}`}
+                className={`btn ${selectedCategory === "top_stocks" ? "btn-primary" : "btn-outline-secondary"}`}
                 onClick={() => setSelectedCategory("top_stocks")}
                 type="button"
               >
@@ -939,26 +939,29 @@ export function EquityDashboardShell() {
                             </div>
                           </td>
                           <td>
-                            <span className="badge bg-secondary">{job.config.strategy_id}</span>
+                            <span className="badge-soft cyan">{job.config.strategy_id}</span>
                           </td>
                           <td>
-                            <span className={`badge ${job.config.execution_mode === "live" ? "bg-warning text-dark" : "bg-info text-dark"}`}>
+                            <span className={`badge-soft ${job.config.execution_mode === "live" ? "blue" : "gold"}`}>
                               {job.config.execution_mode.toUpperCase()}
                             </span>
                           </td>
-                          <td>{job.entry_price ? fmtMoney(job.entry_price) : "-"}</td>
-                          <td className="fw-bold">{job.current_ltp ? fmtMoney(job.current_ltp) : "-"}</td>
+                          <td className="font-mono">{job.entry_price ? fmtMoney(job.entry_price) : "-"}</td>
+                          <td className="fw-semibold font-mono">{job.current_ltp ? fmtMoney(job.current_ltp) : "-"}</td>
                           <td>
                             {job.target_price ? (
                               <div>
-                                <div className="small d-flex justify-content-between">
+                                <div className="small font-mono d-flex justify-content-between mb-1">
                                   <span>{fmtMoney(job.target_price)}</span>
                                   <span className="muted">{progress}%</span>
                                 </div>
-                                <div className="progress" style={{ height: "4px" }}>
+                                <div className="progress" style={{ height: "4px", backgroundColor: "rgba(148, 163, 184, 0.14)" }}>
                                   <div
-                                    className="progress-bar bg-success"
-                                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                                    className="progress-bar"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, progress))}%`,
+                                      backgroundColor: "#55D6A0",
+                                    }}
                                   />
                                 </div>
                               </div>
