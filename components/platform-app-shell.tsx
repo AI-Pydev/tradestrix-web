@@ -9,6 +9,7 @@ import { PwaInstallButton } from "@/components/pwa-install-button";
 import { BBTickerBar } from "@/components/ui/bb-ticker-bar";
 import { BrokerHealth, fetchBrokerHealthByBroker } from "@/modules/brokers";
 import {
+  ActivityIcon,
   BellRingIcon,
   BotIcon,
   BoxIcon,
@@ -28,7 +29,8 @@ import {
   RocketIcon,
   ScanSearchIcon,
   ShieldCheckIcon,
-  TargetIcon
+  TargetIcon,
+  TrendingUpIcon,
 } from "./dashboard/icons";
 import { TradeStrixBrandMark } from "./dashboard/tradestrix-brand-mark";
 
@@ -79,7 +81,7 @@ function normalizeBrokerHealthId(value: string) {
   return normalized;
 }
 
-// 4 Functional Groups matching media_1789393095404.png
+// Navigation Groups with Dedicated History and Trendline/Harmonics Research
 const baseNavGroups: NavGroup[] = [
   {
     title: "OVERVIEW",
@@ -97,22 +99,16 @@ const baseNavGroups: NavGroup[] = [
         icon: PlayCircleIcon,
       },
       {
-        href: "/trade-history",
-        label: "Trade History",
-        caption: "Daily and monthly PnL",
-        icon: HistoryIcon,
-      },
-      {
         href: "/equity-desk",
         label: "Stock & ETF Desk",
         caption: "Stock, ETF & BeeS bots",
         icon: ChartCandlestickIcon,
       },
       {
-        href: "/equity-trade-history",
-        label: "Stock & ETF History",
-        caption: "Stock & ETF PnL",
-        icon: HistoryIcon,
+        href: "/multi-stock-monitor",
+        label: "Multi-Stock Monitor",
+        caption: "Live quote & trade monitor",
+        icon: ActivityIcon,
       },
     ],
   },
@@ -120,16 +116,10 @@ const baseNavGroups: NavGroup[] = [
     title: "RESEARCH",
     items: [
       {
-        href: "/tradingview-alerts",
-        label: "TradingView Alerts",
-        caption: "Webhook templates",
-        icon: BellRingIcon,
-      },
-      {
-        href: "/symbol-map",
-        label: "Symbol Map",
-        caption: "Broker symbol mappings",
-        icon: NetworkIcon,
+        href: "/opportunity-scanner",
+        label: "Opportunity Scanner",
+        caption: "Stock and index setups",
+        icon: ScanSearchIcon,
       },
       {
         href: "/support-resistance-scanner",
@@ -138,10 +128,57 @@ const baseNavGroups: NavGroup[] = [
         icon: RadarIcon,
       },
       {
-        href: "/opportunity-scanner",
-        label: "Opportunity Scanner",
-        caption: "Stock and index opportunities",
-        icon: ScanSearchIcon,
+        href: "/trendline-intelligence",
+        label: "Trendlines",
+        caption: "Breakouts & headroom gate",
+        icon: TrendingUpIcon,
+      },
+      {
+        href: "/harmonic-patterns",
+        label: "Harmonics",
+        caption: "Pattern scanner & PRZ chart",
+        icon: ActivityIcon,
+      },
+      {
+        href: "/research-agent",
+        label: "AI Research Agent",
+        caption: "AI strategy diagnosis + fixes",
+        icon: BrainCircuitIcon,
+      },
+      {
+        href: "/strategy-qualification",
+        label: "Strategy Qualification",
+        caption: "Auto backtest & scoring",
+        icon: TargetIcon,
+      },
+      {
+        href: "/custom-candle-lab",
+        label: "Custom Candle Lab",
+        caption: "Custom modes & replay",
+        icon: FlaskConicalIcon,
+      },
+    ],
+  },
+  {
+    title: "HISTORY",
+    items: [
+      {
+        href: "/trade-history",
+        label: "Options Trade History",
+        caption: "Daily and monthly options PnL",
+        icon: HistoryIcon,
+      },
+      {
+        href: "/equity-trade-history",
+        label: "Stock & ETF History",
+        caption: "Stock, ETF & BeeS PnL",
+        icon: HistoryIcon,
+      },
+      {
+        href: "/tradingview-alerts/trade-history",
+        label: "TV Alert History",
+        caption: "Webhook execution PnL",
+        icon: HistoryIcon,
       },
     ],
   },
@@ -149,10 +186,16 @@ const baseNavGroups: NavGroup[] = [
     title: "MARKETS",
     items: [
       {
-        href: "/custom-candle-lab",
-        label: "Custom Candle Lab",
-        caption: "Custom modes & replay",
-        icon: FlaskConicalIcon,
+        href: "/index-auto-launch",
+        label: "Index Auto Launch",
+        caption: "Auto-launch basket",
+        icon: RocketIcon,
+      },
+      {
+        href: "/stock-auto-launch",
+        label: "Stock Auto Launch",
+        caption: "Qualified stock universe",
+        icon: RocketIcon,
       },
       {
         href: "/mcx-market",
@@ -178,10 +221,22 @@ const baseNavGroups: NavGroup[] = [
         icon: Layers3Icon,
       },
       {
-        href: "/index-auto-launch",
-        label: "Index Auto Launch",
-        caption: "Auto-launch basket",
-        icon: RocketIcon,
+        href: "/tradingview-alerts",
+        label: "TradingView Alerts",
+        caption: "Webhook templates",
+        icon: BellRingIcon,
+      },
+      {
+        href: "/brokers",
+        label: "Brokers",
+        caption: "Connections & auth",
+        icon: PlugZapIcon,
+      },
+      {
+        href: "/symbol-map",
+        label: "Symbol Map",
+        caption: "Broker symbol mappings",
+        icon: NetworkIcon,
       },
       {
         href: "/upstox-backtest",
@@ -327,6 +382,16 @@ const routeMeta: Record<string, { title: string; subtitle: string; icon: React.C
     title: "AI Research Agent",
     subtitle: "Quantitative diagnosis and strategy fixes",
     icon: BrainCircuitIcon,
+  },
+  "/trendline-intelligence": {
+    title: "Trendline Intelligence",
+    subtitle: "Automated trendline detection, breakouts, and headroom analysis",
+    icon: TrendingUpIcon,
+  },
+  "/harmonic-patterns": {
+    title: "Harmonic Patterns",
+    subtitle: "Fibonacci geometric ratios, PRZ zones, and predictive pattern scanner",
+    icon: ActivityIcon,
   },
   "/admin": {
     title: "Admin Approval Desk",

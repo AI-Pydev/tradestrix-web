@@ -18,6 +18,7 @@ import {
     RocketIcon,
     ScanSearchIcon,
     StarIcon,
+    TrendingUpIcon,
 } from "./icons";
 
 interface QuickAccessItem {
@@ -131,6 +132,36 @@ const quickAccessItems: QuickAccessItem[] = [
     iconBg: "bg-[#E8BC55]/10",
     iconBorder: "border-[#E8BC55]/25",
     iconColor: "text-[#E8BC55]",
+  },
+  {
+    id: "trade-history",
+    title: "Trade History",
+    description: "Review daily and monthly realized options and equity P/L.",
+    href: "/trade-history",
+    icon: HistoryIcon,
+    iconBg: "bg-[#55D6A0]/10",
+    iconBorder: "border-[#55D6A0]/25",
+    iconColor: "text-[#55D6A0]",
+  },
+  {
+    id: "trendlines",
+    title: "Trendlines",
+    description: "Automated trendline detection, breakout zones & headroom gate.",
+    href: "/trendline-intelligence",
+    icon: TrendingUpIcon,
+    iconBg: "bg-[#6EA8FE]/10",
+    iconBorder: "border-[#6EA8FE]/25",
+    iconColor: "text-[#6EA8FE]",
+  },
+  {
+    id: "harmonic-patterns",
+    title: "Harmonic Patterns",
+    description: "Fibonacci geometric ratios, PRZ zones & predictive scanner.",
+    href: "/harmonic-patterns",
+    icon: RadarIcon,
+    iconBg: "bg-[#B08AF5]/10",
+    iconBorder: "border-[#B08AF5]/25",
+    iconColor: "text-[#B08AF5]",
   },
   {
     id: "mcx-market",
