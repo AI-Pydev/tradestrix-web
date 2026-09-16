@@ -2208,7 +2208,7 @@ export function DashboardShell() {
                   {managedJobsView === "history" ? <th style={{ width: 36, textAlign: "center" }}>Select</th> : null}
                   <th style={{ width: 48, textAlign: "center" }}>Status</th>
                   <th style={{ width: 52, textAlign: "center" }}>Mode</th>
-                  <th>Instrument / Bot</th>
+                  <th style={{ width: 200, textAlign: "center" }}>Instrument / Bot</th>
                   <th style={{ width: 75, textAlign: "center" }}>Buy Side</th>
                   <th style={{ width: 75, textAlign: "center" }}>Trades</th>
                   <th style={{ width: 125, textAlign: "center" }}>P&amp;L</th>
