@@ -2208,19 +2208,18 @@ export function DashboardShell() {
                   {managedJobsView === "history" ? <th style={{ width: 36, textAlign: "center" }}>Select</th> : null}
                   <th style={{ width: 48, textAlign: "center" }}>Status</th>
                   <th style={{ width: 52, textAlign: "center" }}>Mode</th>
-                  <th>Instrument</th>
-                  <th style={{ width: 140 }}>Strategy</th>
-                  <th style={{ width: 75, textAlign: "center" }}>Trades</th>
-                  <th style={{ width: 125, textAlign: "center" }}>P&amp;L</th>
-                  <th style={{ width: 115 }}>Last Log</th>
-                  <th style={{ width: 115 }}>Started</th>
+                  <th>Instrument / Bot</th>
+                  <th style={{ width: 80, textAlign: "center" }}>Trades</th>
+                  <th style={{ width: 130, textAlign: "center" }}>P&amp;L</th>
+                  <th style={{ width: 120 }}>Last Log</th>
+                  <th style={{ width: 120 }}>Started</th>
                   <th style={{ width: 80, textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {managedBotsLoading ? (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
                       Loading managed bot jobs...
                     </td>
                   </tr>
@@ -2333,19 +2332,16 @@ export function DashboardShell() {
                                       <span className="text-xs text-slate-300 font-mono">({companyName})</span>
                                     )}
                                   </div>
-                                  {!isGenericJobName && (
-                                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">{rawJobName}</div>
-                                  )}
+                                  <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
+                                    <span>{job.strategy_label}</span>
+                                    {!isGenericJobName && (
+                                      <span className="text-slate-400 font-mono">· {rawJobName}</span>
+                                    )}
+                                    {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
+                                  </div>
                                 </div>
                               );
                             })()}
-                          </td>
-
-                          <td>
-                            <div className="font-mono text-xs text-slate-200 fw-medium">{job.strategy_label}</div>
-                            {job.pid ? (
-                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">PID {job.pid}</div>
-                            ) : null}
                           </td>
 
                           <td style={{ textAlign: "center" }}>
@@ -2465,7 +2461,7 @@ export function DashboardShell() {
                         {/* Collapsible Details Row */}
                         {expandedBotJobId === job.job_id && (
                           <tr>
-                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="scanner-detail-cell">
+                            <td colSpan={managedJobsView === "history" ? 9 : 8} className="scanner-detail-cell">
                               <div className="row g-3">
                                 <div className="col-12 col-xl-4">
                                   <div className="small text-slate-300 font-mono mb-1">
@@ -2509,7 +2505,7 @@ export function DashboardShell() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
                       {managedJobsView === "today"
                         ? "No jobs are active for today yet."
                         : "No historical jobs match the selected filters."}
