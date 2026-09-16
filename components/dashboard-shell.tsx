@@ -2209,17 +2209,18 @@ export function DashboardShell() {
                   <th style={{ width: 48, textAlign: "center" }}>Status</th>
                   <th style={{ width: 52, textAlign: "center" }}>Mode</th>
                   <th>Instrument / Bot</th>
-                  <th style={{ width: 80, textAlign: "center" }}>Trades</th>
-                  <th style={{ width: 130, textAlign: "center" }}>P&amp;L</th>
-                  <th style={{ width: 120 }}>Last Log</th>
-                  <th style={{ width: 120 }}>Started</th>
+                  <th style={{ width: 75, textAlign: "center" }}>Buy Side</th>
+                  <th style={{ width: 75, textAlign: "center" }}>Trades</th>
+                  <th style={{ width: 125, textAlign: "center" }}>P&amp;L</th>
+                  <th style={{ width: 115 }}>Last Log</th>
+                  <th style={{ width: 115 }}>Started</th>
                   <th style={{ width: 80, textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {managedBotsLoading ? (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                       Loading managed bot jobs...
                     </td>
                   </tr>
@@ -2325,9 +2326,6 @@ export function DashboardShell() {
                                 <div>
                                   <div className="d-flex align-items-center gap-1.5 flex-wrap">
                                     <span className="font-mono text-xs text-slate-200 fw-semibold">{instKey}</span>
-                                    <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1 py-0`}>
-                                      {sideUpper}
-                                    </span>
                                     {companyName && (
                                       <span className="text-xs text-slate-300 font-mono">({companyName})</span>
                                     )}
@@ -2342,6 +2340,18 @@ export function DashboardShell() {
                                 </div>
                               );
                             })()}
+                          </td>
+
+                          <td style={{ textAlign: "center" }}>
+                            {job.side ? (
+                              <span
+                                className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1.5 py-0.5`}
+                              >
+                                {job.side.toUpperCase()}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 font-mono text-xs">-</span>
+                            )}
                           </td>
 
                           <td style={{ textAlign: "center" }}>
@@ -2461,7 +2471,7 @@ export function DashboardShell() {
                         {/* Collapsible Details Row */}
                         {expandedBotJobId === job.job_id && (
                           <tr>
-                            <td colSpan={managedJobsView === "history" ? 9 : 8} className="scanner-detail-cell">
+                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="scanner-detail-cell">
                               <div className="row g-3">
                                 <div className="col-12 col-xl-4">
                                   <div className="small text-slate-300 font-mono mb-1">
@@ -2505,7 +2515,7 @@ export function DashboardShell() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                       {managedJobsView === "today"
                         ? "No jobs are active for today yet."
                         : "No historical jobs match the selected filters."}
