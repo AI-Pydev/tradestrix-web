@@ -137,7 +137,72 @@ function instrumentOptions(data: DashboardState | null) {
 
 function findInstrumentByKey(data: DashboardState | null, instrumentKey: string) {
   const options = instrumentOptions(data);
-  return [...options.indices, ...options.stocks].find((item) => item.instrument_key === instrumentKey) ?? null;
+  return (
+    [...options.indices, ...options.stocks, ...(data?.instruments?.commodities ?? [])].find(
+      (item) => item.instrument_key === instrumentKey,
+    ) ?? null
+  );
+}
+
+const KNOWN_EQUITY_ISIN_MAP: Record<string, string> = {
+  INE002A01018: "Reliance Industries",
+  INE040A01034: "HDFC Bank",
+  INE009A01021: "Infosys",
+  INE467B01029: "TCS",
+  INE062A01020: "State Bank of India",
+  INE154A01015: "ITC",
+  INE860A01027: "HCL Tech",
+  INE018A01030: "Larsen & Toubro",
+  INE397D01024: "Bharti Airtel",
+  INE238A01034: "Axis Bank",
+  INE245A01021: "Tata Motors",
+  INE081A01012: "Tata Steel",
+  INE047A01021: "Grasim",
+  INE021A01026: "Asian Paints",
+  INE075A01022: "Wipro",
+  INE522F01014: "Coal India",
+  INE121J01017: "Bharti Infratel",
+  INE749A01020: "NIFTYBEES",
+  INE694A01020: "BANKBEES",
+  INE261I01021: "GOLDBEES",
+};
+
+function resolveInstrumentCompanyName(
+  instrumentKey?: string | null,
+  data?: DashboardState | null,
+  jobName?: string | null,
+): string {
+  if (!instrumentKey) return "";
+
+  // 1. Try to match from catalog
+  const matched = data ? findInstrumentByKey(data, instrumentKey) : null;
+  if (matched?.label) {
+    let clean = matched.label.trim();
+    if (clean.includes("|")) {
+      clean = clean.split("|").pop()?.trim() || clean;
+    }
+    return clean;
+  }
+
+  // 2. If instrument key contains pipe (e.g. BSE_INDEX|SENSEX, NSE_EQ|INE002A01018)
+  if (instrumentKey.includes("|")) {
+    const raw = instrumentKey.split("|").pop()?.trim() || "";
+    if (raw.startsWith("INE") && raw.length === 12) {
+      if (KNOWN_EQUITY_ISIN_MAP[raw]) {
+        return KNOWN_EQUITY_ISIN_MAP[raw];
+      }
+      if (jobName) {
+        const parts = jobName.replace(/^Auto\s+/i, "").split(/\s+/);
+        if (parts[0] && !parts[0].startsWith("INE")) {
+          return parts[0];
+        }
+      }
+      return raw;
+    }
+    return raw;
+  }
+
+  return instrumentKey;
 }
 
 function instrumentLabel(item: { label: string; verified: boolean }) {
@@ -2221,26 +2286,24 @@ export function DashboardShell() {
 
                           <td>
                             {(() => {
-                              const rawJobName = (job.job_name || "").trim();
                               const instKey = job.instrument_key || "-";
-                              const instKeyUpper = instKey.toUpperCase();
                               const sideUpper = (job.side || "").toUpperCase();
-                              const rawJobUpper = rawJobName.toUpperCase();
-                              const shortName = instKey.includes("|") ? instKey.split("|").pop()?.trim() || "" : "";
-                              const shortNameUpper = shortName.toUpperCase();
+                              const companyName = resolveInstrumentCompanyName(job.instrument_key, data, job.job_name);
+                              const rawJobName = (job.job_name || "").trim();
 
                               const isGenericJobName =
                                 !rawJobName ||
-                                rawJobUpper === instKeyUpper ||
-                                rawJobUpper === `${instKeyUpper} ${sideUpper}` ||
-                                rawJobUpper === `${instKeyUpper}_${sideUpper}` ||
-                                (shortNameUpper
-                                  ? rawJobUpper === shortNameUpper ||
-                                    rawJobUpper === `${shortNameUpper} ${sideUpper}` ||
-                                    rawJobUpper === `${shortNameUpper}_${sideUpper}` ||
-                                    rawJobUpper === `${shortNameUpper} OPTION CHAIN BOT`
+                                rawJobName.toUpperCase() === instKey.toUpperCase() ||
+                                rawJobName.toUpperCase() === `${instKey.toUpperCase()} ${sideUpper}` ||
+                                rawJobName.toUpperCase() === `${instKey.toUpperCase()}_${sideUpper}` ||
+                                (companyName
+                                  ? rawJobName.toUpperCase() === companyName.toUpperCase() ||
+                                    rawJobName.toUpperCase() === `${companyName.toUpperCase()} ${sideUpper}` ||
+                                    rawJobName.toUpperCase() === `${companyName.toUpperCase()}_${sideUpper}` ||
+                                    rawJobName.toUpperCase().startsWith(`AUTO ${companyName.toUpperCase()}`)
                                   : false) ||
-                                rawJobUpper.endsWith("OPTION CHAIN BOT");
+                                rawJobName.toUpperCase().endsWith("OPTION CHAIN BOT") ||
+                                rawJobName.toUpperCase().startsWith("AUTO ");
 
                               return (
                                 <div>
@@ -2249,12 +2312,15 @@ export function DashboardShell() {
                                     <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1 py-0`}>
                                       {sideUpper}
                                     </span>
-                                    {!isGenericJobName && (
-                                      <span className="text-xs text-slate-400 font-mono">({rawJobName})</span>
+                                    {companyName && (
+                                      <span className="text-xs text-slate-300 font-mono">({companyName})</span>
                                     )}
                                   </div>
                                   <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
                                     <span>{job.strategy_label}</span>
+                                    {!isGenericJobName && (
+                                      <span className="text-slate-400 font-mono">· {rawJobName}</span>
+                                    )}
                                     {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
                                   </div>
                                 </div>
@@ -2501,7 +2567,16 @@ export function DashboardShell() {
                 <div>
                   <div className="dashboard-trades-modal-title">Managed Bot Trades</div>
                   <div className="dashboard-trades-modal-subtitle">
-                    {managedBotTradesJob.instrument_key} | {managedBotTradesJob.side.toUpperCase()} | {managedBotTradesJob.strategy_label}
+                    {managedBotTradesJob.instrument_key}
+                    {(() => {
+                      const comp = resolveInstrumentCompanyName(
+                        managedBotTradesJob.instrument_key,
+                        data,
+                        managedBotTradesJob.job_name,
+                      );
+                      return comp ? ` (${comp})` : "";
+                    })()}{" "}
+                    | {managedBotTradesJob.side.toUpperCase()} | {managedBotTradesJob.strategy_label}
                     {managedBotTradesJob.job_name && managedBotTradesJob.job_name !== managedBotTradesJob.instrument_key ? ` | ${managedBotTradesJob.job_name}` : ""}
                   </div>
                 </div>
