@@ -74,6 +74,22 @@ function fmtDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function fmtTableTimestamp(value?: string | null) {
+  if (!value) return <span className="text-slate-600 font-mono text-xs">-</span>;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return <span className="text-slate-600 font-mono text-xs">-</span>;
+
+  const timeStr = d.toLocaleTimeString("en-GB", { hour12: false });
+  const dateStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  return (
+    <div className="font-mono" style={{ whiteSpace: "nowrap", lineHeight: 1.25 }}>
+      <div className="text-xs text-slate-200">{timeStr}</div>
+      <div className="text-[11px] text-slate-500">{dateStr}</div>
+    </div>
+  );
+}
+
 
 function fmtNumber(value: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
@@ -2190,20 +2206,21 @@ export function DashboardShell() {
               <thead>
                 <tr>
                   {managedJobsView === "history" ? <th style={{ width: 36, textAlign: "center" }}>Select</th> : null}
-                  <th style={{ width: 50, textAlign: "center" }}>Status</th>
-                  <th style={{ width: 55, textAlign: "center" }}>Mode</th>
-                  <th>Instrument / Bot</th>
-                  <th style={{ width: 65, textAlign: "center" }}>Trades</th>
-                  <th>P&amp;L</th>
-                  <th style={{ width: 80 }}>Last Log</th>
-                  <th style={{ width: 80 }}>Started</th>
-                  <th style={{ width: 75, textAlign: "center" }}>Actions</th>
+                  <th style={{ width: 48, textAlign: "center" }}>Status</th>
+                  <th style={{ width: 52, textAlign: "center" }}>Mode</th>
+                  <th>Instrument</th>
+                  <th style={{ width: 140 }}>Strategy</th>
+                  <th style={{ width: 75, textAlign: "center" }}>Trades</th>
+                  <th style={{ width: 125, textAlign: "center" }}>P&amp;L</th>
+                  <th style={{ width: 115 }}>Last Log</th>
+                  <th style={{ width: 115 }}>Started</th>
+                  <th style={{ width: 80, textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {managedBotsLoading ? (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                       Loading managed bot jobs...
                     </td>
                   </tr>
@@ -2316,16 +2333,19 @@ export function DashboardShell() {
                                       <span className="text-xs text-slate-300 font-mono">({companyName})</span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
-                                    <span>{job.strategy_label}</span>
-                                    {!isGenericJobName && (
-                                      <span className="text-slate-400 font-mono">· {rawJobName}</span>
-                                    )}
-                                    {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
-                                  </div>
+                                  {!isGenericJobName && (
+                                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">{rawJobName}</div>
+                                  )}
                                 </div>
                               );
                             })()}
+                          </td>
+
+                          <td>
+                            <div className="font-mono text-xs text-slate-200 fw-medium">{job.strategy_label}</div>
+                            {job.pid ? (
+                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">PID {job.pid}</div>
+                            ) : null}
                           </td>
 
                           <td style={{ textAlign: "center" }}>
@@ -2346,9 +2366,9 @@ export function DashboardShell() {
                             </button>
                           </td>
 
-                          <td>
+                          <td style={{ textAlign: "center" }}>
                             {job.has_open_trade ? (
-                              <div>
+                              <div className="d-flex flex-column align-items-center">
                                 <div className="font-mono text-xs text-slate-200">
                                   LTP: {job.current_option_ltp != null ? job.current_option_ltp.toFixed(2) : "-"}
                                 </div>
@@ -2362,7 +2382,7 @@ export function DashboardShell() {
                                 <div className="text-xs text-slate-400 font-mono">Realized: {fmtMoney(job.total_realized_pnl)}</div>
                               </div>
                             ) : (
-                              <div>
+                              <div className="d-flex justify-content-center">
                                 <span className={`badge-soft ${pnlTone(job.total_realized_pnl)} font-mono`}>
                                   {fmtMoney(job.total_realized_pnl)}
                                 </span>
@@ -2370,12 +2390,12 @@ export function DashboardShell() {
                             )}
                           </td>
 
-                          <td className="font-mono text-xs text-slate-400">
-                            {job.last_log_at ? fmtDate(job.last_log_at) : "-"}
+                          <td>
+                            {fmtTableTimestamp(job.last_log_at)}
                           </td>
 
-                          <td className="font-mono text-xs text-slate-400">
-                            {fmtDate(job.started_at)}
+                          <td>
+                            {fmtTableTimestamp(job.started_at)}
                           </td>
 
                           <td style={{ textAlign: "center" }}>
@@ -2445,7 +2465,7 @@ export function DashboardShell() {
                         {/* Collapsible Details Row */}
                         {expandedBotJobId === job.job_id && (
                           <tr>
-                            <td colSpan={managedJobsView === "history" ? 9 : 8} className="scanner-detail-cell">
+                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="scanner-detail-cell">
                               <div className="row g-3">
                                 <div className="col-12 col-xl-4">
                                   <div className="small text-slate-300 font-mono mb-1">
@@ -2489,7 +2509,7 @@ export function DashboardShell() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
                       {managedJobsView === "today"
                         ? "No jobs are active for today yet."
                         : "No historical jobs match the selected filters."}
