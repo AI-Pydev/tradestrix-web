@@ -3019,6 +3019,166 @@ export async function updateEquityAutoLaunchConfig(payload: Record<string, unkno
   );
 }
 
+// ---------------------------------------------------------------------------
+// Engine 26 - Optimal Premium Harvest Timing (read-only analyzer)
+// ---------------------------------------------------------------------------
 
+export type Engine26GateCondition = {
+  name: string;
+  value: number | null;
+  threshold: number;
+  comparator: string;
+  passed: boolean;
+  note: string;
+};
 
+export type Engine26Timing = {
+  passed: boolean;
+  failed: string[];
+  explanation: string;
+  conditions: Engine26GateCondition[];
+};
 
+export type Engine26Volatility = {
+  atm_iv: number | null;
+  iv_rank: number | null;
+  iv_percentile: number | null;
+  iv_history_days: number;
+  iv_history_sufficient: boolean;
+  rv_close_close: number | null;
+  rv_ewma: number | null;
+  rv_parkinson: number | null;
+  rv_garman_klass: number | null;
+  rv_yang_zhang: number | null;
+  rv_forecast: number | null;
+  rv_forecast_upper: number | null;
+  vrp: number | null;
+  vrp_conservative: number | null;
+  put_skew_25d: number | null;
+  call_skew_25d: number | null;
+  expected_move_1sigma: number | null;
+  expected_move_regime_adj: number | null;
+  regime_phi: number;
+};
+
+export type Engine26Regime = {
+  adx: number | null;
+  hurst: number | null;
+  range_probability: number | null;
+  breakout_probability: number | null;
+  regime_label: string;
+  support: number | null;
+  resistance: number | null;
+};
+
+export type Engine26Leg = {
+  strike: number;
+  option_type: string;
+  action: string;
+  price: number;
+  delta: number | null;
+  iv: number | null;
+  oi: number | null;
+  spread_pct: number | null;
+};
+
+export type Engine26Structure = {
+  structure: string;
+  legs: Engine26Leg[];
+  net_credit: number;
+  max_loss: number;
+  wing_width: number;
+  credit_to_loss_ratio: number | null;
+  short_strikes: number[];
+  hedge_strikes: number[];
+  worst_spread_pct: number | null;
+  min_oi: number | null;
+};
+
+export type Engine26Probability = {
+  pop_expiry: number | null;
+  p_touch_short: number | null;
+  breakeven_pop: number | null;
+  expected_value: number | null;
+  has_edge: boolean;
+};
+
+export type Engine26FairValue = {
+  realistic_credit: number;
+  minimum_acceptable: number;
+  breakeven_credit: number;
+  accepted: boolean;
+  reason: string;
+};
+
+export type Engine26KillSignal = {
+  reason: string;
+  detail: string;
+  observed: number | null;
+  threshold: number | null;
+};
+
+export type Engine26Falsification = {
+  vetoed: boolean;
+  kills: Engine26KillSignal[];
+  checks_run: string[];
+  checks_skipped: string[];
+  explanation: string;
+};
+
+export type Engine26Analysis = {
+  symbol: string;
+  expiry: string;
+  analyzed_at: string;
+  decision: string;
+  stopped_at_gate: number | null;
+  rejection_reason: string | null;
+  detail: string;
+  spot: number | null;
+  lot_size: number | null;
+  dte: number | null;
+  volatility: Engine26Volatility | null;
+  regime: Engine26Regime | null;
+  timing: Engine26Timing | null;
+  structure: Engine26Structure | null;
+  probability: Engine26Probability | null;
+  fair_value: Engine26FairValue | null;
+  falsification: Engine26Falsification | null;
+  warnings: string[];
+  read_only_notice: string;
+};
+
+export type Engine26Instrument = {
+  symbol: string;
+  instrument_key: string;
+  instrument_class: string;
+  lot_size: number | null;
+};
+
+export type Engine26Instruments = {
+  indices: Engine26Instrument[];
+  stocks: Engine26Instrument[];
+};
+
+export async function fetchEngine26Instruments(): Promise<Engine26Instruments> {
+  return getBackendJson<Engine26Instruments>("/engine26/instruments");
+}
+
+export async function fetchEngine26Expiries(
+  symbol: string,
+): Promise<{ symbol: string; expiries: string[] }> {
+  return getBackendJson<{ symbol: string; expiries: string[] }>(
+    `/engine26/expiries?symbol=${encodeURIComponent(symbol)}`,
+  );
+}
+
+export async function analyzeEngine26(body: {
+  symbol: string;
+  expiry?: string | null;
+  lookback_days?: number;
+}): Promise<Engine26Analysis> {
+  return postBackendJsonWithBody<Engine26Analysis, typeof body>(
+    "/engine26/analyze",
+    body,
+  );
+}

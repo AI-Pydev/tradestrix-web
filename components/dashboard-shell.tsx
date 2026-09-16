@@ -10,12 +10,15 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
     CoinsIcon,
+    FileTextIcon,
     FilterIcon,
     Layers3Icon,
     RefreshCwIcon,
     SlidersHorizontalIcon,
+    SquareIcon,
     TargetIcon,
     TerminalIcon,
+    Trash2Icon,
     TrendingDownIcon,
     TrendingUpIcon,
 } from "@/components/dashboard/icons";
@@ -65,24 +68,6 @@ const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
   { value: "kite", label: "Kite" },
 ];
 
-function executionMetricTone(label: string, value: number) {
-  if ((label === "Active Jobs" || label === "Open Bot Trades") && value > 0) {
-    return "positive";
-  }
-  if ((label === "Today Realized P/L" || label === "Fleet Realized P/L") && value > 0) {
-    return "positive";
-  }
-  if (label === "Gross Profit" && value > 0) {
-    return "positive";
-  }
-  if (label === "Gross Loss" && value > 0) {
-    return "negative";
-  }
-  if ((label === "Today Realized P/L" || label === "Fleet Realized P/L") && value < 0) {
-    return "negative";
-  }
-  return "";
-}
 
 
 function fmtDate(value: string) {
@@ -103,17 +88,21 @@ function fmtMoney(value: number) {
   }).format(value);
 }
 
-function botJobTone(status: string) {
-  if (status === "running" || status === "completed") {
-    return "green";
+function botStatusMeta(status: string) {
+  const s = (status || "").toLowerCase();
+  if (s === "running") {
+    return { color: "#55D6A0", glow: "rgba(85, 214, 160, 0.5)", label: "Running" };
   }
-  if (status === "starting" || status === "stopping") {
-    return "gold";
+  if (s === "completed") {
+    return { color: "#E8BC55", glow: "rgba(232, 188, 85, 0.5)", label: "Completed" };
   }
-  if (status === "failed") {
-    return "red";
+  if (s === "failed" || s === "error") {
+    return { color: "#F17884", glow: "rgba(241, 120, 132, 0.5)", label: "Failed" };
   }
-  return "blue";
+  if (s === "starting" || s === "stopping") {
+    return { color: "#6EA8FE", glow: "rgba(110, 168, 254, 0.5)", label: s === "starting" ? "Starting" : "Stopping" };
+  }
+  return { color: "#94A3B8", glow: "rgba(148, 163, 184, 0.4)", label: status ? status.charAt(0).toUpperCase() + status.slice(1) : "Idle" };
 }
 
 function pnlTone(value?: number | null) {
@@ -264,19 +253,6 @@ function latestManagedBotExecutionLine(job: UpstoxManagedBotJob) {
     .find((line) => markers.some((marker) => line.toUpperCase().includes(marker)));
 }
 
-function managedBotExecutionTone(line?: string) {
-  const upper = (line ?? "").toUpperCase();
-  if (upper.includes("REJECTED") || upper.includes("ERROR")) {
-    return "red";
-  }
-  if (upper.includes("] ENTRY")) {
-    return "green";
-  }
-  if (upper.includes("] EXIT") || upper.includes("SQUARE OFF")) {
-    return "gold";
-  }
-  return "blue";
-}
 
 function reasonCodePatterns(reasonCode?: string | null): string[] {
   const normalized = String(reasonCode || "").trim().toLowerCase();
@@ -439,7 +415,6 @@ export function DashboardShell() {
     once: true,
   });
   const instruments = instrumentOptions(data);
-  const selectedInstrument = findInstrumentByKey(data, botForm.instrument_key);
 
   useEffect(() => {
     let active = true;
@@ -1124,21 +1099,7 @@ export function DashboardShell() {
     (sum, job) => sum + Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0),
     0,
   );
-  const visibleManagedTotalLoss = reasonFilteredManagedBots.reduce((sum, job) => {
-    const total = Number(job.total_realized_pnl || 0) + Number(job.unrealized_pnl_amount || 0);
-    return total < 0 ? sum + Math.abs(total) : sum;
-  }, 0);
-  const executionMetrics: Array<{ label: string; value: number; display: string }> = [
-    { label: "Managed Jobs", value: managedBotsSummary?.managed_jobs ?? managedBotsTotalCount, display: String(managedBotsSummary?.managed_jobs ?? managedBotsTotalCount) },
-    { label: "Active Jobs", value: activeManagedBots, display: String(activeManagedBots) },
-    { label: "Open Bot Trades", value: openManagedTrades, display: String(openManagedTrades) },
-    { label: "Total Investment", value: totalManagedInvestment, display: fmtMoney(totalManagedInvestment) },
-    { label: "Today Realized P/L", value: todayRealizedPnl, display: fmtMoney(todayRealizedPnl) },
-    { label: "Gross Profit", value: grossProfit, display: fmtMoney(grossProfit) },
-    { label: "Gross Loss", value: grossLoss, display: fmtMoney(grossLoss) },
-    { label: "Fleet Realized P/L", value: fleetRealizedPnl, display: fmtMoney(fleetRealizedPnl) },
-    { label: "Tradable Symbols", value: trackedExecutionSymbols, display: String(trackedExecutionSymbols) },
-  ];
+
   const topRejectionReasons = (rejectionSummary?.reason_counts ?? []).slice(0, 5);
 
   const searchedManagedBots = useMemo(() => {
@@ -2037,7 +1998,7 @@ export function DashboardShell() {
                     onChange={(e) => setManagedJobsMatchedOnly(e.target.checked)}
                     type="checkbox"
                   />
-                  <span>Matched</span>
+                  <span>Matched ({highlightedManagedJobsCount})</span>
                 </label>
                 <button
                   className="btn btn-outline-light btn-sm py-0 px-1 text-xs"
@@ -2162,22 +2123,21 @@ export function DashboardShell() {
             <table className="table table-dark-shell align-middle fleet-dense-table">
               <thead>
                 <tr>
-                  {managedJobsView === "history" ? <th style={{ width: 40 }}>Select</th> : null}
-                  <th style={{ width: 90 }}>Status</th>
-                  <th style={{ width: 85 }}>Mode</th>
-                  <th>Bot Name</th>
-                  <th>Instrument</th>
-                  <th>Trades</th>
+                  {managedJobsView === "history" ? <th style={{ width: 36, textAlign: "center" }}>Select</th> : null}
+                  <th style={{ width: 50, textAlign: "center" }}>Status</th>
+                  <th style={{ width: 55, textAlign: "center" }}>Mode</th>
+                  <th>Instrument / Bot</th>
+                  <th style={{ width: 65, textAlign: "center" }}>Trades</th>
                   <th>P&amp;L</th>
-                  <th>Last Log</th>
-                  <th>Started</th>
-                  <th style={{ minWidth: 160 }}>Actions</th>
+                  <th style={{ width: 80 }}>Last Log</th>
+                  <th style={{ width: 80 }}>Started</th>
+                  <th style={{ width: 75, textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {managedBotsLoading ? (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
                       Loading managed bot jobs...
                     </td>
                   </tr>
@@ -2207,52 +2167,91 @@ export function DashboardShell() {
                             </td>
                           ) : null}
 
-                          <td>
-                            <span className={`badge-soft ${botJobTone(job.status)}`}>{job.status}</span>
+                          <td style={{ textAlign: "center" }}>
+                            {(() => {
+                              const meta = botStatusMeta(job.status);
+                              return (
+                                <span
+                                  className="d-inline-flex align-items-center justify-content-center"
+                                  title={`Status: ${meta.label}`}
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    background: "rgba(15, 24, 40, 0.6)",
+                                    border: `1px solid ${meta.color}40`,
+                                    cursor: "default",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: "50%",
+                                      backgroundColor: meta.color,
+                                      boxShadow: `0 0 6px ${meta.glow}`,
+                                    }}
+                                  />
+                                </span>
+                              );
+                            })()}
                           </td>
 
-                          <td>
-                            <label className="d-flex align-items-center gap-1 mb-0 cursor-pointer">
+                          <td style={{ textAlign: "center" }}>
+                            <label
+                              className="d-inline-flex align-items-center justify-content-center gap-1 mb-0 cursor-pointer"
+                              title={`Mode: ${job.execution_mode === "live" ? "Live Trading (L)" : "Paper Trading (P)"} — click checkbox to switch`}
+                            >
                               <input
                                 checked={job.execution_mode === "live"}
                                 disabled={managedBotModeId === job.job_id}
                                 onChange={(e) => void handleSetManagedBotMode(job, e.target.checked ? "live" : "paper")}
                                 type="checkbox"
+                                style={{ cursor: "pointer" }}
                               />
-                              <span className={`badge-soft ${job.execution_mode === "live" ? "blue" : "gold"} font-mono text-xs`}>
-                                {managedBotModeId === job.job_id ? "..." : job.execution_mode === "live" ? "LIVE" : "PAPER"}
+                              <span
+                                className={`badge-soft ${job.execution_mode === "live" ? "gold" : "blue"} font-mono fw-bold text-xs`}
+                                style={{ minWidth: 20, height: 20, padding: "1px 5px", textAlign: "center", lineHeight: "16px" }}
+                              >
+                                {managedBotModeId === job.job_id ? ".." : job.execution_mode === "live" ? "L" : "P"}
                               </span>
                             </label>
                           </td>
 
                           <td>
-                            <div className="fw-semibold text-slate-100">{job.job_name}</div>
-                            <div className="text-xs text-slate-400">{job.strategy_label}</div>
-                          </td>
-
-                          <td>
-                            <div className="font-mono text-xs text-slate-200">{job.instrument_key}</div>
-                            <div className="text-xs text-slate-400">
-                              <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono me-1`}>
+                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <span className="fw-semibold text-slate-100">
+                                {findInstrumentByKey(data, job.instrument_key)?.label || job.instrument_key.replace("NSE_INDEX|", "").replace("NSE_EQ|", "")}
+                              </span>
+                              <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1 py-0`}>
                                 {job.side.toUpperCase()}
                               </span>
-                              {job.pid ? `PID ${job.pid}` : ""}
+                              {job.job_name && job.job_name !== (findInstrumentByKey(data, job.instrument_key)?.label || job.instrument_key) && (
+                                <span className="text-xs text-slate-400 font-mono">({job.job_name})</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
+                              <span>{job.strategy_label}</span>
+                              {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
                             </div>
                           </td>
 
-                          <td>
+                          <td style={{ textAlign: "center" }}>
                             <button
-                              className="dashboard-trades-link font-mono"
+                              className="dashboard-trades-link font-mono fw-semibold"
                               onClick={() => handleOpenManagedBotTrades(job)}
                               type="button"
+                              title={`${job.closed_trade_count} closed / ${job.trade_count} total trades${job.has_open_trade ? ` (Active: ${job.open_trade_option ?? "1 Open"})` : ""} — click to inspect`}
                             >
-                              {job.trade_count} trades ({job.closed_trade_count} closed)
+                              {job.closed_trade_count}/{job.trade_count}
+                              {job.has_open_trade && (
+                                <span
+                                  className="d-inline-block rounded-circle ms-1"
+                                  style={{ width: 6, height: 6, backgroundColor: "#55D6A0", boxShadow: "0 0 5px #55D6A0", verticalAlign: "middle" }}
+                                  title="Open trade active"
+                                />
+                              )}
                             </button>
-                            {job.has_open_trade && (
-                              <div className="text-xs text-[#55D6A0] font-mono mt-1">
-                                Open: {job.open_trade_option ?? "1 Active"}
-                              </div>
-                            )}
                           </td>
 
                           <td>
@@ -2287,52 +2286,64 @@ export function DashboardShell() {
                             {fmtDate(job.started_at)}
                           </td>
 
-                          <td>
-                            <div className="d-flex flex-wrap gap-1">
+                          <td style={{ textAlign: "center" }}>
+                            <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                              {/* Details Icon */}
                               <button
-                                className="btn btn-outline-light btn-sm py-0 px-2 text-xs"
+                                className={`btn ${expandedBotJobId === job.job_id ? "btn-info text-dark" : "btn-outline-light"} btn-sm p-1 d-inline-flex align-items-center justify-content-center`}
                                 onClick={() => setExpandedBotJobId((prev) => (prev === job.job_id ? "" : job.job_id))}
                                 type="button"
+                                title={expandedBotJobId === job.job_id ? "Hide Details" : "View Details"}
+                                style={{ width: 26, height: 26 }}
                               >
-                                {expandedBotJobId === job.job_id ? "Hide" : "Details"}
+                                <FileTextIcon style={{ width: 13, height: 13 }} />
                               </button>
 
+                              {/* Square Off Icon (if active trade) */}
                               {job.has_open_trade && (
                                 <button
-                                  className="btn btn-outline-danger btn-sm py-0 px-2 text-xs"
+                                  className="btn btn-outline-danger btn-sm p-1 d-inline-flex align-items-center justify-content-center"
                                   disabled={
                                     managedBotAction === `square:${job.job_id}` ||
                                     managedBotAction === `stop:${job.job_id}`
                                   }
                                   onClick={() => handleSquareOffManagedBot(job.job_id)}
                                   type="button"
+                                  title="Square Off Active Trade"
+                                  style={{ width: 26, height: 26 }}
                                 >
-                                  {managedBotAction === `square:${job.job_id}` ? "..." : "Square Off"}
+                                  <SquareIcon style={{ width: 12, height: 12 }} />
                                 </button>
                               )}
 
-                              {(job.status === "starting" || job.status === "running" || job.status === "stopping") && (
+                              {/* Stop Icon (if running without open trade) */}
+                              {!job.has_open_trade && (job.status === "starting" || job.status === "running" || job.status === "stopping") && (
                                 <button
-                                  className="btn btn-warning btn-sm py-0 px-2 text-xs"
+                                  className="btn btn-outline-warning btn-sm p-1 d-inline-flex align-items-center justify-content-center"
                                   disabled={
                                     managedBotAction === `stop:${job.job_id}` ||
                                     managedBotAction === `square:${job.job_id}`
                                   }
                                   onClick={() => handleStopManagedBot(job.job_id)}
                                   type="button"
+                                  title="Stop Bot"
+                                  style={{ width: 26, height: 26 }}
                                 >
-                                  {managedBotAction === `stop:${job.job_id}` ? "..." : "Stop"}
+                                  <SquareIcon style={{ width: 12, height: 12 }} />
                                 </button>
                               )}
 
-                              {managedJobsView === "history" && isManagedBotDeletable(job) && (
+                              {/* Delete Icon */}
+                              {isManagedBotDeletable(job) && (
                                 <button
-                                  className="btn btn-outline-danger btn-sm py-0 px-2 text-xs"
+                                  className="btn btn-outline-danger btn-sm p-1 d-inline-flex align-items-center justify-content-center"
                                   disabled={managedBotAction === `delete:${job.job_id}`}
                                   onClick={() => handleDeleteManagedBot(job)}
                                   type="button"
+                                  title="Delete Bot"
+                                  style={{ width: 26, height: 26 }}
                                 >
-                                  {managedBotAction === `delete:${job.job_id}` ? "..." : "Delete"}
+                                  <Trash2Icon style={{ width: 13, height: 13 }} />
                                 </button>
                               )}
                             </div>
@@ -2342,7 +2353,7 @@ export function DashboardShell() {
                         {/* Collapsible Details Row */}
                         {expandedBotJobId === job.job_id && (
                           <tr>
-                            <td colSpan={managedJobsView === "history" ? 10 : 9} className="scanner-detail-cell">
+                            <td colSpan={managedJobsView === "history" ? 9 : 8} className="scanner-detail-cell">
                               <div className="row g-3">
                                 <div className="col-12 col-xl-4">
                                   <div className="small text-slate-300 font-mono mb-1">
@@ -2386,7 +2397,7 @@ export function DashboardShell() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={managedJobsView === "history" ? 10 : 9} className="empty-state">
+                    <td colSpan={managedJobsView === "history" ? 9 : 8} className="empty-state">
                       {managedJobsView === "today"
                         ? "No jobs are active for today yet."
                         : "No historical jobs match the selected filters."}
