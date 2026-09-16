@@ -140,8 +140,32 @@ function findInstrumentByKey(data: DashboardState | null, instrumentKey: string)
   return [...options.indices, ...options.stocks].find((item) => item.instrument_key === instrumentKey) ?? null;
 }
 
+function formatCleanInstrumentName(instrumentKey?: string | null, data?: DashboardState | null): string {
+  if (!instrumentKey) return "-";
+  const matched = data ? findInstrumentByKey(data, instrumentKey) : null;
+  let raw = (matched?.label || instrumentKey).trim();
+
+  // Strip segment prefixes like BSE_INDEX|, NSE_INDEX|, NSE_EQ|, BSE_EQ|, MCX_COMM|, etc.
+  if (raw.includes("|")) {
+    const parts = raw.split("|");
+    raw = parts[parts.length - 1].trim();
+  }
+
+  // Handle standard index naming
+  const upper = raw.toUpperCase();
+  if (upper === "NIFTY 50" || upper === "NIFTY50" || upper === "NIFTY") return "NIFTY 50";
+  if (upper === "NIFTY BANK" || upper === "BANKNIFTY" || upper === "NIFTY_BANK") return "BANKNIFTY";
+  if (upper === "NIFTY FIN SERVICE" || upper === "FINNIFTY" || upper === "NIFTY_FIN_SERVICE") return "FINNIFTY";
+  if (upper === "NIFTY MID SELECT" || upper === "MIDCPNIFTY" || upper === "NIFTY_MID_SELECT") return "MIDCPNIFTY";
+  if (upper === "SENSEX" || upper === "BSE SENSEX") return "SENSEX";
+  if (upper === "BANKEX" || upper === "BSE BANKEX") return "BANKEX";
+
+  return raw;
+}
+
 function instrumentLabel(item: { label: string; verified: boolean }) {
-  return item.verified ? item.label : `${item.label} (unverified)`;
+  const clean = formatCleanInstrumentName(item.label);
+  return item.verified ? clean : `${clean} (unverified)`;
 }
 
 type BotSide = "call" | "put";
@@ -1788,7 +1812,7 @@ export function DashboardShell() {
                     <option value="all">All Inst</option>
                     {rejectionInstrumentOptions.map((instrumentKey) => (
                       <option key={instrumentKey} value={instrumentKey}>
-                        {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                        {formatCleanInstrumentName(instrumentKey, data)}
                       </option>
                     ))}
                   </select>
@@ -1971,7 +1995,7 @@ export function DashboardShell() {
               <option value="all">All Instruments</option>
               {managedJobsInstrumentOptions.map((instrumentKey) => (
                 <option key={instrumentKey} value={instrumentKey}>
-                  {findInstrumentByKey(data, instrumentKey)?.label ?? instrumentKey}
+                  {formatCleanInstrumentName(instrumentKey, data)}
                 </option>
               ))}
             </select>
@@ -2219,21 +2243,42 @@ export function DashboardShell() {
                           </td>
 
                           <td>
-                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                              <span className="fw-semibold text-slate-100">
-                                {findInstrumentByKey(data, job.instrument_key)?.label || job.instrument_key.replace("NSE_INDEX|", "").replace("NSE_EQ|", "")}
-                              </span>
-                              <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1 py-0`}>
-                                {job.side.toUpperCase()}
-                              </span>
-                              {job.job_name && job.job_name !== (findInstrumentByKey(data, job.instrument_key)?.label || job.instrument_key) && (
-                                <span className="text-xs text-slate-400 font-mono">({job.job_name})</span>
-                              )}
-                            </div>
-                            <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
-                              <span>{job.strategy_label}</span>
-                              {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
-                            </div>
+                            {(() => {
+                              const cleanInst = formatCleanInstrumentName(job.instrument_key, data);
+                              const rawJobName = (job.job_name || "").trim();
+                              const cleanJobName = rawJobName.includes("|")
+                                ? rawJobName.split("|").pop()?.trim() || rawJobName
+                                : rawJobName;
+                              const cleanJobUpper = cleanJobName.toUpperCase();
+                              const cleanInstUpper = cleanInst.toUpperCase();
+                              const sideUpper = (job.side || "").toUpperCase();
+
+                              const isGenericJobName =
+                                !cleanJobName ||
+                                cleanJobUpper === cleanInstUpper ||
+                                cleanJobUpper === `${cleanInstUpper} ${sideUpper}` ||
+                                cleanJobUpper === `${cleanInstUpper}_${sideUpper}` ||
+                                cleanJobUpper === `${job.instrument_key.toUpperCase()} ${sideUpper}` ||
+                                cleanJobUpper === `${cleanInstUpper} OPTION CHAIN BOT`;
+
+                              return (
+                                <div>
+                                  <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                    <span className="fw-semibold text-slate-100">{cleanInst}</span>
+                                    <span className={`badge-soft ${job.side.toLowerCase() === "call" ? "green" : "red"} font-mono text-xs px-1 py-0`}>
+                                      {sideUpper}
+                                    </span>
+                                    {!isGenericJobName && (
+                                      <span className="text-xs text-slate-400 font-mono">({cleanJobName})</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400 d-flex align-items-center gap-1 mt-0.5">
+                                    <span>{job.strategy_label}</span>
+                                    {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           <td style={{ textAlign: "center" }}>
@@ -2475,8 +2520,9 @@ export function DashboardShell() {
                 <div>
                   <div className="dashboard-trades-modal-title">Managed Bot Trades</div>
                   <div className="dashboard-trades-modal-subtitle">
-                    {managedBotTradesJob.job_name} | {managedBotTradesJob.instrument_key} |{" "}
+                    {formatCleanInstrumentName(managedBotTradesJob.instrument_key, data)} |{" "}
                     {managedBotTradesJob.side.toUpperCase()} | {managedBotTradesJob.strategy_label}
+                    {managedBotTradesJob.job_name && !managedBotTradesJob.job_name.toUpperCase().includes(formatCleanInstrumentName(managedBotTradesJob.instrument_key, data).toUpperCase()) ? ` | ${managedBotTradesJob.job_name}` : ""}
                   </div>
                 </div>
                 <button className="dashboard-trades-close" onClick={closeManagedBotTrades} type="button">
