@@ -153,6 +153,11 @@ export type UpstoxManagedBotJob = {
   quote_error?: string | null;
   log_line_count: number;
   recent_logs: string[];
+  concurrent_strategy_warning?: {
+    message: string;
+    other_job_ids: string[];
+    other_strategy_ids: string[];
+  } | null;
 };
 
 export type UpstoxManagedBotDashboardSummary = {

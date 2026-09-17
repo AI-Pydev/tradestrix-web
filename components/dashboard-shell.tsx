@@ -2337,6 +2337,14 @@ export function DashboardShell() {
                                     )}
                                     {job.pid ? <span className="text-slate-500 font-mono">· PID {job.pid}</span> : null}
                                   </div>
+                                  {job.concurrent_strategy_warning && (
+                                    <div
+                                      className="badge-soft gold text-xs px-1.5 py-0.5 mt-1 d-inline-block"
+                                      title={job.concurrent_strategy_warning.message}
+                                    >
+                                      ⚠ Also live on this instrument: {job.concurrent_strategy_warning.other_strategy_ids.join(", ")}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })()}
