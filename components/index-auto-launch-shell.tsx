@@ -242,6 +242,77 @@ export function IndexAutoLaunchShell() {
     }
   }
 
+  async function handleSetConfluenceSettings(
+    instrument_key: string,
+    side: "call" | "put",
+    settings: { enabled: boolean; min: number },
+  ) {
+    const key = `${instrument_key}:${side}:confluence`;
+    let confluenceSettings: Record<
+      string,
+      { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
+    > = {};
+    setStatus((prev) => {
+      if (!prev) {
+        confluenceSettings = { [instrument_key]: { [side]: settings } };
+        return prev;
+      }
+      confluenceSettings = { ...(prev.config.per_index_confluence_settings ?? {}) };
+      const current = { ...(confluenceSettings[instrument_key] ?? {}) };
+      current[side] = settings;
+      confluenceSettings[instrument_key] = current;
+      const targets = prev.targets.map((target) =>
+        target.instrument_key === instrument_key
+          ? side === "put"
+            ? {
+                ...target,
+                put_confluence_enabled: settings.enabled,
+                put_confluence_min: settings.min,
+              }
+            : {
+                ...target,
+                call_confluence_enabled: settings.enabled,
+                call_confluence_min: settings.min,
+              }
+          : target,
+      );
+      return {
+        ...prev,
+        targets,
+        config: { ...prev.config, per_index_confluence_settings: confluenceSettings },
+      };
+    });
+
+    savingCountRef.current += 1;
+    try {
+      setSavingStrategy(key);
+      setError("");
+      const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
+        per_index_confluence_settings: confluenceSettings,
+      });
+      setStatus(result);
+      setMessage(
+        settings.enabled
+          ? `Confluence mode enabled for ${side.toUpperCase()} on ${instrument_key} (needs ${settings.min} of the checked strategies to agree). This launches as ONE paper-mode job, replacing the independent jobs for this side.`
+          : `Confluence mode disabled for ${side.toUpperCase()} on ${instrument_key}. Checked strategies will run as independent jobs again.`,
+      );
+      setMessageTone("success");
+    } catch (err) {
+      try {
+        const fresh = await fetchUpstoxIndexAutoLaunchStatus();
+        setStatus(fresh);
+      } catch {
+        // Keep the optimistic state if the reload also fails; the error
+        // toast below tells the operator the save did not persist.
+      }
+      setMessage(err instanceof Error ? err.message : "Failed to update confluence settings");
+      setMessageTone("error");
+    } finally {
+      savingCountRef.current = Math.max(0, savingCountRef.current - 1);
+      setSavingStrategy(null);
+    }
+  }
+
   async function handleApplyPreset(preset: (typeof STRATEGY_BASKET_PRESETS)[number]) {
     try {
       setSavingPreset(preset.key);
@@ -607,11 +678,58 @@ export function IndexAutoLaunchShell() {
                                   );
                                 })}
                               </div>
+                              <div className="mt-2 pt-2 border-top">
+                                <label className="form-check small">
+                                  <input
+                                    checked={target.call_confluence_enabled}
+                                    className="form-check-input"
+                                    disabled={
+                                      savingPreset !== null ||
+                                      savingStrategy === `${target.instrument_key}:call:confluence` ||
+                                      (target.call_strategy_ids ?? []).length < 2
+                                    }
+                                    onChange={(event) =>
+                                      void handleSetConfluenceSettings(target.instrument_key, "call", {
+                                        enabled: event.target.checked,
+                                        min: Math.max(target.call_confluence_min || 2, 2),
+                                      })
+                                    }
+                                    type="checkbox"
+                                  />
+                                  <span className="form-check-label">Confluence mode (paper only)</span>
+                                </label>
+                                {target.call_confluence_enabled && (
+                                  <div className="d-flex align-items-center gap-1 mt-1 small muted">
+                                    <span>Require</span>
+                                    <input
+                                      className="form-control form-control-sm"
+                                      disabled={savingStrategy === `${target.instrument_key}:call:confluence`}
+                                      min={2}
+                                      max={Math.max((target.call_strategy_ids ?? []).length, 2)}
+                                      onChange={(event) =>
+                                        void handleSetConfluenceSettings(target.instrument_key, "call", {
+                                          enabled: true,
+                                          min: Number(event.target.value) || 2,
+                                        })
+                                      }
+                                      style={{ width: "3.5rem" }}
+                                      type="number"
+                                      value={target.call_confluence_min}
+                                    />
+                                    <span>of {(target.call_strategy_ids ?? []).length} to agree</span>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td>
                               <span className={`badge-soft ${target.call_active ? "green" : "gold"}`}>
                                 {target.call_active ? "Active" : "Waiting"}
                               </span>
+                              {target.call_confluence_enabled && (
+                                <div className="small muted mt-1">
+                                  CONFLUENCE {target.call_confluence_min}/{(target.call_strategy_ids ?? []).length}
+                                </div>
+                              )}
                             </td>
                             <td>
                               <div className="small muted mb-2">
@@ -640,11 +758,58 @@ export function IndexAutoLaunchShell() {
                                   );
                                 })}
                               </div>
+                              <div className="mt-2 pt-2 border-top">
+                                <label className="form-check small">
+                                  <input
+                                    checked={target.put_confluence_enabled}
+                                    className="form-check-input"
+                                    disabled={
+                                      savingPreset !== null ||
+                                      savingStrategy === `${target.instrument_key}:put:confluence` ||
+                                      (target.put_strategy_ids ?? []).length < 2
+                                    }
+                                    onChange={(event) =>
+                                      void handleSetConfluenceSettings(target.instrument_key, "put", {
+                                        enabled: event.target.checked,
+                                        min: Math.max(target.put_confluence_min || 2, 2),
+                                      })
+                                    }
+                                    type="checkbox"
+                                  />
+                                  <span className="form-check-label">Confluence mode (paper only)</span>
+                                </label>
+                                {target.put_confluence_enabled && (
+                                  <div className="d-flex align-items-center gap-1 mt-1 small muted">
+                                    <span>Require</span>
+                                    <input
+                                      className="form-control form-control-sm"
+                                      disabled={savingStrategy === `${target.instrument_key}:put:confluence`}
+                                      min={2}
+                                      max={Math.max((target.put_strategy_ids ?? []).length, 2)}
+                                      onChange={(event) =>
+                                        void handleSetConfluenceSettings(target.instrument_key, "put", {
+                                          enabled: true,
+                                          min: Number(event.target.value) || 2,
+                                        })
+                                      }
+                                      style={{ width: "3.5rem" }}
+                                      type="number"
+                                      value={target.put_confluence_min}
+                                    />
+                                    <span>of {(target.put_strategy_ids ?? []).length} to agree</span>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td>
                               <span className={`badge-soft ${target.put_active ? "green" : "gold"}`}>
                                 {target.put_active ? "Active" : "Waiting"}
                               </span>
+                              {target.put_confluence_enabled && (
+                                <div className="small muted mt-1">
+                                  CONFLUENCE {target.put_confluence_min}/{(target.put_strategy_ids ?? []).length}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
