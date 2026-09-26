@@ -841,6 +841,10 @@ export type UpstoxIndexAutoLaunchConfig = {
   enabled_call_strategy_ids: string[];
   enabled_put_strategy_ids: string[];
   per_index_strategy_overrides: Record<string, { call?: string[]; put?: string[] }>;
+  per_index_confluence_settings: Record<
+    string,
+    { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
+  >;
   enabled_strategy_basket_ids: string[];
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   candle_unit: string;
@@ -886,12 +890,16 @@ export type UpstoxIndexAutoLaunchTarget = {
   call_strategy_labels: string[];
   call_available_strategy_ids: string[];
   call_available_strategy_labels: string[];
+  call_confluence_enabled: boolean;
+  call_confluence_min: number;
   put_strategy_id: string;
   put_strategy_label: string;
   put_strategy_ids: string[];
   put_strategy_labels: string[];
   put_available_strategy_ids: string[];
   put_available_strategy_labels: string[];
+  put_confluence_enabled: boolean;
+  put_confluence_min: number;
   call_active: boolean;
   put_active: boolean;
 };
@@ -2272,30 +2280,28 @@ export async function setUpstoxIndexAutoLaunchStrategy(
   });
 }
 
-export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
+type UpstoxIndexAutoLaunchDefaultStrategiesPayload = {
   call_strategy_id?: string | null;
   put_strategy_id?: string | null;
   enabled_call_strategy_ids?: string[] | null;
   enabled_put_strategy_ids?: string[] | null;
   per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
+  per_index_confluence_settings?: Record<
+    string,
+    { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
+  > | null;
   apply_to_targets?: boolean;
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   enabled_strategy_basket_ids?: string[] | null;
   candle_interval?: "1" | "3" | "5" | "15" | null;
-}) {
+};
+
+export async function setUpstoxIndexAutoLaunchDefaultStrategies(
+  payload: UpstoxIndexAutoLaunchDefaultStrategiesPayload,
+) {
   return postBackendJsonWithBody<
     UpstoxIndexAutoLaunchStatus,
-    {
-      call_strategy_id?: string | null;
-      put_strategy_id?: string | null;
-      enabled_call_strategy_ids?: string[] | null;
-      enabled_put_strategy_ids?: string[] | null;
-      per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
-      apply_to_targets?: boolean;
-      execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
-      enabled_strategy_basket_ids?: string[] | null;
-      candle_interval?: "1" | "3" | "5" | "15" | null;
-    }
+    UpstoxIndexAutoLaunchDefaultStrategiesPayload
   >("/api/v1/upstox/option-chain-bot/index-auto-launch/default-strategies", payload);
 }
 

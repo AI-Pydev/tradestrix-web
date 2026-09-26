@@ -330,6 +330,10 @@ export type UpstoxIndexAutoLaunchConfig = {
   enabled_call_strategy_ids: string[];
   enabled_put_strategy_ids: string[];
   per_index_strategy_overrides: Record<string, { call?: string[]; put?: string[] }>;
+  per_index_confluence_settings: Record<
+    string,
+    { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
+  >;
   enabled_strategy_basket_ids: string[];
   execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
   candle_unit: string;
@@ -375,12 +379,16 @@ export type UpstoxIndexAutoLaunchTarget = {
   call_strategy_labels: string[];
   call_available_strategy_ids: string[];
   call_available_strategy_labels: string[];
+  call_confluence_enabled: boolean;
+  call_confluence_min: number;
   put_strategy_id: string;
   put_strategy_label: string;
   put_strategy_ids: string[];
   put_strategy_labels: string[];
   put_available_strategy_ids: string[];
   put_available_strategy_labels: string[];
+  put_confluence_enabled: boolean;
+  put_confluence_min: number;
   call_active: boolean;
   put_active: boolean;
 };
