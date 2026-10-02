@@ -239,7 +239,7 @@ export type MTFUniverseConfluenceResponse = {
 export type HarmonicAutoTradeSettings = {
   enabled: boolean;
   execution_mode: "paper" | "live";
-  broker_id: "upstox" | "kite" | "kotak";
+  broker_id: "upstox" | "kite" | "kotak" | "shoonya";
   min_quality_score: number;
   require_sr_confluence: boolean;
   require_mtf_confirmation: boolean;

@@ -51,7 +51,7 @@ export type TradingViewAlertTemplate = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   lots: number;
   quantity: number;
   option_moneyness?: "ATM" | "OTM" | "ITM";
@@ -76,7 +76,7 @@ export type TradingViewAlertTemplateCreateRequest = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   lots: number;
   quantity?: number | null;
   option_moneyness?: "ATM" | "OTM" | "ITM" | null;
@@ -496,8 +496,8 @@ export type StrategyAnalysisRequest = {
   to_date: string;
   underlying_unit?: string;
   underlying_interval?: string;
-  market_data_broker: "dhan" | "kite" | "upstox";
-  fallback_broker: "dhan" | "kite" | "upstox" | null;
+  market_data_broker: "dhan" | "kite" | "upstox" | "shoonya";
+  fallback_broker: "dhan" | "kite" | "upstox" | "shoonya" | null;
 };
 
 export type StrategyAnalysisMetrics = {

@@ -6,7 +6,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import {
     authenticateKotakBroker,
-    authenticateShoonyaBroker,
+    completeShoonyaOAuth,
     BrokerConnection,
     BrokerHealth,
     disconnectBroker,
@@ -57,8 +57,8 @@ function isKotakManualBroker(broker: BrokerConnection) {
   return broker.broker_id === "kotakneo" && broker.auth_mode === "manual";
 }
 
-function isShoonyaManualBroker(broker: BrokerConnection) {
-  return (broker.broker_id === "shoonya" || broker.broker_id === "finvasia") && broker.auth_mode === "manual";
+function isShoonyaBroker(broker: BrokerConnection) {
+  return (broker.broker_id === "shoonya" || broker.broker_id === "finvasia");
 }
 
 function brokerHealthTone(health: BrokerHealth | undefined) {
@@ -117,16 +117,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
 
   const [shoonyaModalBroker, setShoonyaModalBroker] = useState<BrokerConnection | null>(null);
   const [shoonyaSubmitting, setShoonyaSubmitting] = useState(false);
-  const [showShoonyaPassword, setShowShoonyaPassword] = useState(false);
-  const [showShoonyaApiKey, setShowShoonyaApiKey] = useState(false);
-  const [showShoonyaTotp, setShowShoonyaTotp] = useState(false);
-  const [shoonyaForm, setShoonyaForm] = useState({
-    user_id: "",
-    password: "",
-    totp: "",
-    vendor_code: "",
-    api_key: "",
-  });
+  const [shoonyaForm, setShoonyaForm] = useState({ code: "", auth_flow_token: "" });
+  const [shoonyaAuthUrl, setShoonyaAuthUrl] = useState("");
 
 
   useEffect(() => {
@@ -309,51 +301,33 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
     setShowKotakMpin(false);
   }
 
-  function openShoonyaModal(broker: BrokerConnection) {
+  async function openShoonyaModal(broker: BrokerConnection) {
+    const result = await startBrokerAuth("shoonya");
+    setShoonyaForm({ code: "", auth_flow_token: result.auth_flow_token ?? "" });
+    setShoonyaAuthUrl(result.auth_url);
     setShoonyaModalBroker(broker);
-    setShowShoonyaPassword(false);
-    setShowShoonyaApiKey(false);
-    setShowShoonyaTotp(false);
-    setShoonyaForm({
-      user_id: broker.login_defaults.user_id ?? "",
-      password: "",
-      totp: "",
-      vendor_code: broker.login_defaults.vendor_code ?? "",
-      api_key: broker.login_defaults.api_key ?? "",
-    });
   }
 
   function closeShoonyaModal() {
-    if (shoonyaSubmitting) {
-      return;
-    }
+    if (shoonyaSubmitting) return;
     setShoonyaModalBroker(null);
-    setShowShoonyaPassword(false);
-    setShowShoonyaApiKey(false);
-    setShowShoonyaTotp(false);
-  }
-
-  function updateShoonyaField(field: "user_id" | "password" | "totp" | "vendor_code" | "api_key", value: string) {
-    setShoonyaForm((current) => ({ ...current, [field]: value }));
+    setShoonyaForm({ code: "", auth_flow_token: "" });
   }
 
   async function handleShoonyaSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setShoonyaSubmitting(true);
     try {
-      setShoonyaSubmitting(true);
-      const result = await authenticateShoonyaBroker(shoonyaForm);
+      const result = await completeShoonyaOAuth(shoonyaForm);
       setBrokerNotice(`SHOONYA: ${result.message}`);
       setBrokerNoticeTone(result.success ? "success" : "error");
-
       if (result.success) {
+        setShoonyaModalBroker(null);
+        setShoonyaForm({ code: "", auth_flow_token: "" });
         await refreshBrokers();
-        closeShoonyaModal();
-        router.replace(
-          `/brokers?broker=shoonya&broker_status=success&message=${encodeURIComponent(result.message)}`,
-        );
       }
     } catch (err) {
-      setBrokerNotice(err instanceof Error ? err.message : "Failed to authenticate Shoonya");
+      setBrokerNotice(err instanceof Error ? err.message : "Shoonya connection failed");
       setBrokerNoticeTone("error");
     } finally {
       setShoonyaSubmitting(false);
@@ -368,8 +342,8 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
         openKotakModal(broker);
         return;
       }
-      if (broker && isShoonyaManualBroker(broker)) {
-        openShoonyaModal(broker);
+      if (broker && isShoonyaBroker(broker)) {
+        await openShoonyaModal(broker);
         return;
       }
 
@@ -847,141 +821,19 @@ export function BrokersShell({ brokerQuery }: BrokersShellProps) {
       ) : null}
 
       {shoonyaModalBroker ? (
-        <div className="broker-auth-modal-backdrop" onClick={closeShoonyaModal} role="presentation">
-          <div
-            className="broker-auth-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="shoonya-auth-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="broker-auth-modal-header">
-              <div>
-                <div className="broker-auth-modal-title" id="shoonya-auth-title">
-                  Connect Shoonya (Finvasia) - ₹0 Brokerage
-                </div>
-                <div className="broker-auth-modal-subtitle">
-                  Enter your Shoonya credentials for QuickAuth login. Generates a secure session token with true lifetime zero-brokerage trading.
-                </div>
-              </div>
-              <button className="broker-auth-close" type="button" onClick={closeShoonyaModal} disabled={shoonyaSubmitting}>
-                Close
-              </button>
-            </div>
-
-            <form className="d-grid gap-3" onSubmit={handleShoonyaSubmit}>
-              <div>
-                <label className="form-label small muted mb-2" htmlFor="shoonya-user-id">
-                  Client ID (User ID)
-                </label>
-                <input
-                  id="shoonya-user-id"
-                  className="form-control broker-auth-input"
-                  autoComplete="off"
-                  value={shoonyaForm.user_id}
-                  onChange={(event) => updateShoonyaField("user_id", event.target.value)}
-                  placeholder="e.g. FA12345"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label small muted mb-2" htmlFor="shoonya-vendor-code">
-                  Vendor Code
-                </label>
-                <input
-                  id="shoonya-vendor-code"
-                  className="form-control broker-auth-input"
-                  autoComplete="off"
-                  value={shoonyaForm.vendor_code}
-                  onChange={(event) => updateShoonyaField("vendor_code", event.target.value)}
-                  placeholder="e.g. FA12345_U"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label small muted mb-2" htmlFor="shoonya-password">
-                  Password
-                </label>
-                <div className="broker-auth-field-row">
-                  <input
-                    id="shoonya-password"
-                    className="form-control broker-auth-input"
-                    type={showShoonyaPassword ? "text" : "password"}
-                    value={shoonyaForm.password}
-                    onChange={(event) => updateShoonyaField("password", event.target.value)}
-                    placeholder="Enter Shoonya Password"
-                    required
-                  />
-                  <button
-                    className="btn btn-outline-light btn-sm broker-auth-toggle"
-                    type="button"
-                    onClick={() => setShowShoonyaPassword((current) => !current)}
-                  >
-                    {showShoonyaPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label small muted mb-2" htmlFor="shoonya-api-key">
-                  API Key
-                </label>
-                <div className="broker-auth-field-row">
-                  <input
-                    id="shoonya-api-key"
-                    className="form-control broker-auth-input"
-                    type={showShoonyaApiKey ? "text" : "password"}
-                    value={shoonyaForm.api_key}
-                    onChange={(event) => updateShoonyaField("api_key", event.target.value)}
-                    placeholder="Enter Shoonya API Key"
-                    required
-                  />
-                  <button
-                    className="btn btn-outline-light btn-sm broker-auth-toggle"
-                    type="button"
-                    onClick={() => setShowShoonyaApiKey((current) => !current)}
-                  >
-                    {showShoonyaApiKey ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label small muted mb-2" htmlFor="shoonya-totp">
-                  TOTP (Authenticator Code)
-                </label>
-                <div className="broker-auth-field-row">
-                  <input
-                    id="shoonya-totp"
-                    className="form-control broker-auth-input"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    type={showShoonyaTotp ? "text" : "password"}
-                    value={shoonyaForm.totp}
-                    onChange={(event) => updateShoonyaField("totp", event.target.value)}
-                    placeholder="Enter 6-digit TOTP"
-                    required
-                  />
-                  <button
-                    className="btn btn-outline-light btn-sm broker-auth-toggle"
-                    type="button"
-                    onClick={() => setShowShoonyaTotp((current) => !current)}
-                  >
-                    {showShoonyaTotp ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="d-flex justify-content-end gap-2 pt-2">
-                <button className="btn btn-outline-light" type="button" onClick={closeShoonyaModal} disabled={shoonyaSubmitting}>
-                  Cancel
-                </button>
-                <button className="btn btn-warning" type="submit" disabled={shoonyaSubmitting}>
-                  {shoonyaSubmitting ? "Authenticating..." : "Login to Shoonya (₹0 Brokerage)"}
-                </button>
+        <div className="broker-auth-modal-backdrop">
+          <div className="broker-auth-modal" role="dialog" aria-modal="true" aria-labelledby="shoonya-auth-title">
+            <h2 id="shoonya-auth-title">Connect Shoonya</h2>
+            <p>Sign in on Shoonya using the link below. Your client ID and secret are configured on the server.</p>
+            <a className="btn btn-primary" href={shoonyaAuthUrl} target="_blank" rel="noopener noreferrer">Open Shoonya login</a>
+            <p className="mt-3">If Shoonya returns to TradeStrix, the connection completes automatically. Otherwise, copy only the <code>code</code> value from its redirect URL and paste it here. This login expires after 10 minutes.</p>
+            <form onSubmit={handleShoonyaSubmit}>
+              <label htmlFor="shoonya-code">Authorization code</label>
+              <input id="shoonya-code" className="form-control" type="password" autoComplete="off" required
+                value={shoonyaForm.code} onChange={(e) => setShoonyaForm((current) => ({ ...current, code: e.target.value }))} />
+              <div className="d-flex gap-2 mt-3">
+                <button type="button" className="btn btn-outline-light" onClick={closeShoonyaModal} disabled={shoonyaSubmitting}>Close</button>
+                <button type="submit" className="btn btn-primary" disabled={shoonyaSubmitting}>{shoonyaSubmitting ? "Verifying..." : "Complete connection"}</button>
               </div>
             </form>
           </div>

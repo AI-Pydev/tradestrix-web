@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 export interface TrendlineCustomStudioProps {
   initialSymbol?: string;
   initialTimeframe?: string;
-  brokerId?: "upstox" | "kite";
+  brokerId?: "upstox" | "kite" | "shoonya";
 }
 
 export function TrendlineCustomStudio({
@@ -24,7 +24,7 @@ export function TrendlineCustomStudio({
 }: TrendlineCustomStudioProps) {
   const [selectedKey, setSelectedKey] = useState<string>(initialSymbol);
   const [timeframe, setTimeframe] = useState<string>(initialTimeframe);
-  const [broker, setBroker] = useState<"upstox" | "kite">(brokerId);
+  const [broker, setBroker] = useState<"upstox" | "kite" | "shoonya">(brokerId);
   const [catalog, setCatalog] = useState<{ indices: TrendLineCatalogItem[]; stocks: TrendLineCatalogItem[] }>({
     indices: [],
     stocks: [],
@@ -50,7 +50,7 @@ export function TrendlineCustomStudio({
   }, []);
 
   // Fetch chart data when symbol / timeframe / broker changes
-  const loadChartData = async (key: string, tf: string, b: "upstox" | "kite") => {
+  const loadChartData = async (key: string, tf: string, b: "upstox" | "kite" | "shoonya") => {
     setLoading(true);
     setErrorMsg(null);
     try {
@@ -147,10 +147,11 @@ export function TrendlineCustomStudio({
 
               className="form-select form-select-sm bg-slate-950 border-slate-700 text-white w-auto"
               value={broker}
-              onChange={(e) => setBroker(e.target.value as "upstox" | "kite")}
+              onChange={(e) => setBroker(e.target.value as "upstox" | "kite" | "shoonya")}
             >
               <option value="upstox">Upstox</option>
               <option value="kite">Kite</option>
+                  <option value="shoonya">Shoonya</option>
             </select>
             <button
               className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"

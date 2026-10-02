@@ -142,7 +142,7 @@ export type InstrumentCatalogResponse = {
 };
 
 export type OpportunityScannerRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -177,7 +177,7 @@ export type OpportunityScannerSummary = {
   actionable_indices: number;
   actionable_stocks: number;
   duration_seconds: number;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   best_setup?: string | null;
   scan_basis: "daily";
   snapshot_date: string;
@@ -248,7 +248,7 @@ export type OpportunityScannerResponse = {
 };
 
 export type SupportResistanceScannerRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -273,7 +273,7 @@ export type SupportResistanceScannerSummary = {
   tradable_count: number;
   strong_count: number;
   duration_seconds: number;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   scan_basis: "intraday_3m";
   primary_timeframe: "3m";
   validation_timeframes: string[];
@@ -325,7 +325,7 @@ export type SupportResistanceScannerResponse = {
 };
 
 export type SupportResistanceTradeActionRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   row: SupportResistanceScannerRow;
   action: "auto" | "buy_ce" | "buy_pe";
   lots: number;
@@ -348,7 +348,7 @@ export type SupportResistanceTradeRecord = {
   status: "OPEN" | "CLOSED";
   opened_at: string;
   closed_at?: string | null;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   label: string;
   instrument_key: string;
   kind: "index" | "stock";
@@ -390,7 +390,7 @@ export type SupportResistanceTradeLabSummary = {
 
 export type SupportResistanceAutoEntrySettings = {
   enabled: boolean;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -475,7 +475,7 @@ export type ScannerPaperLabSummary = {
 
 export type ScannerPaperAutoEntrySettings = {
   enabled: boolean;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -530,7 +530,7 @@ export type UpstoxOptionChainBotRunRequest = {
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
-  execution_broker?: "kotak" | "upstox" | "kite" | null;
+  execution_broker?: "kotak" | "upstox" | "kite" | "shoonya" | null;
   market_data_broker: MarketDataBrokerId;
   fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
@@ -584,7 +584,7 @@ export type UpstoxManagedBotStartRequest = {
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
-  execution_broker?: "kotak" | "upstox" | "kite" | null;
+  execution_broker?: "kotak" | "upstox" | "kite" | "shoonya" | null;
   market_data_broker: MarketDataBrokerId;
   fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
@@ -846,7 +846,7 @@ export type UpstoxIndexAutoLaunchConfig = {
     { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
   >;
   enabled_strategy_basket_ids: string[];
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   candle_unit: string;
   candle_interval: string;
   strike_offset: number;
@@ -939,7 +939,7 @@ export type UpstoxStockAutoLaunchConfig = {
   verified_only: boolean;
   include_call: boolean;
   include_put: boolean;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   candle_unit: string;
   candle_interval: string;
   strike_offset: number;
@@ -1001,7 +1001,7 @@ export type UpstoxStockAutoLaunchStatus = {
   enabled: boolean;
   monitor_running: boolean;
   monitor_interval_sec: number;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   market_now: string;
   market_day: boolean;
   market_window_open: boolean;
@@ -1339,7 +1339,7 @@ export type UpstoxOptionChainBotPreviewResponse = {
 // MCX types are maintained modularly in @/modules/mcx and re-exported below.
 // Crypto types are maintained modularly in @/modules/crypto and re-exported below.
 
-export type MarketDataBrokerId = "upstox" | "kite" | "dhan";
+export type MarketDataBrokerId = "upstox" | "kite" | "dhan" | "shoonya";
 
 export type UpstoxOptionChainBacktestRunRequest = {
   instrument_key: string;
@@ -1509,7 +1509,7 @@ export type TradingViewAlertTemplate = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   lots: number;
   quantity: number;
   option_moneyness?: "ATM" | "OTM" | "ITM";
@@ -1534,7 +1534,7 @@ export type TradingViewAlertTemplateCreateRequest = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   lots: number;
   quantity?: number | null;
   option_moneyness?: "ATM" | "OTM" | "ITM" | null;
@@ -2291,7 +2291,7 @@ type UpstoxIndexAutoLaunchDefaultStrategiesPayload = {
     { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
   > | null;
   apply_to_targets?: boolean;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   enabled_strategy_basket_ids?: string[] | null;
   candle_interval?: "1" | "3" | "5" | "15" | null;
 };
@@ -2642,8 +2642,8 @@ export type StrategyAnalysisRequest = {
   to_date: string;
   underlying_unit?: string;
   underlying_interval?: string;
-  market_data_broker: "dhan" | "kite" | "upstox";
-  fallback_broker: "dhan" | "kite" | "upstox" | null;
+  market_data_broker: "dhan" | "kite" | "upstox" | "shoonya";
+  fallback_broker: "dhan" | "kite" | "upstox" | "shoonya" | null;
 };
 
 export type StrategyAnalysisMetrics = {

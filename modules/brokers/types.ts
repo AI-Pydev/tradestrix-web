@@ -33,6 +33,7 @@ export type BrokerAuthStartResponse = {
   auth_url: string;
   redirect_uri: string;
   instructions: string;
+  auth_flow_token?: string | null;
 };
 
 export type BrokerCallbackResult = {

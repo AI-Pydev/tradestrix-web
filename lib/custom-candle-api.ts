@@ -3,7 +3,7 @@ import { buildAuthorizedHeaders, throwIfApiError } from "@/lib/auth";
 export type CandleLabScenario = "trend_up" | "trend_down" | "range" | "volatile" | "whipsaw";
 export type CandleLabKind = "time" | "tick" | "volume" | "range";
 export type CandleLabSourceMode = "simulated_replay" | "broker_intraday" | "broker_live_ticks";
-export type CandleLabBroker = "upstox" | "kite";
+export type CandleLabBroker = "upstox" | "kite" | "shoonya";
 export type CandleLabPriceMode = "standard" | "heikin_ashi";
 
 export type CandleLabPreviewRequest = {

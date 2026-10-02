@@ -1,7 +1,7 @@
 import { getBackendJson, postBackendJsonWithBody } from "@/platform/http/client";
 
 export type TrendLineScanRequest = {
-  broker_id?: "upstox" | "kite";
+  broker_id?: "upstox" | "kite" | "shoonya";
   include_indices?: boolean;
   include_stocks?: boolean;
   max_indices?: number;
@@ -214,7 +214,7 @@ export interface TrendLineSandboxResult {
 
 export async function runTrendLineSandbox(payload: {
   instrument_key: string;
-  broker_id?: "upstox" | "kite";
+  broker_id?: "upstox" | "kite" | "shoonya";
   timeframe?: string;
   pivot_window?: number;
   min_headroom_atr?: number;

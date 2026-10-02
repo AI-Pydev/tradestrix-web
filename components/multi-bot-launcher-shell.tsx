@@ -27,6 +27,7 @@ const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
   { value: "dhan", label: "Dhan" },
   { value: "upstox", label: "Upstox" },
   { value: "kite", label: "Kite" },
+  { value: "shoonya", label: "Shoonya" },
 ];
 
 type LauncherRowState = {

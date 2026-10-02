@@ -1,5 +1,5 @@
 export type OpportunityScannerRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -34,7 +34,7 @@ export type OpportunityScannerSummary = {
   actionable_indices: number;
   actionable_stocks: number;
   duration_seconds: number;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   best_setup?: string | null;
   scan_basis: "daily";
   snapshot_date: string;
@@ -105,7 +105,7 @@ export type OpportunityScannerResponse = {
 };
 
 export type SupportResistanceScannerRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -130,7 +130,7 @@ export type SupportResistanceScannerSummary = {
   tradable_count: number;
   strong_count: number;
   duration_seconds: number;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   scan_basis: "intraday_3m";
   primary_timeframe: "3m";
   validation_timeframes: string[];
@@ -182,7 +182,7 @@ export type SupportResistanceScannerResponse = {
 };
 
 export type SupportResistanceTradeActionRequest = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   row: SupportResistanceScannerRow;
   action: "auto" | "buy_ce" | "buy_pe";
   lots: number;
@@ -205,7 +205,7 @@ export type SupportResistanceTradeRecord = {
   status: "OPEN" | "CLOSED";
   opened_at: string;
   closed_at?: string | null;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   label: string;
   instrument_key: string;
   kind: "index" | "stock";
@@ -247,7 +247,7 @@ export type SupportResistanceTradeLabSummary = {
 
 export type SupportResistanceAutoEntrySettings = {
   enabled: boolean;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -332,7 +332,7 @@ export type ScannerPaperLabSummary = {
 
 export type ScannerPaperAutoEntrySettings = {
   enabled: boolean;
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
