@@ -336,7 +336,7 @@ export function IndexAutoLaunchShell() {
       setSavingBroker(true);
       setMessage("");
       const result = await setUpstoxIndexAutoLaunchDefaultStrategies({
-        execution_broker: brokerName as "paper" | "kotak_neo" | "upstox" | "kite",
+        execution_broker: brokerName as "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya",
       });
       setStatus(result);
       setMessage(`Execution mode set to ${brokerName === "kotak_neo" ? "Live - Kotak Neo" : "Paper Trading"}.`);

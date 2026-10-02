@@ -1,11 +1,11 @@
-export type MarketDataBrokerId = "upstox" | "kite" | "dhan";
+export type MarketDataBrokerId = "upstox" | "kite" | "dhan" | "shoonya";
 
 export type UpstoxOptionChainBotRunRequest = {
   instrument_key: string;
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
-  execution_broker?: "kotak" | "upstox" | "kite" | null;
+  execution_broker?: "kotak" | "upstox" | "kite" | "shoonya" | null;
   market_data_broker: MarketDataBrokerId;
   fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
@@ -73,7 +73,7 @@ export type UpstoxManagedBotStartRequest = {
   commodity_symbol?: string | null;
   expiry?: string | null;
   execution_mode: "paper" | "live";
-  execution_broker?: "kotak" | "upstox" | "kite" | null;
+  execution_broker?: "kotak" | "upstox" | "kite" | "shoonya" | null;
   market_data_broker: MarketDataBrokerId;
   fallback_broker?: MarketDataBrokerId | null;
   force_fallback_for_test: boolean;
@@ -335,7 +335,7 @@ export type UpstoxIndexAutoLaunchConfig = {
     { call?: { enabled: boolean; min: number }; put?: { enabled: boolean; min: number } }
   >;
   enabled_strategy_basket_ids: string[];
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   candle_unit: string;
   candle_interval: string;
   strike_offset: number;
@@ -428,7 +428,7 @@ export type UpstoxStockAutoLaunchConfig = {
   verified_only: boolean;
   include_call: boolean;
   include_put: boolean;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   candle_unit: string;
   candle_interval: string;
   strike_offset: number;
@@ -490,7 +490,7 @@ export type UpstoxStockAutoLaunchStatus = {
   enabled: boolean;
   monitor_running: boolean;
   monitor_interval_sec: number;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   market_now: string;
   market_day: boolean;
   market_window_open: boolean;

@@ -18,7 +18,7 @@ const STRATEGIES = [
   { id: "advanced_index_call", label: "Advanced Index CALL", side: "call" },
 ] as const;
 
-const PROVIDERS = ["upstox", "kite", "dhan"] as const;
+const PROVIDERS = ["upstox", "kite", "dhan", "shoonya"] as const;
 
 // label → underlying_interval (minutes). The backend derives "3m" etc. from this.
 const TIMEFRAMES = [
@@ -203,7 +203,7 @@ export function ResearchAgentShell() {
                 onChange={(e) =>
                   update(
                     "market_data_broker",
-                    e.target.value as "dhan" | "kite" | "upstox",
+                    e.target.value as "dhan" | "kite" | "upstox" | "shoonya",
                   )
                 }
               >
@@ -225,7 +225,7 @@ export function ResearchAgentShell() {
                     (e.target.value || null) as
                       | "dhan"
                       | "kite"
-                      | "upstox"
+                      | "upstox" | "shoonya"
                       | null,
                   )
                 }

@@ -125,7 +125,7 @@ function metricTone(label: string) {
 }
 
 type ScannerFormState = {
-  broker_id: "upstox" | "kite";
+  broker_id: "upstox" | "kite" | "shoonya";
   include_indices: boolean;
   include_stocks: boolean;
   max_indices: number;
@@ -635,6 +635,7 @@ export function OpportunityScannerShell() {
                         >
                           <option value="upstox">Upstox</option>
                           <option value="kite">Kite</option>
+                  <option value="shoonya">Shoonya</option>
                         </select>
                       </div>
                       <div className="col-md-3">

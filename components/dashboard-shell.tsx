@@ -66,6 +66,7 @@ const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
   { value: "dhan", label: "Dhan" },
   { value: "upstox", label: "Upstox" },
   { value: "kite", label: "Kite" },
+  { value: "shoonya", label: "Shoonya" },
 ];
 
 
@@ -467,7 +468,7 @@ export function DashboardShell() {
     instrument_key: "NSE_INDEX|Nifty 50",
     expiry: "",
     execution_mode: "paper",
-    execution_broker: "kotak" as "kotak" | "upstox" | "kite",
+    execution_broker: "kotak" as "kotak" | "upstox" | "kite" | "shoonya",
     market_data_broker: "upstox",
     fallback_broker: "kite",
     force_fallback_for_test: false,
@@ -1494,13 +1495,14 @@ export function DashboardShell() {
                   onChange={(e) =>
                     setBotForm((prev) => ({
                       ...prev,
-                      execution_broker: e.target.value as "kotak" | "upstox" | "kite",
+                      execution_broker: e.target.value as "kotak" | "upstox" | "kite" | "shoonya",
                     }))
                   }
                 >
                   <option value="kotak">Kotak Neo</option>
                   <option value="upstox">Upstox</option>
                   <option value="kite">Kite (Zerodha)</option>
+                  <option value="shoonya">Shoonya</option>
                 </select>
               </div>
 

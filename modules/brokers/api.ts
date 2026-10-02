@@ -270,7 +270,11 @@ export async function fetchBrokerHealthItem(endpoint: string, refresh: boolean, 
 }
 
 export async function startBrokerAuth(brokerId: string) {
-  return postBackendJson<BrokerAuthStartResponse>(`/api/v1/brokers/${brokerId}/auth/start`);
+  const response = await fetch(`${BACKEND_BASE_URL}/api/v1/brokers/${encodeURIComponent(brokerId)}/auth/start`, {
+    method: "POST", headers: buildAuthorizedHeaders(), credentials: "include",
+  });
+  await throwIfApiError(response);
+  return await response.json() as BrokerAuthStartResponse;
 }
 
 export async function disconnectBroker(brokerId: string) {
@@ -291,3 +295,7 @@ export async function authenticateShoonyaBroker(payload: ShoonyaManualAuthReques
   );
 }
 
+
+export async function completeShoonyaOAuth(payload: { code: string; auth_flow_token: string }) {
+  return postBackendJsonWithBody<BrokerCallbackResult, typeof payload>("/api/v1/brokers/shoonya/oauth/complete", payload);
+}

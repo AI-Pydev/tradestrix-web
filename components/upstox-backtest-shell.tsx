@@ -98,6 +98,7 @@ const PUT_STRATEGY_OPTIONS = [
 const MARKET_DATA_BROKERS: { value: MarketDataBrokerId; label: string }[] = [
   { value: "dhan", label: "Dhan" },
   { value: "kite", label: "Kite" },
+  { value: "shoonya", label: "Shoonya" },
   { value: "upstox", label: "Upstox" },
 ];
 type BacktestIntervalOption = {
@@ -144,6 +145,7 @@ const BROKER_SUPPORTED_MINUTE_INTERVALS: Partial<Record<MarketDataBrokerId, stri
 const BROKER_DEFAULT_INTERVAL: Record<MarketDataBrokerId, string> = {
   dhan: "5",
   kite: "3",
+  shoonya: "3",
   upstox: "3",
 };
 

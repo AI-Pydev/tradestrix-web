@@ -186,7 +186,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
   enabled_put_strategy_ids?: string[] | null;
   per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
   apply_to_targets?: boolean;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   enabled_strategy_basket_ids?: string[] | null;
   candle_interval?: "1" | "3" | "5" | "15" | null;
 }) {
@@ -199,7 +199,7 @@ export async function setUpstoxIndexAutoLaunchDefaultStrategies(payload: {
       enabled_put_strategy_ids?: string[] | null;
       per_index_strategy_overrides?: Record<string, { call?: string[]; put?: string[] }> | null;
       apply_to_targets?: boolean;
-      execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+      execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
       enabled_strategy_basket_ids?: string[] | null;
       candle_interval?: "1" | "3" | "5" | "15" | null;
     }

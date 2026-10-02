@@ -38,7 +38,7 @@ function regimeBadgeClass(regime: string) {
 
 export function TrendlineIntelligenceShell() {
   const [viewMode, setViewMode] = useState<ViewMode>("universe");
-  const [brokerId, setBrokerId] = useState<"upstox" | "kite">("upstox");
+  const [brokerId, setBrokerId] = useState<"upstox" | "kite" | "shoonya">("upstox");
   const [timeframe, setTimeframe] = useState<string>("3m");
   const [includeIndices, setIncludeIndices] = useState(true);
   const [includeStocks, setIncludeStocks] = useState(true);
@@ -254,10 +254,11 @@ export function TrendlineIntelligenceShell() {
                   <select
                     className="form-select form-select-sm"
                     value={brokerId}
-                    onChange={(e) => setBrokerId(e.target.value as "upstox" | "kite")}
+                    onChange={(e) => setBrokerId(e.target.value as "upstox" | "kite" | "shoonya")}
                   >
                     <option value="upstox">Upstox</option>
                     <option value="kite">Kite</option>
+                  <option value="shoonya">Shoonya</option>
                   </select>
                 </div>
 

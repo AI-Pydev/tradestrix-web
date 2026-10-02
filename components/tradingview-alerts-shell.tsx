@@ -34,7 +34,7 @@ type FormState = {
   side: "call" | "put";
   paper_trade: boolean;
   trade_mode: 1 | 3;
-  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | null;
+  execution_broker?: "paper" | "kotak_neo" | "upstox" | "kite" | "shoonya" | null;
   lots: string;
   option_moneyness: "ATM" | "ITM" | "OTM";
   option_offset: string;
@@ -902,13 +902,14 @@ export function TradingViewAlertsShell() {
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,
-                          execution_broker: e.target.value as "kotak_neo" | "upstox" | "kite",
+                          execution_broker: e.target.value as "kotak_neo" | "upstox" | "kite" | "shoonya",
                         }))
                       }
                     >
                       <option value="kotak_neo">Kotak Neo</option>
                       <option value="upstox">Upstox</option>
                       <option value="kite">Kite (Zerodha)</option>
+                  <option value="shoonya">Shoonya</option>
                     </select>
                     {form.trade_mode !== 3 && (
                       <div className="small muted mt-1">Switch to Live to select broker.</div>
