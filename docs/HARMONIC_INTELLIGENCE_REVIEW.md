@@ -1,6 +1,6 @@
 # TradeStrix Harmonic Pattern Intelligence — Architecture & Review Document
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Status**: Comprehensive Analysis & Implementation Review  
 > **Repository Roots**:  
 > - Backend: `c:\Users\91809\dev\TradeStrix\tradestrix-api`  
@@ -16,7 +16,13 @@
 4. [Potential Reversal Zone (PRZ) & Trade Management Standards](#4-potential-reversal-zone-prz--trade-management-standards)
 5. [End-to-End System Pipeline & Backend Logic](#5-end-to-end-system-pipeline--backend-logic)
 6. [Multi-Timeframe (MTF) Fractal Confluence Engine](#6-multi-timeframe-mtf-fractal-confluence-engine)
-7. [Frontend Architecture & UI Components](#7-frontend-architecture--ui-components)
+7. [Deep-Dive Architecture & Breakdown for All 6 Core UI Tabs](#7-deep-dive-architecture--breakdown-for-all-6-core-ui-tabs)
+   - [Tab 1: Pattern Registry (DB)](#tab-1-pattern-registry-db)
+   - [Tab 2: Live Scan](#tab-2-live-scan)
+   - [Tab 3: 🔮 Predict D (Forming)](#tab-3--predict-d-forming)
+   - [Tab 4: MTF Matrix](#tab-4-mtf-matrix)
+   - [Tab 5: 📄 Paper Portfolio](#tab-5--paper-portfolio)
+   - [Tab 6: 🔬 Harmonic Lab](#tab-6--harmonic-lab)
 8. [Comprehensive Gap Analysis & Identified Missing Items](#8-comprehensive-gap-analysis--identified-missing-items)
 9. [Actionable Remediation & Upgrade Roadmap](#9-actionable-remediation--upgrade-roadmap)
 
@@ -80,13 +86,13 @@ TradeStrix harmonic definitions are benchmarked against **Scott M. Carney** (*Ha
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Gartley (222)** | Retracement | **0.618** (Exact) | 0.382 - 0.886 | 1.130 - 1.618 | **0.786** | 1.000 (AB=CD) | Carney: B must be strict 0.618; D must not exceed X. | **Aligned** (0.618 B +-4%, 0.786 D +-4%) | **Aligned** in `harmonicRules.ts` |
 | **Bat** | Retracement | 0.382 - **0.500** | 0.382 - 0.886 | 1.618 - 2.618 | **0.886** | 1.000 - 1.618 | Carney: B must remain <0.618 (ideal 0.50), D hits deep 0.886. | **Aligned** (0.382-0.500 B, 0.886 D +-3.5%) | **Aligned** in `harmonicRules.ts` |
-| **Alternate Bat** | Extension | **0.382** (Strict) | 0.382 - 0.886 | 2.000 - 3.618 | **1.130** | 1.000 - 1.618 | Carney: B exact 0.382; D extends past X to 1.130. | **Aligned** in `specs.py` | Missing in `harmonicRules.ts` |
+| **Alternate Bat** | Extension | **0.382** (Strict) | 0.382 - 0.886 | 2.000 - 3.618 | **1.130** | 1.000 - 1.618 | Carney: B exact 0.382; D extends past X to 1.130. | **Aligned** in `specs.py` | ⚠️ **Missing** in `harmonicRules.ts` |
 | **Butterfly** | Extension | **0.786** (Deep) | 0.382 - 0.886 | 1.618 - 2.618 | **1.272 - 1.618** | 1.000 - 1.618 | Carney: B must reach 0.786; D must extend beyond X. | **Aligned** (0.786 B, 1.272-1.618 D) | **Aligned** in `harmonicRules.ts` |
 | **Crab** | Extension | 0.382 - **0.618** | 0.382 - 0.886 | 2.240 - 3.618 | **1.618** (Extreme) | 1.000 - 1.618 | Carney: Extreme pattern; 1.618 XA extension is mandatory. | **Aligned** (0.382-0.618 B, 1.618 D) | **Aligned** in `harmonicRules.ts` |
-| **Deep Crab** | Extension | **0.886** (Deep) | 0.382 - 0.886 | 2.240 - 3.618 | **1.618** (Extreme) | 1.000 - 1.618 | Carney: Variant of Crab where B is 0.886 and D hits 1.618. | **Aligned** in `specs.py` | Missing in `harmonicRules.ts` |
+| **Deep Crab** | Extension | **0.886** (Deep) | 0.382 - 0.886 | 2.240 - 3.618 | **1.618** (Extreme) | 1.000 - 1.618 | Carney: Variant of Crab where B is 0.886 and D hits 1.618. | **Aligned** in `specs.py` | ⚠️ **Missing** in `harmonicRules.ts` |
 | **Cypher** | Non-Carney (Advanced) | 0.382 - **0.618** | **1.272 - 1.414** (Extends A) | 1.272 - 2.000 | **0.786 of XC** | N/A | Darren Fischer: Point C exceeds Point A; D is 0.786 of XC. | **Aligned** in `specs.py` | **Aligned** in `harmonicRules.ts` |
 | **Shark** | Emerging (5-0) | 0.500 - 0.886 | **1.130 - 1.618** (Extends A) | 1.618 - 2.240 | **0.886 - 1.130** | N/A | Carney: 0XABC structure; Point C extends beyond Point A. | **Aligned** in `specs.py` | **Aligned** in `harmonicRules.ts` |
-| **AB=CD** | Reciprocal Foundation | 0.382 - 0.886 | 0.382 - 0.886 | 1.130 - 2.618 | 0.618 - 1.618 | **1.000** (Strict) | Pesavento & Carney: Leg length & time symmetry (|AB|=|CD|). | **Aligned** in `specs.py` | Missing in `harmonicRules.ts` |
+| **AB=CD** | Reciprocal Foundation | 0.382 - 0.886 | 0.382 - 0.886 | 1.130 - 2.618 | 0.618 - 1.618 | **1.000** (Strict) | Pesavento & Carney: Leg length & time symmetry (|AB|=|CD|). | **Aligned** in `specs.py` | ⚠️ **Missing** in `harmonicRules.ts` |
 
 ---
 
@@ -196,27 +202,177 @@ Implemented in `app/modules/harmonics/application/mtf_confluence.py`:
 
 ---
 
-## 7. Frontend Architecture & UI Components
+## 7. Deep-Dive Architecture & Breakdown for All 6 Core UI Tabs
 
-The web application provides 6 distinct operational modes in `components/harmonic-pattern-scanner-shell.tsx`:
+On the frontend at `/harmonic-patterns`, the user navigation bar presents 6 dedicated buttons:
 
+```html
+<div class="btn-group p-1 bg-surface rounded-3 border shadow-sm" role="group">
+  <button type="button" class="btn btn-sm btn-primary shadow-sm fw-semibold"><i class="bi bi-database me-1"></i> Pattern Registry (DB)</button>
+  <button type="button" class="btn btn-sm btn-light text-secondary"><i class="bi bi-broadcast me-1"></i> Live Scan</button>
+  <button type="button" class="btn btn-sm btn-light text-secondary"><i class="bi bi-bullseye me-1"></i> 🔮 Predict D (Forming)</button>
+  <button type="button" class="btn btn-sm btn-light text-secondary"><i class="bi bi-layers-half me-1"></i> MTF Matrix</button>
+  <button type="button" class="btn btn-sm btn-light text-secondary"><i class="bi bi-journal-check me-1"></i> 📄 Paper Portfolio</button>
+  <button type="button" class="btn btn-sm btn-light text-secondary"><i class="bi bi-sliders me-1"></i> 🔬 Harmonic Lab</button>
+</div>
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        TradeStrix Harmonic Console                     │
-├─────────────┬─────────────┬─────────────┬─────────────┬────────────────┤
-│ 1. Database │ 2. Live     │ 3. MTF      │ 4. Emerging │ 5. Paper Desk  │
-│    Patterns │    Scan     │    Matrix   │    Point D  │    & Auto-Trade│
-├─────────────┴─────────────┴─────────────┴─────────────┴────────────────┤
-│  Filters: Timeframe [All/3m..1M] | Quality [>=0.65] | Status [All/PRZ] │
-├────────────────────────────────────────────────────────────────────────┤
-│  Data Table: Symbol | Pattern | Direction | PRZ Zone | Target | Status │
-├────────────────────────────────────────────────────────────────────────┤
-│  Interactive Modals:                                                   │
-│  - HarmonicPredictiveDModal: Point D Roadmap, C->D expansion SVG       │
-│  - HarmonicPatternInspectorDrawer: Fibonacci ratio measurement drawer  │
-│  - HarmonicCustomStudio: Discretionary wave entry & cheatsheet table   │
-└────────────────────────────────────────────────────────────────────────┘
-```
+
+Below is the exhaustive architectural, algorithmic, and operational breakdown of each tab:
+
+---
+
+### Tab 1: Pattern Registry (DB)
+- **UI Button**: `<i class="bi bi-database me-1"></i> Pattern Registry (DB)`
+- **View Key**: `viewMode === "database"`
+- **Primary Function**: Serves as the central persistent audit ledger and real-time monitor for all discovered harmonic patterns stored in SQLite.
+
+#### 1. Backend API & Storage
+- **Endpoint**: `GET /api/v1/pattern-intelligence/db-patterns`
+- **Controller**: `app/modules/harmonics/api/router.py::get_persistent_db_patterns`
+- **Repository Service**: `HarmonicPatternDBService` in `app/modules/harmonics/repositories/pattern_repository.py`
+- **Database File**: `logs/harmonic_patterns.db` (Table: `harmonic_patterns`)
+- **Parameters**: `timeframe`, `instrument_key`, `direction`, `min_quality`, `is_active=True`, `limit=100`
+
+#### 2. Logic in Place
+- **Lifecycle Status Badge Evaluator (`getPatternLifecycle`)**:
+  - `FORMING_D`: State is marked as `FORMING` with predicted Point D coordinates.
+  - `TARGET_ACHIEVED`: Evaluates current price vs `target_1` and `target_2`. Displays `🎯 T1 HIT (Trailing)` or `🎯 T2 ACHIEVED`.
+  - `SL_BREACHED`: Price has crossed below (bullish) or above (bearish) the terminal `stop_loss`. Displays `⚠️ SL BREACHED`.
+  - `OPEN_ACTIVE`: Price is live; if within `[prz_low, prz_high]` it displays `⚡ IN PRZ ENTRY`, otherwise `⚡ ACTIVE SETUP`.
+- **Summary Cards**: Real-time counter of Total Active, High Conviction ($Score \ge 0.80$), Bullish vs Bearish distribution, and timestamp of the latest background scan cycle.
+- **Manual Scan Trigger**: Button calling `POST /api/v1/pattern-intelligence/auto-scan-cycle` to trigger background worker scan.
+
+#### 3. What is Working vs Missing
+- **Working**: Lightning-fast SQLite index queries (`idx_hp_timeframe`, `idx_hp_quality`), full lifecycle status classification, multi-column filtering.
+- **Gap / Enhancement**: Stale quotes off-market hours can show yesterday's close; adding an on-hover live quote refresh ensures real-time accuracy.
+
+---
+
+### Tab 2: Live Scan
+- **UI Button**: `<i class="bi bi-broadcast me-1"></i> Live Scan`
+- **View Key**: `viewMode === "live"`
+- **Primary Function**: Executes an on-demand, multi-threaded parallel scan across the live broker universe (Indices + Top F&O Stocks) across any designated timeframe.
+
+#### 1. Backend API & Execution
+- **Endpoint**: `POST /api/v1/pattern-intelligence/scan` & `GET /api/v1/pattern-intelligence/scan`
+- **Controller**: `app/modules/harmonics/api/router.py::run_harmonic_pattern_scan`
+- **Execution Service**: `scan_harmonic_universe()` in `app/modules/harmonics/application/scanner.py`
+- **Parameters**: `broker_id` (Upstox/Kite), `include_indices` (bool), `include_stocks` (bool), `max_indices` (4), `max_stocks` (24), `timeframe` (3m..1M), `min_quality_score` (0.65), `workers` (8)
+
+#### 2. Logic in Place
+- **Multi-Threading**: Uses `concurrent.futures.ThreadPoolExecutor(max_workers=8)` to scan instruments concurrently without blocking.
+- **Data Ingestion**: Pulls raw candles via `get_market_data_adapter(broker_id).get_historical_candles()`.
+- **Swing Extraction**: Runs `DualTrackPivotDetector` with rolling window and ATR filtering.
+- **Harmonic Geometry Evaluation**: Checks for 9 harmonic specifications, calculates geometry score, PRZ cluster bounds, live risk-reward ratios (`live_rr_ratio`, `base_rr_ratio`), and horizontal support/resistance confluence (`extract_support_resistance_levels`).
+
+#### 3. What is Working vs Missing
+- **Working**: High-speed parallel scanning, live R:R ratio calculation, S/R level proximity tags.
+- **Gap / Enhancement**: Scanning `timeframe="all"` on large watchlists can trigger broker rate limits; adding an automatic token-bucket throttler will prevent 429 errors from Upstox/Kite.
+
+---
+
+### Tab 3: 🔮 Predict D (Forming)
+- **UI Button**: `<i class="bi bi-bullseye me-1"></i> 🔮 Predict D (Forming)`
+- **View Key**: `viewMode === "emerging_d"`
+- **Primary Function**: Forecasts incomplete patterns (X-A-B-C confirmed, Point D still forming) and projects mathematical PRZ target zones before the market reaches D.
+
+#### 1. Backend API & Engine
+- **Endpoint**: `GET /api/v1/pattern-intelligence/emerging-patterns` & `GET /api/v1/pattern-intelligence/predict-d/{instrument_key}`
+- **Controller**: `app/modules/harmonics/api/router.py::get_emerging_harmonic_patterns`
+- **Projection Engine**: `HarmonicDPredictor.evaluate_d_projection()` in `app/modules/harmonics/application/d_predictor.py`
+- **Parameters**: `timeframe`, `min_quality` (0.60), `max_stocks`, `broker_id`
+
+#### 2. Logic in Place
+- **Emerging Geometry Validation**: Verifies that legs $XA$, $AB$, and $BC$ strictly conform to harmonic retracement rules ($AB/XA$ and $BC/AB$).
+- **Dual-Stage Trading Roadmap**:
+  - *Stage 1 (Expansion)*: Scalp the $C \rightarrow D$ leg toward the PRZ entry band.
+  - *Stage 2 (Reversal)*: Reversal trade from PRZ toward Target 1 (0.382 AD), Target 2 (0.618 AD), and Target 3 (Point A).
+- **Interactive Predictive Modal (`HarmonicPredictiveDModal`)**:
+  - Custom SVG chart displaying live candles, confirmed pivots $X, A, B, C$, and the projected Point D PRZ target box.
+  - Calculates estimated bars to D completion and provides direct 1-click execution buttons.
+
+#### 3. What is Working vs Missing
+- **Working**: Proactive early trade discovery before retail traders see the completed pattern; dual-stage roadmap.
+- **Gap / Enhancement**: Deep extension patterns (Butterfly, Crab) project wider PRZ bands; adding an automatic clustering filter to narrow the PRZ box when ratios diverge.
+
+---
+
+### Tab 4: MTF Matrix
+- **UI Button**: `<i class="bi bi-layers-half me-1"></i> MTF Matrix`
+- **View Key**: `viewMode === "mtf_confluence"`
+- **Primary Function**: Top-Down Macro (1D / 4H / 1H) to Micro (15m / 5m / 3m) multi-timeframe fractal confluence matrix for high-conviction institutional setups.
+
+#### 1. Backend API & Evaluation
+- **Endpoint**: `GET /api/v1/pattern-intelligence/mtf-universe-confluence` & `GET /api/v1/pattern-intelligence/mtf-confluence/{instrument_key}`
+- **Controller**: `app/modules/harmonics/api/router.py::get_mtf_universe_confluence`
+- **Confluence Service**: `mtf_confluence_service` in `app/modules/harmonics/application/mtf_confluence.py`
+
+#### 2. Logic in Place
+- **4 Readiness Stages**:
+  1. `MICRO_TRIGGER_CONFIRMED`: Highest conviction; price is in Macro PRZ and lower timeframe prints a confirmed Break of Structure (BOS) or reversal candle.
+  2. `IN_PRZ_MONITORING`: Price is inside Macro PRZ; waiting for micro breakout trigger.
+  3. `MACRO_DETECTED`: Pattern formed on macro timeframe; price heading to PRZ.
+  4. `INVALIDATED`: Stop loss breached.
+- **Micro Confirmation Gates**:
+  - *Break of Structure (BOS)*: 4-bar swing breakout.
+  - *Candlestick Reversals*: Bullish/Bearish Engulfing, Hammer Pinbar, Shooting Star.
+  - *Wilder's RSI Divergence*: Regular Bullish/Bearish divergence over the last 15-20 micro bars.
+  - *Option Chain Institutional Confluence*: PCR, Max Pain, PE/CE Open Interest buildup at PRZ edges.
+
+#### 3. What is Working vs Missing
+- **Working**: Eliminates false breakouts by requiring lower-timeframe confirmation; option chain OI alignment.
+- **Gap / Enhancement**: For non-F&O equity stocks without option chains, OI analysis returns neutral; adding volume profile support for cash equities.
+
+---
+
+### Tab 5: 📄 Paper Portfolio
+- **UI Button**: `<i class="bi bi-journal-check me-1"></i> 📄 Paper Portfolio`
+- **View Key**: `viewMode === "paper_portfolio"`
+- **Primary Function**: Real-time simulation and paper trading desk with automated mark-to-market P&L calculation, trailing stop-loss, and auto-trader daemon controller.
+
+#### 1. Backend API & Storage
+- **Endpoints**:
+  - `POST /api/v1/pattern-intelligence/paper-trades` (Open trade)
+  - `GET /api/v1/pattern-intelligence/paper-trades` (List trades)
+  - `POST /api/v1/pattern-intelligence/paper-trades/{id}/close` (Close trade)
+  - `POST /api/v1/pattern-intelligence/paper-trades/sync-monitor` (Live quote sync)
+  - `GET /api/v1/pattern-intelligence/auto-trade/settings` (Daemon settings)
+  - `POST /api/v1/pattern-intelligence/auto-trade/settings` (Update settings)
+- **Services**: `HarmonicPaperTradeService` in `paper_trading.py` and `HarmonicAutoTradeService` in `auto_trade.py`
+- **Databases**: `logs/harmonic_paper_trades.db` & `logs/harmonic_auto_trade_settings.db`
+
+#### 2. Logic in Place
+- **Lifecycle Management**: Real-time tracking of entry price, quantity, target 1, target 2, stop loss, current price, unrealized and realized P&L points and amounts.
+- **Auto-Exit Daemon**: Continuously evaluates open trades against live quotes; automatically triggers exits when targets or stops are hit.
+- **Trailing Stop-Loss**: Moves stop-loss to Breakeven immediately upon Target 1 touch (`trail_sl_to_breakeven_on_t1`).
+- **Auto-Trader Controls**: Paper vs Live execution mode, max open positions, stock and index lot sizing, 15:15 auto square-off.
+
+#### 3. What is Working vs Missing
+- **Working**: Full audit trail, automated mark-to-market, risk limits, win rate and profit factor metrics.
+- **Gap / Enhancement**: Index setups currently transact index units (e.g. 25 shares of NIFTY) rather than weekly Call (CE) or Put (PE) options contracts. Connecting the option chain strike selector will allow automated options trading.
+
+---
+
+### Tab 6: 🔬 Harmonic Lab
+- **UI Button**: `<i class="bi bi-sliders me-1"></i> 🔬 Harmonic Lab`
+- **View Key**: `viewMode === "custom_studio"`
+- **Primary Function**: Discretionary harmonic analysis studio and wave evaluation sandbox, allowing traders to test any custom stock symbol or manually evaluate custom $X-A-B-C-D$ swing coordinates against all 9 harmonic specifications.
+
+#### 1. Backend API & Sandbox Engine
+- **Endpoints**: `POST /api/v1/pattern-intelligence/sandbox/evaluate` & `GET /api/v1/pattern-intelligence/custom-analyze`
+- **Controller**: `app/modules/harmonics/api/router.py::evaluate_custom_wave` & `analyze_custom_symbol`
+- **Sandbox Service**: `HarmonicSandboxService` in `app/modules/harmonics/application/sandbox.py`
+- **Frontend Component**: `HarmonicCustomStudio` in `components/harmonic-custom-studio.tsx` and `HarmonicCandleWaveChart`
+
+#### 2. Logic in Place
+- **Custom Wave Evaluator**: Ingests manual coordinate prices ($X, A, B, C, D$) and checks adherence to Gartley, Bat, Alt Bat, Butterfly, Crab, Deep Crab, Shark, Cypher, and AB=CD formulas.
+- **Live Ratio Inspector**: Displays calculated ratios ($AB/XA$, $BC/AB$, $CD/BC$, $AD/XA$, $CD/AB$) alongside ideal values and error percentages.
+- **Dual-Stage Chart Visualizer**: Renders SVG candlestick chart with dynamic XABCD vectors, PRZ zone box, and Stage 2 reversal targets.
+- **Harmonic Standards Cheatsheet**: Embedded reference table detailing ideal retracements, pullback rules, and key trading guidelines for all patterns.
+
+#### 3. What is Working vs Missing
+- **Working**: Full discretionary coordinate testing, on-demand symbol analysis for any NSE ticker, visual wave validation.
+- **Gap / Enhancement**: Entering coordinates manually can be tedious; adding an "Auto-Fill from Chart Pivots" button will instantly prefill $X, A, B, C, D$ with the latest detected swing extremes.
 
 ---
 
