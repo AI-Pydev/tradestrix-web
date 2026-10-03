@@ -1,6 +1,6 @@
 # TradeStrix Harmonic Pattern Intelligence — Architecture & Review Document
 
-> **Version**: 2.1.0 (Governed & Calibrated Specification)  
+> **Version**: 2.2.0 (Final Frozen Architecture Specification)  
 > **Status**: ARCHITECTURAL REVIEW COMPLETE — READY FOR IMPLEMENTATION FREEZE  
 > **Repository Roots**:  
 > - Backend: `c:\Users\91809\dev\TradeStrix\tradestrix-api`  
@@ -37,24 +37,35 @@
 
 The **TradeStrix Harmonic Pattern Intelligence** subsystem provides algorithmic detection, predictive projection, multi-timeframe validation, and execution routing for classical and advanced harmonic patterns across Indian equities and major indices (NIFTY 50, BANK NIFTY, FIN NIFTY, MIDCPNIFTY).
 
-### Core Architectural Directives (Governed Post-Review)
+### Core Architectural Directives (Final Governed Specification)
 
 1. **Single Mathematical Authority**:  
    The backend (`tradestrix-api`) is the sole authoritative mathematical engine for pattern specifications, Fibonacci ratio validation, PRZ calculation, invalidation stops, target calculations, and confluence scoring. The frontend (`tradestrix-web`) renders backend-computed evidence. Client-side evaluation (e.g. for offline discretionary studio use) must share a versioned canonical spec enforced by golden test parity, eliminating duplicate rulebooks.
 
-2. **Explicit Ratio Vocabulary & Topology Separation**:  
-   Pattern specs must not force heterogeneous geometries into ambiguous fields. Standard XABCD patterns, 4-point AB=CD reciprocal structures, and 5-swing Shark structures each use their native coordinate topologies (`PatternTopology = "XABCD" | "OXABC" | "ABCD"`). Every ratio must use explicit coordinate denominators (e.g. `AB_XA`, `BC_AB`, `CD_BC`, `AD_XA`, `CD_XC`, `OC_OX`).
+2. **Explicit Ratio Vocabulary & Strict Topology Contracts**:  
+   Pattern specs must not force heterogeneous geometries into ambiguous fields. Standard XABCD patterns, 4-point AB=CD reciprocal structures, and 5-swing Shark structures each use their native coordinate topologies with mandatory non-null coordinate requirements:
+   - `PatternTopology = "XABCD"` $\rightarrow$ strictly requires `{X, A, B, C, D}`
+   - `PatternTopology = "OXABC"` $\rightarrow$ strictly requires `{O, X, A, B, C}`
+   - `PatternTopology = "ABCD"`  $\rightarrow$ strictly requires `{A, B, C, D}`  
+   Every ratio must use explicit coordinate denominators (e.g. `AB_XA`, `BC_AB`, `CD_BC`, `AD_XA`, `CD_XC`, `OC_OX`).
 
 3. **Separation of Literature Constants from Empirical Policy Parameters**:  
    Literature-defined Fibonacci relationships ($0.382, 0.500, 0.618, 0.786, 0.886, 1.130, 1.272, 1.414, 1.618, 2.000, 2.240, 2.618, 3.618$) belong to canonical pattern specifications. Liquidity thresholds, scoring thresholds, confirmation gates, risk percentages, and execution parameters are configurable strategy policy and require empirical backtest calibration.
 
-4. **Versioned Reproducibility**:  
-   Every detected, projected, paper-traded, or live-executed harmonic setup must persist the canonical specification version (`pattern_spec_version: "harmonics-2.1.0"`), geometry engine version, and relevant policy versions. Historical records must never be silently reinterpreted using newer rules.
+4. **Versioned Reproducibility & Dual Data-Spec Provenance**:  
+   Every detected, projected, paper-traded, live-executed, or backtested harmonic setup must persist:
+   - The canonical specification version: `pattern_spec_version: "harmonics-2.2.0"`
+   - The engine policy versions: `geometry_engine_version`, `target_policy_version`, `confluence_policy_version`
+   - The market data version: `data_snapshot_version` (or dataset hash / candle interval checksum)  
+   Historical records must never be silently reinterpreted when rules or datasets evolve.
 
 5. **PRZ as a Convergence Quality Zone, Not a Bounding Box**:  
    A valid PRZ requires genuine Fibonacci clustering density. Bounding min/max coordinates without dispersion gating creates excessive risk. Patterns with excessive projection dispersion must be penalized or rejected.
 
-6. **Decoupled Strategy & Execution Engines**:  
+6. **Replay vs. Live Determinism Scope**:  
+   Determinism equality applies strictly to **finalized-bar decisions**. While intrabar tentative pivots may legitimately fluctuate until bar close, feeding identical finalized historical candle sequences through offline replay versus incremental live streaming must produce 100% identical confirmed pivots, pattern classifications, PRZ bounds, targets, and lifecycle transitions.
+
+7. **Decoupled Strategy & Execution Engines**:  
    - Harmonic detection operates strictly on underlying price structure.
    - Stage 1 ($C \rightarrow D$ expansion) and Stage 2 (PRZ reversal) are independent trading strategies with opposite directions, distinct invalidation rules, and separate risk ledgers (`HARMONIC_CD_EXPANSION` vs `HARMONIC_PRZ_REVERSAL`).
    - Downstream derivative strike selection (expiry, moneyness, Greeks, liquidity) is handled by a dedicated options engine rather than hardcoding naive ATM mappings into the pattern core.
@@ -101,17 +112,17 @@ The **TradeStrix Harmonic Pattern Intelligence** subsystem provides algorithmic 
 
 Benchmark against **Scott M. Carney** (*Harmonic Trading Vol. 1 & 2*) and **Larry Pesavento** (*Fibonacci Ratios with Pattern Recognition*):
 
-| Pattern Name | Class | Primary B Retracement | C Pullback Range | D Extension Range | Terminal D Definition | Symmetry Requirement | Literature Definition Alignment | Implementation Semantics Verified |
+| Pattern Name | Topology | Primary B Retracement | C Pullback Range | D Extension Range | Terminal D Definition | Symmetry Requirement | Literature Definition Alignment | Implementation Semantics Verified |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Gartley (222)** | Retracement | **0.618** (Exact) | 0.382 - 0.886 | 1.130 - 1.618 | **0.786 of XA** | 1.000 ($AB=CD$) | **Strong Alignment**: Strict 0.618 B; D must not breach X. | **Verified for standard XABCD geometry**: Backend currently tests $AB/XA$, $BC/AB$, $CD/BC$, and $AD/XA$. |
-| **Bat** | Retracement | 0.382 - **0.500** | 0.382 - 0.886 | 1.618 - 2.618 | **0.886 of XA** | 1.000 - 1.618 | **Strong Alignment**: B must remain $<0.618$; D hits 0.886. | **Verified**: B capped at 0.50, D validated at 0.886 of $XA$. |
-| **Alternate Bat** | Extension | **0.382** (Strict) | 0.382 - 0.886 | 2.000 - 3.618 | **1.130 of XA** | 1.000 - 1.618 | **Strong Alignment**: Strict 0.382 B; D extends past X to 1.130. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
-| **Butterfly** | Extension | **0.786** (Deep) | 0.382 - 0.886 | 1.618 - 2.618 | **1.272 - 1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Deep 0.786 B; D extends beyond X. | **Verified**: Dual extension validated across backend & frontend. |
-| **Crab** | Extension | 0.382 - **0.618** | 0.382 - 0.886 | 2.240 - 3.618 | **1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Extreme 1.618 XA extension is mandatory. | **Verified**: Strict 1.618 extension requirement enforced. |
-| **Deep Crab** | Extension | **0.886** (Deep) | 0.382 - 0.886 | 2.240 - 3.618 | **1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Crab variant with deep 0.886 B-point. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
-| **Cypher** | Non-Carney | 0.382 - **0.618** | **1.272 - 1.414 of XA** | 1.272 - 2.000 | **0.786 of XC** | N/A | **Caution Required**: Point C exceeds A; D is 0.786 of $XC$. | ⚠️ **Discrepancy (GAP-00)**: Backend `geometry.py` validates $AD/XA$ generic, while `d_predictor.py` uses $XC$. |
-| **Shark** | Emerging (5-0) | 0.500 - 0.886 | **1.130 - 1.618 of AB** | 1.618 - 2.240 | **0.886 - 1.130 of 0X** | N/A | **Caution Required**: 0XABC structure; D is 0.886-1.13 of $0X$. | ⚠️ **Discrepancy (GAP-00 / GAP-07)**: Shark is an $0-X-A-B-C$ native topology, currently forced into generic $X-A-B-C-D$. |
-| **AB=CD** | Reciprocal | 0.382 - 0.886 | 0.382 - 0.886 | 1.130 - 2.618 | N/A (Equal Leg) | **1.000** ($|AB|=|CD|$) | **Strong Alignment**: Strict symmetry in price and time bars. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
+| **Gartley (222)** | `XABCD` | **0.618** (Exact) | 0.382 - 0.886 | 1.130 - 1.618 | **0.786 of XA** | 1.000 ($AB=CD$) | **Strong Alignment**: Strict 0.618 B; D must not breach X. | **Verified for standard XABCD geometry**: Backend currently tests $AB/XA$, $BC/AB$, $CD/BC$, and $AD/XA$. |
+| **Bat** | `XABCD` | 0.382 - **0.500** | 0.382 - 0.886 | 1.618 - 2.618 | **0.886 of XA** | 1.000 - 1.618 | **Strong Alignment**: B must remain $<0.618$; D hits 0.886. | **Verified**: B capped at 0.50, D validated at 0.886 of $XA$. |
+| **Alternate Bat** | `XABCD` | **0.382** (Strict) | 0.382 - 0.886 | 2.000 - 3.618 | **1.130 of XA** | 1.000 - 1.618 | **Strong Alignment**: Strict 0.382 B; D extends past X to 1.130. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
+| **Butterfly** | `XABCD` | **0.786** (Deep) | 0.382 - 0.886 | 1.618 - 2.618 | **1.272 - 1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Deep 0.786 B; D extends beyond X. | **Verified**: Dual extension validated across backend & frontend. |
+| **Crab** | `XABCD` | 0.382 - **0.618** | 0.382 - 0.886 | 2.240 - 3.618 | **1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Extreme 1.618 XA extension is mandatory. | **Verified**: Strict 1.618 extension requirement enforced. |
+| **Deep Crab** | `XABCD` | **0.886** (Deep) | 0.382 - 0.886 | 2.240 - 3.618 | **1.618 of XA** | 1.000 - 1.618 | **Strong Alignment**: Crab variant with deep 0.886 B-point. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
+| **Cypher** | `XABCD` | 0.382 - **0.618** | **1.272 - 1.414 of XA** | 1.272 - 2.000 | **0.786 of XC** | N/A | **Caution Required**: Point C exceeds A; D is 0.786 of $XC$. | ⚠️ **Discrepancy (GAP-00)**: Backend `geometry.py` validates $AD/XA$ generic, while `d_predictor.py` uses $XC$. |
+| **Shark** | `OXABC` | 0.500 - 0.886 | **1.130 - 1.618 of AB** | 1.618 - 2.240 | **0.886 - 1.130 of 0X** | N/A | **Caution Required**: Native $0-X-A-B-C$ structure; D is 0.886-1.13 of $0X$. | ⚠️ **Discrepancy (GAP-00 / GAP-07)**: Shark is an $0-X-A-B-C$ native topology, currently forced into generic $X-A-B-C-D$. |
+| **AB=CD** | `ABCD` | 0.382 - 0.886 | 0.382 - 0.886 | 1.130 - 2.618 | N/A (Equal Leg) | **1.000** ($|AB|=|CD|$) | **Strong Alignment**: Strict symmetry in price and time bars. | **Partial**: Backend present; ⚠️ Missing in frontend `harmonicRules.ts`. |
 
 ---
 
@@ -143,14 +154,20 @@ Canonical Ratio Tokens:
 ────────────────────────────────────────────────────────────────────────
 ```
 
-### C. Pattern Topology Architecture (`PatternTopology`)
-To resolve GAP-00 and GAP-07, harmonic structures are classified into explicit topological types:
+### C. Pattern Topology Contracts (`PatternTopology`)
+To resolve GAP-00 and GAP-07, harmonic structures are classified into explicit topological types with non-null coordinate requirements:
+
 ```typescript
 type PatternTopology = "XABCD" | "OXABC" | "ABCD";
 ```
-1. **`XABCD`**: Gartley, Bat, Alternate Bat, Butterfly, Crab, Deep Crab, Cypher (7 patterns).
-2. **`OXABC`**: Shark structure natively represented as $0-X-A-B-C$, completing at $C$ (or $D$ of the 5-0 transition).
-3. **`ABCD`**: Classic reciprocal 4-point structure ($A-B-C-D$) requiring equal leg and time symmetry without an initial $X$ anchor.
+1. **`XABCD`**: Gartley, Bat, Alternate Bat, Butterfly, Crab, Deep Crab, Cypher (7 patterns).  
+   *Mandatory Required Coordinates*: `{ X: PivotPoint, A: PivotPoint, B: PivotPoint, C: PivotPoint, D: PivotPoint }`
+2. **`OXABC`**: Shark structure natively represented as $0-X-A-B-C$, completing at $C$ (or $D$ of the subsequent 5-0 transition).  
+   *Mandatory Required Coordinates*: `{ O: PivotPoint, X: PivotPoint, A: PivotPoint, B: PivotPoint, C: PivotPoint }`
+3. **`ABCD`**: Classic reciprocal 4-point structure ($A-B-C-D$) requiring equal leg length and time symmetry without an initial $X$ anchor.  
+   *Mandatory Required Coordinates*: `{ A: PivotPoint, B: PivotPoint, C: PivotPoint, D: PivotPoint }`
+
+This strict contract prevents implementations from accepting partially populated structures.
 
 ---
 
@@ -171,7 +188,7 @@ Normalized PRZ Dispersion Governance Defaults:
 • 1.00 < dispersion <= 1.50 ──► WEAK_DISPERSION     (Penalty applied; requires BOS)
 • dispersion > 1.50         ──► REJECT_DISPERSED    (Auto-entry prohibited)
 ────────────────────────────────────────────────────────────────────────
-* Note: These are initial configurable baseline defaults requiring backtest calibration.
+* Note: These are initial configurable baseline defaults requiring empirical backtest calibration.
 ```
 
 ### B. Convergence Density Score
@@ -202,6 +219,8 @@ Targets are strictly partitioned into two operational layers:
 - **`projected_d_price`**: Used for theoretical targets while pattern is `PROJECTED`.
 - **`confirmed_d_price`**: Computed once Point D pivot confirms.
 - **`actual_entry_price`**: Recorded when trade is filled, used for real-money P&L and trailing stop adjustments.
+
+The default XABCD structural reference for $T_3$ is Point A. Pattern families with different topology (Shark, Cypher, ABCD) supply their pattern-specific structural objectives through the canonical pattern specification.
 
 ---
 
@@ -332,7 +351,7 @@ Harmonic detection operates strictly on underlying spot/futures price action. Or
 | Gap ID | Category | Specific Finding & Root Cause | Impact | Action Required |
 | :---: | :--- | :--- | :--- | :--- |
 | **GAP-00** | **Ratio Coordinate Inconsistency** | `geometry.py` validates generic `ad_xa` as $\|A-D\|/\|X-A\|$, while `d_predictor.py` and Cypher specs define D as 0.786 of $XC$. Shark requires Point 0 tracking ($0X$ leg). | Completed validation and prediction speak different geometric languages for Cypher and Shark. | Introduce explicit ratio tokens (`CD_XC`, `BC_0X`, `AD_XA`) across all validation layers. |
-| **GAP-07** | **Pattern Topology Over-Generalization** | `HarmonicPatternSpec` assumes a generic XABCD coordinate model even though Shark uses $0-X-A-B-C$ and AB=CD is fundamentally a 4-point structure. | Pattern-specific ratios are mapped into semantically incorrect generic fields, creating inconsistencies across prediction and backtests. | Introduce explicit `PatternTopology = "XABCD" | "OXABC" | "ABCD"` and topology-aware ratio requirements. |
+| **GAP-07** | **Pattern Topology Over-Generalization** | `HarmonicPatternSpec` assumes a generic XABCD coordinate model even though Shark uses $0-X-A-B-C$ and AB=CD is fundamentally a 4-point structure. | Pattern-specific ratios are mapped into semantically incorrect generic fields, creating inconsistencies across prediction and backtests. | Introduce explicit `PatternTopology = "XABCD" | "OXABC" | "ABCD"` with strict non-null coordinate requirements. |
 | **GAP-01** | **Pattern & Execution Semantics Parity** | `harmonicRules.ts` defines 6 patterns; `specs.py` defines 9 (missing Alt Bat, Deep Crab, ABCD). Shared patterns also differ in target rules, tolerance allowances, and stops. | Frontend inspector cannot evaluate all backend patterns and displays divergent targets. | Promote backend as single mathematical authority; frontend renders backend evidence or shares canonical JSON spec. |
 | **GAP-02** | **PRZ Convergence Gating** | `PRZCalculator` assigns $\min$ and $\max$ of projections as PRZ boundaries without checking cluster dispersion. | Outlier projections artificially inflate PRZ width; trades taken in loose, non-convergent zones. | Add `Normalized PRZ Dispersion` gate; penalize or reject patterns where dispersion $> 1.50$. |
 | **GAP-03** | **Index Options Strike Pipeline** | Auto-trader generates index spot units (`index_quantity`) instead of routing to weekly Call/Put options contracts. | Live execution on NIFTY/BANKNIFTY will fail or trade spot rather than options. | Connect downstream Option Selection Pipeline (evaluating expiry, delta, liquidity, spread). |
@@ -346,19 +365,22 @@ Harmonic detection operates strictly on underlying spot/futures price action. Or
 
 ```mermaid
 flowchart TD
-    P1_1["P1.1: Canonical Ratio Vocabulary & Topology\n- Introduce PatternTopology (XABCD, OXABC, ABCD)\n- Define explicit ratio tokens (CD_XC, BC_0X, AD_XA)\n- Fix Cypher and Shark coordinate models"]
-    P1_2["P1.2: Backend Specification Authority & PRZ Gate\n- Single authoritative pattern catalog in specs.py\n- PRZ Normalized Dispersion Quality Gate (<=1.00 / 1.50)"]
+    P1_1["P1.1: Canonical Ratio Vocabulary & Topology Contracts\n- PatternTopology ('XABCD', 'OXABC', 'ABCD') with strict non-null coordinates\n- Explicit ratio tokens (CD_XC, BC_0X, AD_XA)\n- Fix Cypher and Shark coordinate models"]
+    P1_2["P1.2: Backend Specification Authority & PRZ Gate\n- Single authoritative pattern catalog in specs.py\n- PRZ Normalized Dispersion Quality Gate (<=0.40 tight, <=1.00 acceptable, >1.50 reject)"]
     P1_3["P1.3: Canonical Target Contract\n- Execution ladder (T1=0.382 AD, T2=0.618 AD, T3=Structural)\n- Separate reference levels & real entry fill origin"]
-    P1_4["P1.4: API Contract & Versioned Reproducibility\n- All calculated evidence emitted in API responses\n- Persist pattern_spec_version in DB snapshots"]
-    P1_5["P1.5: Golden Parity Test Suite\n- 18 canonical valid fixtures (9 patterns x Bullish/Bearish)\n- Boundary, invalid topology, and replay determinism tests"]
+    P1_4["P1.4: API Contract & Dual Data-Spec Provenance\n- All calculated evidence emitted in API responses\n- Persist pattern_spec_version and data_snapshot_version in DB snapshots"]
+    P1_5["P1.5: Golden Parity Test Suite\n- 18 canonical valid fixtures (9 patterns x Bullish/Bearish)\n- Boundary, invalid topology, and finalized-bar replay determinism"]
     P1_6["P1.6: Frontend Presentation Parity\n- Alt Bat, Deep Crab, ABCD added to inspector\n- Frontend renders backend mathematical outputs"]
 
     P1_1 --> P1_2 --> P1_3 --> P1_4 --> P1_5 --> P1_6
 ```
 
 ### Action Checklist
-- [ ] **P1.1 — Canonical Ratio Vocabulary & Topology**:
-  - Define `PatternTopology = Literal["XABCD", "OXABC", "ABCD"]`.
+- [ ] **P1.1 — Canonical Ratio Vocabulary & Topology Contracts**:
+  - Define `PatternTopology = Literal["XABCD", "OXABC", "ABCD"]` with explicit non-null coordinate requirements:
+    - `XABCD` $\rightarrow$ `{ X, A, B, C, D }`
+    - `OXABC` $\rightarrow$ `{ O, X, A, B, C }`
+    - `ABCD`  $\rightarrow$ `{ A, B, C, D }`
   - Update `geometry.py` and `HarmonicPatternSpec` with explicit tokens (`AB_XA`, `BC_AB`, `CD_BC`, `AD_XA`, `CD_XC`, `BC_0X`, `CD_AB`).
   - Fix Cypher coordinate validation to use $CD/XC$ ($0.786$).
   - Separate Shark native $0-X-A-B-C$ topology.
@@ -370,13 +392,13 @@ flowchart TD
   - Expose pattern-specific structural levels (Point B, Point C, CD retracements) as reference confluence without altering execution fills.
 - [ ] **P1.4 — API Contract & Versioned Reproducibility**:
   - Ensure API responses emit full harmonic evidence.
-  - Persist `pattern_spec_version: "harmonics-2.1.0"` in SQLite tables.
+  - Persist `pattern_spec_version: "harmonics-2.2.0"` and `data_snapshot_version` in SQLite tables.
 - [ ] **P1.5 — Golden Parity Test Suite**:
   - Category A: 18 canonical valid fixtures (9 patterns $\times$ Bullish/Bearish).
   - Category B: Boundary fixtures (exact min, max, just inside/outside tolerance).
   - Category C: Invalid topology fixtures (wrong alternation, inverted D).
   - Category D: Special topology fixtures (Cypher $CD/XC$, Shark $0-X-A-B-C$, AB=CD).
   - Category E: PRZ dispersion fixtures (tight, acceptable, outlier, dispersed/no-trade).
-  - Category F: Replay vs. live incremental determinism verification.
+  - Category F: Replay vs. live incremental determinism verification (finalized-bar equality).
 - [ ] **P1.6 — Frontend Presentation Parity**:
   - Update `harmonicRules.ts` and `HarmonicPatternInspectorDrawer` to render all 9 patterns seamlessly using the canonical backend contract.
