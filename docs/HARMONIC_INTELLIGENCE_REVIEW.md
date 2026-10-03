@@ -1,6 +1,6 @@
 # TradeStrix Harmonic Pattern Intelligence — Architecture & Review Document
 
-> **Version**: 2.2.0 (Final Frozen Architecture Specification)  
+> **Version**: 2.2.1 (Final Frozen Architecture Specification)  
 > **Status**: ARCHITECTURAL REVIEW COMPLETE — READY FOR IMPLEMENTATION FREEZE  
 > **Repository Roots**:  
 > - Backend: `c:\Users\91809\dev\TradeStrix\tradestrix-api`  
@@ -48,13 +48,16 @@ The **TradeStrix Harmonic Pattern Intelligence** subsystem provides algorithmic 
    - `PatternTopology = "OXABC"` $\rightarrow$ strictly requires `{O, X, A, B, C}`
    - `PatternTopology = "ABCD"`  $\rightarrow$ strictly requires `{A, B, C, D}`  
    Every ratio must use explicit coordinate denominators (e.g. `AB_XA`, `BC_AB`, `CD_BC`, `AD_XA`, `CD_XC`, `OC_OX`).
+   
+   > **System-Wide Ratio Token Invariant**:  
+   > A ratio token **MUST** have exactly one mathematical definition system-wide. Pattern-specific semantics **MUST** be represented using a distinct ratio token rather than changing the meaning of an existing token. Under no circumstances may an existing token (such as `AD_XA`) be repurposed, overloaded, or redefined for specific patterns (e.g. Cypher's $CD/XC$ or Shark's $OC/0X$). New geometric relationships require dedicated, immutable tokens.
 
 3. **Separation of Literature Constants from Empirical Policy Parameters**:  
    Literature-defined Fibonacci relationships ($0.382, 0.500, 0.618, 0.786, 0.886, 1.130, 1.272, 1.414, 1.618, 2.000, 2.240, 2.618, 3.618$) belong to canonical pattern specifications. Liquidity thresholds, scoring thresholds, confirmation gates, risk percentages, and execution parameters are configurable strategy policy and require empirical backtest calibration.
 
 4. **Versioned Reproducibility & Dual Data-Spec Provenance**:  
    Every detected, projected, paper-traded, live-executed, or backtested harmonic setup must persist:
-   - The canonical specification version: `pattern_spec_version: "harmonics-2.2.0"`
+   - The canonical specification version: `pattern_spec_version: "harmonics-2.2.1"`
    - The engine policy versions: `geometry_engine_version`, `target_policy_version`, `confluence_policy_version`
    - The market data version: `data_snapshot_version` (or dataset hash / candle interval checksum)  
    Historical records must never be silently reinterpreted when rules or datasets evolve.
@@ -138,7 +141,12 @@ Conversely, computing $|D - X| / |A - X|$ yields $0.2140$ ($1.0 - 0.786$), which
 - `AD_XA` is the **canonical XA completion ratio** across Gartley, Bat, Butterfly, Crab, and Alternate Bat.
 - If measuring the net price distance beyond Point X for extension patterns, it must be explicitly labeled `XD_XA_OVERSHOOT = |D - X| / |A - X|` and never substituted for `AD_XA`.
 
-### B. Canonical Coordinate Definitions
+### B. Canonical Coordinate Definitions & Ratio Token Invariant
+
+> [!IMPORTANT]
+> **System-Wide Ratio Token Invariant**:  
+> A ratio token **MUST** have exactly one mathematical definition system-wide. Pattern-specific semantics **MUST** be represented using a distinct ratio token rather than changing the meaning of an existing token.
+
 ```
 Canonical Ratio Tokens:
 ────────────────────────────────────────────────────────────────────────
@@ -377,6 +385,7 @@ flowchart TD
 
 ### Action Checklist
 - [ ] **P1.1 — Canonical Ratio Vocabulary & Topology Contracts**:
+  - Enforce **System-Wide Ratio Token Invariant**: A ratio token MUST have exactly one mathematical definition system-wide; pattern-specific semantics MUST use a distinct ratio token rather than repurposing existing tokens.
   - Define `PatternTopology = Literal["XABCD", "OXABC", "ABCD"]` with explicit non-null coordinate requirements:
     - `XABCD` $\rightarrow$ `{ X, A, B, C, D }`
     - `OXABC` $\rightarrow$ `{ O, X, A, B, C }`
@@ -392,7 +401,7 @@ flowchart TD
   - Expose pattern-specific structural levels (Point B, Point C, CD retracements) as reference confluence without altering execution fills.
 - [ ] **P1.4 — API Contract & Versioned Reproducibility**:
   - Ensure API responses emit full harmonic evidence.
-  - Persist `pattern_spec_version: "harmonics-2.2.0"` and `data_snapshot_version` in SQLite tables.
+  - Persist `pattern_spec_version: "harmonics-2.2.1"` and `data_snapshot_version` in SQLite tables.
 - [ ] **P1.5 — Golden Parity Test Suite**:
   - Category A: 18 canonical valid fixtures (9 patterns $\times$ Bullish/Bearish).
   - Category B: Boundary fixtures (exact min, max, just inside/outside tolerance).
