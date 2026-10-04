@@ -618,9 +618,58 @@ export type UpstoxManagedBotStartRequest = {
   once: boolean;
 };
 
-import type { UpstoxManagedBotJob } from "@/modules/execution/types";
-export type { UpstoxManagedBotJob };
-
+export type UpstoxManagedBotJob = {
+  job_id: string;
+  job_name: string;
+  status: "starting" | "running" | "stopping" | "stopped" | "completed" | "failed";
+  pid?: number | null;
+  instrument_key: string;
+  side: "call" | "put";
+  execution_mode?: "paper" | "live";
+  strategy_id: string;
+  strategy_label: string;
+  store_path: string;
+  entry_interval_sec: number;
+  exit_interval_sec: number;
+  use_greek_selection: boolean;
+  lots: number;
+  lot_size: number;
+  max_cycles?: number | null;
+  once: boolean;
+  auto_store_path: boolean;
+  started_at: string;
+  stopped_at?: string | null;
+  last_log_at?: string | null;
+  last_error?: string | null;
+  return_code?: number | null;
+  has_open_trade: boolean;
+  open_trade_id?: number | null;
+  open_trade_option?: string | null;
+  open_trade_option_type?: string | null;
+  open_trade_expiry?: string | null;
+  open_trade_strike?: number | null;
+  open_trade_opened_at?: string | null;
+  open_trade_quantity: number;
+  open_trade_entry_ltp?: number | null;
+  open_trade_stop_ltp?: number | null;
+  open_trade_target_ltp?: number | null;
+  trade_count: number;
+  closed_trade_count: number;
+  total_realized_pnl: number;
+  today_realized_pnl: number;
+  current_option_ltp?: number | null;
+  current_spot?: number | null;
+  unrealized_pnl_points?: number | null;
+  unrealized_pnl_amount?: number | null;
+  quote_error?: string | null;
+  log_line_count: number;
+  recent_logs: string[];
+  concurrent_strategy_warning?: {
+    message: string;
+    other_job_ids: string[];
+    other_strategy_ids: string[];
+  } | null;
+};
 
 export type UpstoxManagedBotDashboardSummary = {
   managed_jobs: number;
