@@ -12,6 +12,12 @@ export const HARMONIC_SUPPORTED_TIMEFRAMES = [
   { id: "1M", label: "Monthly (1M)" },
 ] as const;
 
+export type HarmonicPoint = {
+  price: number;
+  time: string;
+  index?: number;
+};
+
 export type HarmonicPatternScanItem = {
   id?: string;
   label: string;
@@ -20,6 +26,8 @@ export type HarmonicPatternScanItem = {
   pattern_name: string;
   direction: "BULLISH" | "BEARISH";
   state: string;
+  topology?: "OXABC" | "XABCD" | "ABCD" | string;
+  completion_point?: "C" | "D" | string;
   quality_score: number;
   geometry_score: number;
   current_price: number;
@@ -37,11 +45,12 @@ export type HarmonicPatternScanItem = {
   target_1: number;
   target_2: number;
   target_3: number;
-  x: { price: number; time: string; index?: number };
-  a: { price: number; time: string; index?: number };
-  b: { price: number; time: string; index?: number };
-  c: { price: number; time: string; index?: number };
-  d?: { price: number; time: string; index?: number } | null;
+  o?: HarmonicPoint | null;
+  x: HarmonicPoint;
+  a: HarmonicPoint;
+  b: HarmonicPoint;
+  c: HarmonicPoint;
+  d?: HarmonicPoint | null;
   detected_at: string;
   updated_at?: string;
   timeframe: string;
@@ -162,7 +171,9 @@ export type HarmonicVisualChartResponse = {
     quality_score: number;
     nearest_support?: number | null;
     nearest_resistance?: number | null;
-    sr_confluence?: boolean;
+    topology?: "OXABC" | "XABCD" | "ABCD" | string;
+    completion_point?: "C" | "D" | string;
+    o?: { price: number; time: string } | null;
     x: { price: number; time: string };
     a: { price: number; time: string };
     b: { price: number; time: string };
