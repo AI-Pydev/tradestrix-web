@@ -171,6 +171,7 @@ export type HarmonicVisualChartResponse = {
     quality_score: number;
     nearest_support?: number | null;
     nearest_resistance?: number | null;
+    sr_confluence?: boolean;
     topology?: "OXABC" | "XABCD" | "ABCD" | string;
     completion_point?: "C" | "D" | string;
     o?: { price: number; time: string } | null;

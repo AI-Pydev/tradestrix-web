@@ -34,6 +34,7 @@ import {
 } from "@/lib/harmonic-pattern-api";
 import {
     calculateOXABCRatios,
+    isABCD,
     isOXABC,
     resolvePatternTopology,
 } from "@/modules/harmonics/topology";
@@ -2162,8 +2163,8 @@ export function HarmonicPatternScannerShell() {
                           <line x1="0" y1={isMaximized ? 360 : 240} x2={isMaximized ? 900 : 600} y2={isMaximized ? 360 : 240} stroke="#262626" strokeDasharray="3 3" />
 
                           {(() => {
-                            const currentTopology = resolvePatternTopology(selectedStock);
-                            const isOxabc = currentTopology === "OXABC";
+                            const isOxabc = isOXABC(selectedStock);
+                            const isAbcd = isABCD(selectedStock);
 
                             const candleCount = isMaximized ? 75 : 50;
                             const candles = chartData.candles.slice(-candleCount);
@@ -2210,6 +2211,8 @@ export function HarmonicPatternScannerShell() {
                             if (isOxabc) {
                               if (selectedStock.o) allPrices.push(selectedStock.o.price);
                               if (selectedStock.x) allPrices.push(selectedStock.x.price);
+                            } else if (isAbcd) {
+                              allPrices.push(selectedStock.d?.price || selectedStock.prz_mid);
                             } else {
                               if (selectedStock.x) allPrices.push(selectedStock.x.price);
                               allPrices.push(selectedStock.d?.price || selectedStock.prz_mid);
@@ -2240,11 +2243,14 @@ export function HarmonicPatternScannerShell() {
                               : 0;
                             const yO = isOxabc && selectedStock.o ? toY(selectedStock.o.price) : 0;
 
-                            const xX = findCandleX(
-                              selectedStock.x?.time || selectedStock.detected_at,
-                              Math.max(0, candles.length - 40)
-                            );
-                            const yX = toY(selectedStock.x?.price ?? 0);
+                            const hasRealX = !isAbcd && Boolean(selectedStock.x);
+                            const xX = hasRealX && selectedStock.x
+                              ? findCandleX(
+                                  selectedStock.x.time || selectedStock.detected_at,
+                                  Math.max(0, candles.length - 40)
+                                )
+                              : 0;
+                            const yX = hasRealX && selectedStock.x ? toY(selectedStock.x.price) : 0;
 
                             const xA = findCandleX(selectedStock.a.time, Math.max(1, candles.length - 30));
                             const yA = toY(selectedStock.a.price);
@@ -2262,14 +2268,14 @@ export function HarmonicPatternScannerShell() {
                             const yD = toY(dPrice);
 
                             // Legacy Fibonacci Ratios for XABCD
-                            const diffXA = Math.abs(selectedStock.a.price - (selectedStock.x?.price ?? 0)) || 1;
+                            const diffXA = hasRealX && selectedStock.x ? Math.abs(selectedStock.a.price - selectedStock.x.price) || 1 : null;
                             const diffAB = Math.abs(selectedStock.b.price - selectedStock.a.price) || 1;
                             const diffBC = Math.abs(selectedStock.c.price - selectedStock.b.price) || 1;
 
-                            const ratioB = (Math.abs(selectedStock.b.price - selectedStock.a.price) / diffXA).toFixed(3);
+                            const ratioB = diffXA !== null ? (Math.abs(selectedStock.b.price - selectedStock.a.price) / diffXA).toFixed(3) : "—";
                             const ratioC = (Math.abs(selectedStock.c.price - selectedStock.b.price) / diffAB).toFixed(3);
                             const ratioD_BC = (Math.abs(dPrice - selectedStock.c.price) / diffBC).toFixed(3);
-                            const ratioD_XA = (Math.abs(dPrice - (selectedStock.x?.price ?? 0)) / diffXA).toFixed(3);
+                            const ratioD_XA = diffXA !== null && selectedStock.x ? (Math.abs(dPrice - selectedStock.x.price) / diffXA).toFixed(3) : "—";
 
                             // OXABC Visual Ratios
                             const oxabcRatios = isOxabc
@@ -2295,8 +2301,23 @@ export function HarmonicPatternScannerShell() {
                                   { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
                                   { label: "C (PRZ)", x: xC, y: yC, price: selectedStock.c.price, bg: "#10b981" },
                                 ]
+                              : isAbcd
+                              ? [
+                                  { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
+                                  { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
+                                  { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
+                                  {
+                                    label: selectedStock.d ? "D" : "D (PRZ)",
+                                    x: xD,
+                                    y: yD,
+                                    price: dPrice,
+                                    bg: "#10b981",
+                                  },
+                                ]
                               : [
-                                  { label: "X", x: xX, y: yX, price: selectedStock.x?.price ?? 0, bg: "#3b82f6" },
+                                  ...(selectedStock.x
+                                    ? [{ label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" }]
+                                    : []),
                                   { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
                                   { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
                                   { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
@@ -2399,6 +2420,8 @@ export function HarmonicPatternScannerShell() {
                                       strokeDasharray="2 2"
                                     />
                                   </>
+                                ) : isAbcd ? (
+                                  null
                                 ) : (
                                   <>
                                     <polygon
@@ -2423,6 +2446,8 @@ export function HarmonicPatternScannerShell() {
                                   points={
                                     isOxabc
                                       ? `${xO},${yO} ${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC}`
+                                      : isAbcd
+                                      ? `${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`
                                       : `${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`
                                   }
                                   fill="none"
@@ -2432,16 +2457,18 @@ export function HarmonicPatternScannerShell() {
                                   strokeLinecap="round"
                                 />
 
-                                {/* Dashed baseline: O -> C for OXABC, X -> D for XABCD */}
-                                <line
-                                  x1={isOxabc ? xO : xX}
-                                  y1={isOxabc ? yO : yX}
-                                  x2={isOxabc ? xC : xD}
-                                  y2={isOxabc ? yC : yD}
-                                  stroke="#a855f7"
-                                  strokeWidth="1.2"
-                                  strokeDasharray="4 4"
-                                />
+                                {/* Dashed baseline: O -> C for OXABC, X -> D for XABCD, omitted for ABCD */}
+                                {!isAbcd && (
+                                  <line
+                                    x1={isOxabc ? xO : xX}
+                                    y1={isOxabc ? yO : yX}
+                                    x2={isOxabc ? xC : xD}
+                                    y2={isOxabc ? yC : yD}
+                                    stroke="#a855f7"
+                                    strokeWidth="1.2"
+                                    strokeDasharray="4 4"
+                                  />
+                                )}
 
                                 {/* 6. Candlesticks */}
                                 {candles.map((c, i) => {
@@ -2493,6 +2520,22 @@ export function HarmonicPatternScannerShell() {
                                       </text>
                                     </g>
                                   </>
+                                ) : isAbcd ? (
+                                  <>
+                                    <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioC}
+                                      </text>
+                                    </g>
+
+                                    <g transform={`translate(${(xC + xD) / 2}, ${(yC + yD) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#10b981" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#10b981" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioD_BC}
+                                      </text>
+                                    </g>
+                                  </>
                                 ) : (
                                   <>
                                     <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
@@ -2516,12 +2559,14 @@ export function HarmonicPatternScannerShell() {
                                       </text>
                                     </g>
 
-                                    <g transform={`translate(${(xX + xD) / 2}, ${(yX + yD) / 2})`}>
-                                      <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
-                                      <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
-                                        {ratioD_XA} XA
-                                      </text>
-                                    </g>
+                                    {hasRealX && (
+                                      <g transform={`translate(${(xX + xD) / 2}, ${(yX + yD) / 2})`}>
+                                        <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
+                                        <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                          {ratioD_XA} XA
+                                        </text>
+                                      </g>
+                                    )}
                                   </>
                                 )}
 
