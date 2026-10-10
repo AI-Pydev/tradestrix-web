@@ -32,6 +32,12 @@ import {
     triggerHarmonicAutoScanCycle,
     updateHarmonicAutoTradeSettings,
 } from "@/lib/harmonic-pattern-api";
+import {
+    calculateOXABCRatios,
+    isABCD,
+    isOXABC,
+    resolvePatternTopology,
+} from "@/modules/harmonics/topology";
 import { useEffect, useMemo, useState } from "react";
 
 export type PatternLifecycleStatus =
@@ -184,6 +190,9 @@ export function HarmonicPatternScannerShell() {
 
   const handleOpenInspectorForPattern = (item: HarmonicPatternScanItem | null) => {
     if (!item) return;
+    if (isOXABC(item)) {
+      return;
+    }
     const effectiveD = item.d?.price || item.base_price || item.prz_mid;
     if (item.x && item.a && item.b && item.c && effectiveD) {
       const match = evaluateHarmonicPattern(
@@ -368,6 +377,10 @@ export function HarmonicPatternScannerShell() {
   };
 
   const handleOpenPaperTradeModal = (item: HarmonicPatternScanItem) => {
+    if (isOXABC(item)) {
+      setError("Paper trading is disabled for completed OXABC Shark patterns (Visual Only).");
+      return;
+    }
     setPaperModalItem(item);
     setPaperOrderPrice(item.current_price || item.base_price || item.prz_mid);
     setPaperOrderQty(item.kind === "index" ? 25 : 10);
@@ -375,11 +388,16 @@ export function HarmonicPatternScannerShell() {
 
   const handleConfirmPaperTrade = async () => {
     if (!paperModalItem) return;
+    if (isOXABC(paperModalItem)) {
+      setError("Paper trading is disabled for completed OXABC Shark patterns (Visual Only).");
+      setPaperModalItem(null);
+      return;
+    }
     setLoading(true);
     try {
       const patternId =
         paperModalItem.id ||
-        `${paperModalItem.instrument_key}:${paperModalItem.timeframe}:${paperModalItem.pattern_name}:${paperModalItem.x.time}`;
+        `${paperModalItem.instrument_key}:${paperModalItem.timeframe}:${paperModalItem.pattern_name}:${paperModalItem.x?.time || paperModalItem.detected_at}`;
 
       await createHarmonicPaperTrade({
         pattern_id: patternId,
@@ -1652,7 +1670,7 @@ export function HarmonicPatternScannerShell() {
                     <tr>
                       <th>Symbol & Pattern Audit</th>
                       <th>Timeframe Formations</th>
-                      <th>Base $D$ vs Live LTP</th>
+                      <th>Base Pivot vs Live LTP</th>
                       <th>🔮 Predicted Point D (Target & C→D)</th>
                       <th>Strong S/R Levels</th>
                       <th>Live Target & Risk</th>
@@ -1673,7 +1691,7 @@ export function HarmonicPatternScannerShell() {
                         const prim = group.primary_pattern;
                         const isSelected = selectedStock?.instrument_key === group.instrument_key;
                         const isBull = prim.direction === "BULLISH";
-                        const basePrice = prim.base_price ?? prim.d?.price ?? prim.prz_mid;
+                        const basePrice = prim.base_price ?? (isOXABC(prim) ? prim.c?.price : prim.d?.price) ?? prim.prz_mid;
                         const currentPrice = group.current_price;
 
                         // Lifecycle evaluation for color styling
@@ -1800,7 +1818,7 @@ export function HarmonicPatternScannerShell() {
                                   </span>
                                 </div>
                                 <div className="small">
-                                  <span className="text-secondary">Base D: </span>
+                                  <span className="text-secondary">{isOXABC(prim) ? "Base C: " : "Base D: "}</span>
                                   <strong className="text-primary font-monospace">₹{basePrice}</strong>
                                 </div>
                                 <div className="small">
@@ -1851,7 +1869,7 @@ export function HarmonicPatternScannerShell() {
                                 </div>
                               ) : (
                                 <div className="text-muted small font-monospace">
-                                  <span>— No Forming D</span>
+                                  <span>{isOXABC(prim) ? "— Completed at C" : "— No Forming D"}</span>
                                 </div>
                               )}
                             </td>
@@ -1914,6 +1932,14 @@ export function HarmonicPatternScannerShell() {
                                     <i className="bi bi-bullseye" />
                                     <span>🔮 Predict D Ready</span>
                                   </button>
+                                ) : isOXABC(prim) ? (
+                                  <span
+                                    className="badge bg-light text-muted border text-center"
+                                    style={{ fontSize: "10px", padding: "3px 4px" }}
+                                    title="Pattern completed at Point C"
+                                  >
+                                    ● Completed at C
+                                  </span>
                                 ) : (
                                   <button
                                     className="btn btn-xs btn-light text-muted border opacity-75 d-flex align-items-center gap-1 justify-content-center"
@@ -1929,13 +1955,24 @@ export function HarmonicPatternScannerShell() {
                                     <span>🔮 Check D</span>
                                   </button>
                                 )}
-                                <button
-                                  className="btn btn-xs btn-outline-success fw-bold d-flex align-items-center gap-1 justify-content-center"
-                                  onClick={() => handleOpenPaperTradeModal(prim)}
-                                  title="Open simulated paper trade position on this harmonic setup"
-                                >
-                                  📄 Paper
-                                </button>
+                                {isOXABC(prim) ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-outline-secondary opacity-50 d-flex align-items-center gap-1 justify-content-center"
+                                    disabled
+                                    title="Visual Only — Paper Trading Disabled"
+                                  >
+                                    Visual Only
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn btn-xs btn-outline-success fw-bold d-flex align-items-center gap-1 justify-content-center"
+                                    onClick={() => handleOpenPaperTradeModal(prim)}
+                                    title="Open simulated paper trade position on this harmonic setup"
+                                  >
+                                    📄 Paper
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1994,29 +2031,43 @@ export function HarmonicPatternScannerShell() {
                       )}
                     </div>
                     <span className="text-secondary small">
-                      TF: <strong>{activeChartTf.toUpperCase()}</strong> | Base Reversal: ₹
-                      {selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid} | Live LTP: ₹
+                      TF: <strong>{activeChartTf.toUpperCase()}</strong> | Base Reversal ({isOXABC(selectedStock) ? "C" : "D"}): ₹
+                      {selectedStock.base_price ?? (isOXABC(selectedStock) ? selectedStock.c?.price : selectedStock.d?.price) ?? selectedStock.prz_mid} | Live LTP: ₹
                       {selectedStock.current_price} | Quality:{" "}
                       <strong>{(selectedStock.quality_score * 100).toFixed(0)}%</strong>
                     </span>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm"
-                      onClick={() => handleOpenInspectorForPattern(selectedStock)}
-                      title="Inspect canonical Fibonacci ratios and PDF textbook rules locally"
-                    >
-                      <i className="bi bi-rulers" />
-                      <span>⚡ Inspect Ratios</span>
-                    </button>
-                    <button
-                      className="btn btn-sm btn-success text-white fw-bold d-flex align-items-center gap-1"
-                      onClick={() => handleOpenPaperTradeModal(selectedStock)}
-                    >
-                      <i className="bi bi-journal-plus" />
-                      <span>Take Paper Trade</span>
-                    </button>
+                    {!isOXABC(selectedStock) && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm"
+                        onClick={() => handleOpenInspectorForPattern(selectedStock)}
+                        title="Inspect canonical Fibonacci ratios and PDF textbook rules locally"
+                      >
+                        <i className="bi bi-rulers" />
+                        <span>⚡ Inspect Ratios</span>
+                      </button>
+                    )}
+                    {isOXABC(selectedStock) ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary opacity-50 d-flex align-items-center gap-1"
+                        disabled
+                        title="Visual Only — Paper Trading Disabled"
+                      >
+                        <i className="bi bi-journal-plus" />
+                        <span>Visual Only</span>
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-success text-white fw-bold d-flex align-items-center gap-1"
+                        onClick={() => handleOpenPaperTradeModal(selectedStock)}
+                      >
+                        <i className="bi bi-journal-plus" />
+                        <span>Take Paper Trade</span>
+                      </button>
+                    )}
                     <button
                       className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
                       onClick={() => setIsMaximized(!isMaximized)}
@@ -2089,7 +2140,7 @@ export function HarmonicPatternScannerShell() {
                     <div className="text-center py-5 my-auto">
                       <span className="spinner-border text-primary" role="status" />
                       <div className="text-secondary small mt-2">
-                        Computing XABCD harmonic wave geometry & S/R clusters for {activeChartTf.toUpperCase()}...
+                        Computing harmonic wave geometry & S/R clusters for {activeChartTf.toUpperCase()}...
                       </div>
                     </div>
                   ) : chartData && chartData.candles.length > 0 ? (
@@ -2099,13 +2150,22 @@ export function HarmonicPatternScannerShell() {
                         className="border rounded bg-dark p-2 mb-3 shadow-inner flex-grow-1 position-relative"
                         style={{ minHeight: isMaximized ? "520px" : "360px" }}
                       >
-                        <svg width="100%" height="100%" viewBox={isMaximized ? "0 0 900 480" : "0 0 600 320"} preserveAspectRatio="none">
+                        <svg
+                          width="100%"
+                          height="100%"
+                          viewBox={isMaximized ? "0 0 900 480" : "0 0 600 320"}
+                          preserveAspectRatio="none"
+                          data-topology={resolvePatternTopology(selectedStock)}
+                        >
                           {/* Grid lines */}
                           <line x1="0" y1={isMaximized ? 120 : 80} x2={isMaximized ? 900 : 600} y2={isMaximized ? 120 : 80} stroke="#262626" strokeDasharray="3 3" />
                           <line x1="0" y1={isMaximized ? 240 : 160} x2={isMaximized ? 900 : 600} y2={isMaximized ? 240 : 160} stroke="#262626" strokeDasharray="3 3" />
                           <line x1="0" y1={isMaximized ? 360 : 240} x2={isMaximized ? 900 : 600} y2={isMaximized ? 360 : 240} stroke="#262626" strokeDasharray="3 3" />
 
                           {(() => {
+                            const isOxabc = isOXABC(selectedStock);
+                            const isAbcd = isABCD(selectedStock);
+
                             const candleCount = isMaximized ? 75 : 50;
                             const candles = chartData.candles.slice(-candleCount);
                             const highs = candles.map((c) => c.high);
@@ -2116,15 +2176,29 @@ export function HarmonicPatternScannerShell() {
                             const paddingX = isMaximized ? 60 : 40;
                             const chartW = viewW - paddingX * 2;
 
-                            // Include XABCD, PRZ, Targets, and S/R in scale calculation
+                            // Malformed OXABC fail-safe: require O and X coordinates
+                            if (isOxabc && (!selectedStock.o || !selectedStock.x)) {
+                              return (
+                                <text
+                                  x={viewW / 2}
+                                  y={viewH / 2}
+                                  fill="#f87171"
+                                  fontSize={isMaximized ? "13" : "11"}
+                                  fontWeight="bold"
+                                  textAnchor="middle"
+                                >
+                                  Pattern geometry unavailable — missing required OXABC coordinate.
+                                </text>
+                              );
+                            }
+
+                            // Include relevant points, PRZ, Targets (T1, T2), and S/R in scale calculation
                             const allPrices = [
                               ...highs,
                               ...lows,
-                              selectedStock.x.price,
                               selectedStock.a.price,
                               selectedStock.b.price,
                               selectedStock.c.price,
-                              selectedStock.d?.price || selectedStock.prz_mid,
                               selectedStock.prz_low,
                               selectedStock.prz_high,
                               selectedStock.target_1,
@@ -2133,6 +2207,17 @@ export function HarmonicPatternScannerShell() {
                               ...(chartData.support_levels || []),
                               ...(chartData.resistance_levels || []),
                             ];
+
+                            if (isOxabc) {
+                              if (selectedStock.o) allPrices.push(selectedStock.o.price);
+                              if (selectedStock.x) allPrices.push(selectedStock.x.price);
+                            } else if (isAbcd) {
+                              allPrices.push(selectedStock.d?.price || selectedStock.prz_mid);
+                            } else {
+                              if (selectedStock.x) allPrices.push(selectedStock.x.price);
+                              allPrices.push(selectedStock.d?.price || selectedStock.prz_mid);
+                            }
+
                             const minP = Math.min(...allPrices);
                             const maxP = Math.max(...allPrices);
                             const range = maxP - minP || 1.0;
@@ -2153,8 +2238,19 @@ export function HarmonicPatternScannerShell() {
                               return (bestIdx / (candles.length - 1 || 1)) * chartW + paddingX;
                             };
 
-                            const xX = findCandleX(selectedStock.x.time, Math.max(0, candles.length - 40));
-                            const yX = toY(selectedStock.x.price);
+                            const xO = isOxabc && selectedStock.o
+                              ? findCandleX(selectedStock.o.time, Math.max(0, candles.length - 45))
+                              : 0;
+                            const yO = isOxabc && selectedStock.o ? toY(selectedStock.o.price) : 0;
+
+                            const hasRealX = !isAbcd && Boolean(selectedStock.x);
+                            const xX = hasRealX && selectedStock.x
+                              ? findCandleX(
+                                  selectedStock.x.time || selectedStock.detected_at,
+                                  Math.max(0, candles.length - 40)
+                                )
+                              : 0;
+                            const yX = hasRealX && selectedStock.x ? toY(selectedStock.x.price) : 0;
 
                             const xA = findCandleX(selectedStock.a.time, Math.max(1, candles.length - 30));
                             const yA = toY(selectedStock.a.price);
@@ -2171,20 +2267,68 @@ export function HarmonicPatternScannerShell() {
                               : (viewW - paddingX);
                             const yD = toY(dPrice);
 
-                            // Fibonacci Ratios
-                            const diffXA = Math.abs(selectedStock.a.price - selectedStock.x.price) || 1;
+                            // Legacy Fibonacci Ratios for XABCD
+                            const diffXA = hasRealX && selectedStock.x ? Math.abs(selectedStock.a.price - selectedStock.x.price) || 1 : null;
                             const diffAB = Math.abs(selectedStock.b.price - selectedStock.a.price) || 1;
                             const diffBC = Math.abs(selectedStock.c.price - selectedStock.b.price) || 1;
 
-                            const ratioB = (Math.abs(selectedStock.b.price - selectedStock.a.price) / diffXA).toFixed(3);
+                            const ratioB = diffXA !== null ? (Math.abs(selectedStock.b.price - selectedStock.a.price) / diffXA).toFixed(3) : "—";
                             const ratioC = (Math.abs(selectedStock.c.price - selectedStock.b.price) / diffAB).toFixed(3);
                             const ratioD_BC = (Math.abs(dPrice - selectedStock.c.price) / diffBC).toFixed(3);
-                            const ratioD_XA = (Math.abs(dPrice - selectedStock.x.price) / diffXA).toFixed(3);
+                            const ratioD_XA = diffXA !== null && selectedStock.x ? (Math.abs(dPrice - selectedStock.x.price) / diffXA).toFixed(3) : "—";
+
+                            // OXABC Visual Ratios
+                            const oxabcRatios = isOxabc
+                              ? calculateOXABCRatios(
+                                  selectedStock.o,
+                                  selectedStock.x,
+                                  selectedStock.a,
+                                  selectedStock.b,
+                                  selectedStock.c
+                                )
+                              : null;
 
                             const isBullish = selectedStock.direction === "BULLISH";
                             const tri1Color = isBullish ? "rgba(59, 130, 246, 0.25)" : "rgba(239, 68, 68, 0.25)";
                             const tri2Color = isBullish ? "rgba(34, 197, 94, 0.28)" : "rgba(249, 115, 22, 0.28)";
                             const waveStroke = isBullish ? "#60a5fa" : "#f87171";
+
+                            const vertices = isOxabc
+                              ? [
+                                  { label: "O", x: xO, y: yO, price: selectedStock.o!.price, bg: "#6366f1" },
+                                  { label: "X", x: xX, y: yX, price: selectedStock.x!.price, bg: "#3b82f6" },
+                                  { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
+                                  { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
+                                  { label: "C (PRZ)", x: xC, y: yC, price: selectedStock.c.price, bg: "#10b981" },
+                                ]
+                              : isAbcd
+                              ? [
+                                  { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
+                                  { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
+                                  { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
+                                  {
+                                    label: selectedStock.d ? "D" : "D (PRZ)",
+                                    x: xD,
+                                    y: yD,
+                                    price: dPrice,
+                                    bg: "#10b981",
+                                  },
+                                ]
+                              : [
+                                  ...(selectedStock.x
+                                    ? [{ label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" }]
+                                    : []),
+                                  { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
+                                  { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
+                                  { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
+                                  {
+                                    label: selectedStock.d ? "D" : "D (PRZ)",
+                                    x: xD,
+                                    y: yD,
+                                    price: dPrice,
+                                    bg: "#10b981",
+                                  },
+                                ];
 
                             return (
                               <>
@@ -2259,24 +2403,53 @@ export function HarmonicPatternScannerShell() {
                                 ))}
 
                                 {/* 4. Shaded Harmonic Dual Triangles */}
-                                <polygon
-                                  points={`${xX},${yX} ${xA},${yA} ${xB},${yB}`}
-                                  fill={tri1Color}
-                                  stroke={waveStroke}
-                                  strokeWidth="1.5"
-                                  strokeDasharray="2 2"
-                                />
-                                <polygon
-                                  points={`${xB},${yB} ${xC},${yC} ${xD},${yD}`}
-                                  fill={tri2Color}
-                                  stroke={waveStroke}
-                                  strokeWidth="1.5"
-                                  strokeDasharray="2 2"
-                                />
+                                {isOxabc ? (
+                                  <>
+                                    <polygon
+                                      points={`${xO},${yO} ${xX},${yX} ${xA},${yA}`}
+                                      fill={tri1Color}
+                                      stroke={waveStroke}
+                                      strokeWidth="1.5"
+                                      strokeDasharray="2 2"
+                                    />
+                                    <polygon
+                                      points={`${xA},${yA} ${xB},${yB} ${xC},${yC}`}
+                                      fill={tri2Color}
+                                      stroke={waveStroke}
+                                      strokeWidth="1.5"
+                                      strokeDasharray="2 2"
+                                    />
+                                  </>
+                                ) : isAbcd ? (
+                                  null
+                                ) : (
+                                  <>
+                                    <polygon
+                                      points={`${xX},${yX} ${xA},${yA} ${xB},${yB}`}
+                                      fill={tri1Color}
+                                      stroke={waveStroke}
+                                      strokeWidth="1.5"
+                                      strokeDasharray="2 2"
+                                    />
+                                    <polygon
+                                      points={`${xB},${yB} ${xC},${yC} ${xD},${yD}`}
+                                      fill={tri2Color}
+                                      stroke={waveStroke}
+                                      strokeWidth="1.5"
+                                      strokeDasharray="2 2"
+                                    />
+                                  </>
+                                )}
 
                                 {/* 5. Connecting Harmonic Legs */}
                                 <polyline
-                                  points={`${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`}
+                                  points={
+                                    isOxabc
+                                      ? `${xO},${yO} ${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC}`
+                                      : isAbcd
+                                      ? `${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`
+                                      : `${xX},${yX} ${xA},${yA} ${xB},${yB} ${xC},${yC} ${xD},${yD}`
+                                  }
                                   fill="none"
                                   stroke={isBullish ? "#38bdf8" : "#fb7185"}
                                   strokeWidth={isMaximized ? "3" : "2.5"}
@@ -2284,16 +2457,18 @@ export function HarmonicPatternScannerShell() {
                                   strokeLinecap="round"
                                 />
 
-                                {/* Dashed baseline from X -> D */}
-                                <line
-                                  x1={xX}
-                                  y1={yX}
-                                  x2={xD}
-                                  y2={yD}
-                                  stroke="#a855f7"
-                                  strokeWidth="1.2"
-                                  strokeDasharray="4 4"
-                                />
+                                {/* Dashed baseline: O -> C for OXABC, X -> D for XABCD, omitted for ABCD */}
+                                {!isAbcd && (
+                                  <line
+                                    x1={isOxabc ? xO : xX}
+                                    y1={isOxabc ? yO : yX}
+                                    x2={isOxabc ? xC : xD}
+                                    y2={isOxabc ? yC : yD}
+                                    stroke="#a855f7"
+                                    strokeWidth="1.2"
+                                    strokeDasharray="4 4"
+                                  />
+                                )}
 
                                 {/* 6. Candlesticks */}
                                 {candles.map((c, i) => {
@@ -2322,36 +2497,82 @@ export function HarmonicPatternScannerShell() {
                                 })}
 
                                 {/* 7. Fibonacci Ratio Badges */}
-                                <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
-                                  <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
-                                  <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
-                                    {ratioB}
-                                  </text>
-                                </g>
+                                {isOxabc ? (
+                                  <>
+                                    <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {oxabcRatios?.ab_xa !== null && oxabcRatios?.ab_xa !== undefined ? oxabcRatios.ab_xa.toFixed(3) : "—"}
+                                      </text>
+                                    </g>
 
-                                <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
-                                  <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
-                                  <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
-                                    {ratioC}
-                                  </text>
-                                </g>
+                                    <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {oxabcRatios?.bc_ox !== null && oxabcRatios?.bc_ox !== undefined ? oxabcRatios.bc_ox.toFixed(3) : "—"}
+                                      </text>
+                                    </g>
 
-                                <g transform={`translate(${(xC + xD) / 2}, ${(yC + yD) / 2})`}>
-                                  <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#10b981" strokeWidth="1.5" />
-                                  <text x="0" y="4" fill="#10b981" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
-                                    {ratioD_BC}
-                                  </text>
-                                </g>
+                                    <g transform={`translate(${(xX + xC) / 2}, ${(yX + yC) / 2})`}>
+                                      <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {oxabcRatios?.xc_ox !== null && oxabcRatios?.xc_ox !== undefined ? `${oxabcRatios.xc_ox.toFixed(3)} XC` : "— XC"}
+                                      </text>
+                                    </g>
+                                  </>
+                                ) : isAbcd ? (
+                                  <>
+                                    <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioC}
+                                      </text>
+                                    </g>
 
-                                <g transform={`translate(${(xX + xD) / 2}, ${(yX + yD) / 2})`}>
-                                  <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
-                                  <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
-                                    {ratioD_XA} XA
-                                  </text>
-                                </g>
+                                    <g transform={`translate(${(xC + xD) / 2}, ${(yC + yD) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#10b981" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#10b981" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioD_BC}
+                                      </text>
+                                    </g>
+                                  </>
+                                ) : (
+                                  <>
+                                    <g transform={`translate(${(xA + xB) / 2}, ${(yA + yB) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#38bdf8" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioB}
+                                      </text>
+                                    </g>
+
+                                    <g transform={`translate(${(xB + xC) / 2}, ${(yB + yC) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#f59e0b" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioC}
+                                      </text>
+                                    </g>
+
+                                    <g transform={`translate(${(xC + xD) / 2}, ${(yC + yD) / 2})`}>
+                                      <rect x="-24" y="-10" width="48" height="20" rx="5" fill="#0f172a" stroke="#10b981" strokeWidth="1.5" />
+                                      <text x="0" y="4" fill="#10b981" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                        {ratioD_BC}
+                                      </text>
+                                    </g>
+
+                                    {hasRealX && (
+                                      <g transform={`translate(${(xX + xD) / 2}, ${(yX + yD) / 2})`}>
+                                        <rect x="-28" y="-10" width="56" height="20" rx="5" fill="#1e1b4b" stroke="#a855f7" strokeWidth="1.5" />
+                                        <text x="0" y="4" fill="#c084fc" fontSize={isMaximized ? "10" : "9"} fontWeight="bold" textAnchor="middle">
+                                          {ratioD_XA} XA
+                                        </text>
+                                      </g>
+                                    )}
+                                  </>
+                                )}
 
                                 {/* 8. Fibonacci Target Ladder */}
                                 <line
+                                  data-target="T1"
                                   x1="0"
                                   y1={toY(selectedStock.target_1)}
                                   x2={viewW}
@@ -2371,6 +2592,7 @@ export function HarmonicPatternScannerShell() {
                                 </text>
 
                                 <line
+                                  data-target="T2"
                                   x1="0"
                                   y1={toY(selectedStock.target_2)}
                                   x2={viewW}
@@ -2410,20 +2632,8 @@ export function HarmonicPatternScannerShell() {
                                 </text>
 
                                 {/* 9. Vertex Markers & Labels */}
-                                {[
-                                  { label: "X", x: xX, y: yX, price: selectedStock.x.price, bg: "#3b82f6" },
-                                  { label: "A", x: xA, y: yA, price: selectedStock.a.price, bg: "#8b5cf6" },
-                                  { label: "B", x: xB, y: yB, price: selectedStock.b.price, bg: "#06b6d4" },
-                                  { label: "C", x: xC, y: yC, price: selectedStock.c.price, bg: "#f59e0b" },
-                                  {
-                                    label: selectedStock.d ? "D" : "D (PRZ)",
-                                    x: xD,
-                                    y: yD,
-                                    price: dPrice,
-                                    bg: "#10b981",
-                                  },
-                                ].map((pt, idx) => (
-                                  <g key={idx}>
+                                {vertices.map((pt, idx) => (
+                                  <g key={idx} data-pattern-node={pt.label.split(" ")[0]}>
                                     <circle
                                       cx={pt.x}
                                       cy={pt.y}
@@ -2545,8 +2755,10 @@ export function HarmonicPatternScannerShell() {
 
                       {/* Execution Tracker Card & S/R Confluence */}
                       {(() => {
+                        const currentTopology = resolvePatternTopology(selectedStock);
+                        const isOxabc = currentTopology === "OXABC";
                         const isBull = selectedStock.direction === "BULLISH";
-                        const baseP = selectedStock.base_price ?? selectedStock.d?.price ?? selectedStock.prz_mid;
+                        const baseP = selectedStock.base_price ?? (isOxabc ? selectedStock.c?.price : selectedStock.d?.price) ?? selectedStock.prz_mid;
                         const curP = selectedStock.current_price;
                         const remT1 = isBull ? selectedStock.target_1 - curP : curP - selectedStock.target_1;
                         const remT2 = isBull ? selectedStock.target_2 - curP : curP - selectedStock.target_2;
@@ -2559,7 +2771,7 @@ export function HarmonicPatternScannerShell() {
                             <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                               <div className="d-flex align-items-center gap-2">
                                 <span className="fw-bold small text-primary">
-                                  🎯 Base Reversal ($D$) Anchor vs Live Market Execution
+                                  🎯 Base Reversal ({isOxabc ? "Point C" : "Point D"}) Anchor vs Live Market Execution
                                 </span>
                                 {selectedStock.sr_confluence && (
                                   <span className="badge bg-danger-subtle text-danger border border-danger-subtle small fw-bold">
@@ -2574,7 +2786,7 @@ export function HarmonicPatternScannerShell() {
                             <div className="row g-2 small">
                               <div className="col-6 col-md-3">
                                 <div className="border rounded p-2 bg-body">
-                                  <div className="text-secondary">Base Reversal Price ($D$)</div>
+                                  <div className="text-secondary">Base Reversal Price ({isOxabc ? "Point C" : "Point D"})</div>
                                   <div className="fw-bold text-primary font-monospace">₹{baseP}</div>
                                   <div className="text-muted small">Pattern Anchor</div>
                                 </div>
@@ -2594,7 +2806,9 @@ export function HarmonicPatternScannerShell() {
                                   <div className="fw-bold font-monospace text-success">
                                     T1: ₹{selectedStock.target_1} ({remT1 >= 0 ? `+${remT1.toFixed(1)}` : "Hit"}) | T2: ₹{selectedStock.target_2} ({remT2 >= 0 ? `+${remT2.toFixed(1)}` : "Hit"})
                                   </div>
-                                  <div className="text-muted small">38.2% & 61.8% CD Extension</div>
+                                  <div className="text-muted small">
+                                    {isOxabc ? "50% BC Retracement & Point B Retest" : "38.2% & 61.8% CD Extension"}
+                                  </div>
                                 </div>
                               </div>
                               <div className="col-6 col-md-3">
