@@ -46,7 +46,7 @@ export type HarmonicPatternScanItem = {
   target_2: number;
   target_3: number;
   o?: HarmonicPoint | null;
-  x: HarmonicPoint;
+  x?: HarmonicPoint | null;
   a: HarmonicPoint;
   b: HarmonicPoint;
   c: HarmonicPoint;
@@ -174,7 +174,7 @@ export type HarmonicVisualChartResponse = {
     topology?: "OXABC" | "XABCD" | "ABCD" | string;
     completion_point?: "C" | "D" | string;
     o?: { price: number; time: string } | null;
-    x: { price: number; time: string };
+    x?: { price: number; time: string } | null;
     a: { price: number; time: string };
     b: { price: number; time: string };
     c: { price: number; time: string };
