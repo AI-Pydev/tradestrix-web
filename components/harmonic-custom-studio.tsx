@@ -15,6 +15,7 @@ import {
     HarmonicPatternScanItem,
     PredictiveDProjection,
 } from "@/lib/harmonic-pattern-api";
+import { isOXABC } from "@/modules/harmonics/topology";
 import { useEffect, useMemo, useState } from "react";
 
 interface HarmonicCustomStudioProps {
@@ -419,6 +420,10 @@ export function HarmonicCustomStudio({
         let cMeta: PivotPointMeta = { price: newC };
         let dMeta: PivotPointMeta | undefined = undefined;
 
+        const eligibleCompletedPattern = data.patterns?.find(
+          (candidate) => Boolean(candidate.x) && !isOXABC(candidate)
+        );
+
         if (data.predictions && data.predictions.length > 0) {
           const p = data.predictions[0];
           newX = Number(p.x.price.toFixed(2));
@@ -437,16 +442,17 @@ export function HarmonicCustomStudio({
             type: "Predicted PRZ Target",
             isPredicted: true,
           };
-        } else if (data.patterns && data.patterns.length > 0) {
-          const pat = data.patterns[0];
-          newX = Number(pat.x.price.toFixed(2));
+        } else if (eligibleCompletedPattern && eligibleCompletedPattern.x) {
+          const pat = eligibleCompletedPattern;
+          const patX = eligibleCompletedPattern.x;
+          newX = Number(patX.price.toFixed(2));
           newA = Number(pat.a.price.toFixed(2));
           newB = Number(pat.b.price.toFixed(2));
           newC = Number(pat.c.price.toFixed(2));
           newD = pat.d ? String(Number(pat.d.price.toFixed(2))) : "";
           newDir = "AUTO";
 
-          xMeta = { price: newX, time: pat.x.time, type: "Swing Anchor" };
+          xMeta = { price: newX, time: patX.time, type: "Swing Anchor" };
           aMeta = { price: newA, time: pat.a.time, type: "Leg 1 Peak/Trough" };
           bMeta = { price: newB, time: pat.b.time, type: "Retracement Pivot" };
           cMeta = { price: newC, time: pat.c.time, type: "Pullback Pivot" };
