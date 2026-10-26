@@ -71,7 +71,7 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
       status: "FORMING_D",
       badgeLabel: "🔮 FORMING D",
       badgeClass: "bg-info text-white fw-bold shadow-sm",
-      rowClass: "bg-info bg-opacity-10 border-start border-info border-3",
+      rowClass: "",
     };
   }
 
@@ -91,7 +91,7 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
       status: "TARGET_ACHIEVED",
       badgeLabel: "🎯 T2 ACHIEVED",
       badgeClass: "bg-success text-white fw-bold",
-      rowClass: "bg-success bg-opacity-10 border-start border-success border-3",
+      rowClass: "",
     };
   }
 
@@ -100,7 +100,7 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
       status: "TARGET_ACHIEVED",
       badgeLabel: "🎯 T1 HIT (Trailing)",
       badgeClass: "bg-success-subtle text-success border border-success fw-bold",
-      rowClass: "bg-success bg-opacity-10 border-start border-success border-3",
+      rowClass: "",
     };
   }
 
@@ -111,7 +111,7 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
       status: "SL_BREACHED",
       badgeLabel: "⚠️ SL BREACHED",
       badgeClass: "bg-warning-subtle text-warning-emphasis border border-warning fw-bold",
-      rowClass: "bg-warning bg-opacity-10 border-start border-warning border-3",
+      rowClass: "",
     };
   }
 
@@ -126,7 +126,7 @@ export function getPatternLifecycle(item: HarmonicPatternScanItem, currentPrice:
     badgeClass: inPRZ
       ? "bg-primary text-white fw-bold"
       : "bg-info-subtle text-info border border-info-subtle",
-    rowClass: "bg-surface",
+    rowClass: "",
   };
 }
 
@@ -609,45 +609,45 @@ export function HarmonicPatternScannerShell() {
 
         {/* View Mode Tabs */}
         <div className="d-flex align-items-center gap-2">
-          <div className="btn-group p-1 bg-surface rounded-3 border shadow-sm" role="group">
+          <div className="btn-group p-1 rounded-3 border shadow-sm" role="group" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "database" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "database" ? "btn-primary shadow-sm fw-semibold" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("database")}
             >
               <i className="bi bi-database me-1" /> Pattern Registry (DB)
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "live" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "live" ? "btn-primary shadow-sm fw-semibold" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("live")}
             >
               <i className="bi bi-broadcast me-1" /> Live Scan
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "emerging_d" ? "btn-info shadow-sm fw-semibold text-white" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "emerging_d" ? "btn-info shadow-sm fw-semibold text-white" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("emerging_d")}
             >
               <i className="bi bi-bullseye me-1" /> 🔮 Predict D (Forming)
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "mtf_confluence" ? "btn-primary shadow-sm fw-semibold" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "mtf_confluence" ? "btn-primary shadow-sm fw-semibold" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("mtf_confluence")}
             >
               <i className="bi bi-layers-half me-1" /> MTF Matrix
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "paper_portfolio" ? "btn-success shadow-sm fw-semibold text-white" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "paper_portfolio" ? "btn-success shadow-sm fw-semibold text-white" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("paper_portfolio")}
             >
               <i className="bi bi-journal-check me-1" /> 📄 Paper Portfolio
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${viewMode === "custom_studio" ? "btn-warning shadow-sm fw-bold text-dark" : "btn-light text-secondary"}`}
+              className={`btn btn-sm ${viewMode === "custom_studio" ? "btn-warning shadow-sm fw-bold text-dark" : "btn-outline-secondary border-0"}`}
               onClick={() => setViewMode("custom_studio")}
             >
               <i className="bi bi-sliders me-1" /> 🔬 Harmonic Lab
@@ -677,7 +677,14 @@ export function HarmonicPatternScannerShell() {
       {viewMode !== "mtf_confluence" &&
         viewMode !== "paper_portfolio" &&
         viewMode !== "custom_studio" && (
-        <div className="card shadow-sm border-0 mb-4 bg-surface">
+        <div
+          className="card shadow-sm border mb-4 ts-card"
+          style={{
+            backgroundColor: "var(--bg-surface-1)",
+            borderColor: "var(--border-subtle)",
+            color: "var(--text-primary)",
+          }}
+        >
           <div className="card-body py-3">
             <div className="row g-3 align-items-center">
               <div className="col-auto">
@@ -767,24 +774,32 @@ export function HarmonicPatternScannerShell() {
         <div className="row g-3 mb-4">
           <div className="col">
             <div
-              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : ""}`}
+              className={`card shadow-sm p-3 ts-kpi-card ts-kpi-blue cursor-pointer ${lifecycleFilter === "OPEN_ACTIVE" ? "ring-2 ring-primary border border-primary" : "border"}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "OPEN_ACTIVE" ? "ALL" : "OPEN_ACTIVE")}
-              style={{ cursor: "pointer" }}
-              title="Click to filter only open active trade setups (White rows)"
+              style={{
+                cursor: "pointer",
+                backgroundColor: "var(--bg-surface-1)",
+                borderColor: "var(--border-subtle)",
+              }}
+              title="Click to filter only open active trade setups"
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div className="text-secondary small">⚡ Open Setups</div>
-                <span className="badge bg-light text-dark border small">Filter</span>
+                <span className="badge border small" style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}>Filter</span>
               </div>
               <div className="h3 fw-bold mb-0 text-primary">{summary.openActive}</div>
             </div>
           </div>
           <div className="col">
             <div
-              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "FORMING_D" ? "ring-2 ring-info border border-info" : ""}`}
+              className={`card shadow-sm p-3 ts-kpi-card ts-kpi-cyan cursor-pointer ${lifecycleFilter === "FORMING_D" ? "ring-2 ring-info border border-info" : "border"}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "FORMING_D" ? "ALL" : "FORMING_D")}
-              style={{ cursor: "pointer" }}
-              title="Click to filter symbols with auto-calculated Point D projections (Cyan rows)"
+              style={{
+                cursor: "pointer",
+                backgroundColor: "var(--bg-surface-1)",
+                borderColor: "var(--border-subtle)",
+              }}
+              title="Click to filter symbols with auto-calculated Point D projections"
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div className="text-secondary small">🔮 Forming Point D</div>
@@ -795,10 +810,14 @@ export function HarmonicPatternScannerShell() {
           </div>
           <div className="col">
             <div
-              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : ""}`}
+              className={`card shadow-sm p-3 ts-kpi-card ts-kpi-green cursor-pointer ${lifecycleFilter === "TARGET_ACHIEVED" ? "ring-2 ring-success border border-success" : "border"}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "TARGET_ACHIEVED" ? "ALL" : "TARGET_ACHIEVED")}
-              style={{ cursor: "pointer" }}
-              title="Click to filter targets achieved setups (Light Green rows)"
+              style={{
+                cursor: "pointer",
+                backgroundColor: "var(--bg-surface-1)",
+                borderColor: "var(--border-subtle)",
+              }}
+              title="Click to filter targets achieved setups"
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div className="text-secondary small">🎯 Targets Hit</div>
@@ -809,10 +828,14 @@ export function HarmonicPatternScannerShell() {
           </div>
           <div className="col">
             <div
-              className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : ""}`}
+              className={`card shadow-sm p-3 ts-kpi-card ts-kpi-purple cursor-pointer ${lifecycleFilter === "SL_BREACHED" ? "ring-2 ring-warning border border-warning" : "border"}`}
               onClick={() => setLifecycleFilter(lifecycleFilter === "SL_BREACHED" ? "ALL" : "SL_BREACHED")}
-              style={{ cursor: "pointer" }}
-              title="Click to filter invalidated / SL breached setups (Light Yellow rows)"
+              style={{
+                cursor: "pointer",
+                backgroundColor: "var(--bg-surface-1)",
+                borderColor: "var(--border-subtle)",
+              }}
+              title="Click to filter invalidated / SL breached setups"
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div className="text-secondary small">⚠️ SL Breached</div>
@@ -822,7 +845,13 @@ export function HarmonicPatternScannerShell() {
             </div>
           </div>
           <div className="col">
-            <div className="card shadow-sm border-0 p-3 bg-surface">
+            <div
+              className="card shadow-sm p-3 ts-kpi-card border"
+              style={{
+                backgroundColor: "var(--bg-surface-1)",
+                borderColor: "var(--border-subtle)",
+              }}
+            >
               <div className="d-flex justify-content-between align-items-center">
                 <div className="text-secondary small">🔥 S/R Confluent</div>
                 <span className="badge bg-danger-subtle text-danger small">High Edge</span>
@@ -837,9 +866,12 @@ export function HarmonicPatternScannerShell() {
       {viewMode === "paper_portfolio" && (
         <div className="d-flex flex-column gap-4">
           {/* 🤖 Harmonic Auto-Trade Bot Controller */}
-          <div className="card shadow-sm border-0 bg-surface">
+          <div
+            className="card shadow-sm border mb-4 ts-card"
+            style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+          >
             <div className="card-body p-4">
-              <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-3">
+              <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-3" style={{ borderColor: "var(--border-subtle)" }}>
                 <div className="d-flex align-items-center gap-3">
                   <div
                     className={`rounded-circle p-3 d-flex align-items-center justify-content-center ${
@@ -1040,7 +1072,10 @@ export function HarmonicPatternScannerShell() {
           {/* Top Paper Trading KPI Metrics */}
           <div className="row g-3">
             <div className="col-6 col-md-3">
-              <div className="card shadow-sm border-0 p-3 bg-surface">
+              <div
+                className="card shadow-sm border p-3 ts-card"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 <div className="text-secondary small">Total Paper Trades</div>
                 <div className="h3 fw-bold mb-0 text-primary">{paperSummary?.total_trades || 0}</div>
                 <div className="text-muted small mt-1">
@@ -1049,7 +1084,10 @@ export function HarmonicPatternScannerShell() {
               </div>
             </div>
             <div className="col-6 col-md-3">
-              <div className="card shadow-sm border-0 p-3 bg-surface">
+              <div
+                className="card shadow-sm border p-3 ts-card"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 <div className="text-secondary small">Win Rate %</div>
                 <div className="h3 fw-bold mb-0 text-success">{paperSummary?.win_rate_pct || 0}%</div>
                 <div className="text-muted small mt-1">
@@ -1058,7 +1096,10 @@ export function HarmonicPatternScannerShell() {
               </div>
             </div>
             <div className="col-6 col-md-3">
-              <div className="card shadow-sm border-0 p-3 bg-surface">
+              <div
+                className="card shadow-sm border p-3 ts-card"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 <div className="text-secondary small">Total Realized P&L</div>
                 <div className={`h3 fw-bold mb-0 ${(paperSummary?.total_realized_pnl || 0) >= 0 ? "text-success" : "text-danger"}`}>
                   {(paperSummary?.total_realized_pnl || 0) >= 0 ? "+" : ""}₹{paperSummary?.total_realized_pnl?.toFixed(2) || "0.00"}
@@ -1069,7 +1110,10 @@ export function HarmonicPatternScannerShell() {
               </div>
             </div>
             <div className="col-6 col-md-3">
-              <div className="card shadow-sm border-0 p-3 bg-surface">
+              <div
+                className="card shadow-sm border p-3 ts-card"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 <div className="text-secondary small">Profit Factor</div>
                 <div className="h3 fw-bold mb-0 text-primary">{paperSummary?.profit_factor || 1.0}</div>
                 <div className="text-muted small mt-1">
@@ -1080,7 +1124,10 @@ export function HarmonicPatternScannerShell() {
           </div>
 
           {/* Paper Trades Positions & History Table */}
-          <div className="card shadow-sm border-0 bg-surface">
+          <div
+            className="card shadow-sm border ts-card"
+            style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+          >
             <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
               <div>
                 <h5 className="mb-0 fw-bold">Harmonic Paper Trading Ledger</h5>
@@ -1121,8 +1168,21 @@ export function HarmonicPatternScannerShell() {
               </div>
             </div>
             <div className="table-responsive">
-              <table className="table align-middle mb-0">
-                <thead className="table-light">
+              <table
+                className="table align-middle mb-0"
+                style={{
+                  backgroundColor: "var(--table-bg)",
+                  borderColor: "var(--table-border)",
+                  color: "var(--table-text)",
+                }}
+              >
+                <thead
+                  style={{
+                    backgroundColor: "var(--table-header)",
+                    color: "var(--text-secondary)",
+                    borderColor: "var(--table-border)",
+                  }}
+                >
                   <tr>
                     <th>Trade ID & Symbol</th>
                     <th>Pattern & TF</th>
@@ -1150,10 +1210,13 @@ export function HarmonicPatternScannerShell() {
                       const pnlPts = isOpen ? pt.unrealized_pnl_points : (pt.realized_pnl_points || 0);
 
                       return (
-                        <tr key={pt.trade_id} className={isOpen ? "bg-surface" : "bg-light bg-opacity-50"}>
+                        <tr key={pt.trade_id} className={isOpen ? "" : "opacity-75"}>
                           <td>
                             <div className="fw-bold font-monospace">{pt.symbol_label}</div>
-                            <span className="badge bg-light text-muted border small font-monospace">
+                            <span
+                              className="badge border small font-monospace"
+                              style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}
+                            >
                               {pt.trade_id}
                             </span>
                           </td>
@@ -1218,7 +1281,12 @@ export function HarmonicPatternScannerShell() {
                                 Exit
                               </button>
                             ) : (
-                              <span className="badge bg-light text-muted border">Completed</span>
+                              <span
+                                className="badge border"
+                                style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}
+                              >
+                                Completed
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1234,7 +1302,10 @@ export function HarmonicPatternScannerShell() {
 
       {/* Mode: Emerging Patterns & Point D Predictive Projections */}
       {viewMode === "emerging_d" && (
-        <div className="card shadow-sm border-0 bg-surface mb-4">
+        <div
+          className="card shadow-sm border mb-4 ts-card"
+          style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+        >
           <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
               <div className="d-flex align-items-center gap-2">
@@ -1258,8 +1329,21 @@ export function HarmonicPatternScannerShell() {
           </div>
 
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-light">
+            <table
+              className="table table-hover align-middle mb-0"
+              style={{
+                backgroundColor: "var(--table-bg)",
+                borderColor: "var(--table-border)",
+                color: "var(--table-text)",
+              }}
+            >
+              <thead
+                style={{
+                  backgroundColor: "var(--table-header)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--table-border)",
+                }}
+              >
                 <tr>
                   <th>Symbol & TF</th>
                   <th>Forming Pattern</th>
@@ -1291,7 +1375,7 @@ export function HarmonicPatternScannerShell() {
                             <span className="badge bg-primary text-white font-monospace" style={{ fontSize: "10px" }}>
                               {p.timeframe.toUpperCase()}
                             </span>
-                            <span className="badge bg-light text-muted border" style={{ fontSize: "10px" }}>
+                            <span className="badge border" style={{ fontSize: "10px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-metadata)", borderColor: "var(--border-subtle)" }}>
                               LTP: ₹{p.current_price}
                             </span>
                           </div>
@@ -1398,7 +1482,10 @@ export function HarmonicPatternScannerShell() {
 
       {/* Mode 3: MTF Universe Confluence View */}
       {viewMode === "mtf_confluence" && (
-        <div className="card shadow-sm border-0 bg-surface mb-4">
+        <div
+          className="card shadow-sm border mb-4 ts-card"
+          style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+        >
           <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
             <h5 className="mb-0 fw-bold">Multi-Timeframe Fractal + Option Chain Confluence Matrix</h5>
             <span className="badge bg-primary-subtle text-primary">
@@ -1406,8 +1493,21 @@ export function HarmonicPatternScannerShell() {
             </span>
           </div>
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-light">
+            <table
+              className="table table-hover align-middle mb-0"
+              style={{
+                backgroundColor: "var(--table-bg)",
+                borderColor: "var(--table-border)",
+                color: "var(--table-text)",
+              }}
+            >
+              <thead
+                style={{
+                  backgroundColor: "var(--table-header)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--table-border)",
+                }}
+              >
                 <tr>
                   <th>Symbol & Macro TF</th>
                   <th>Macro Harmonic Setup</th>
@@ -1483,8 +1583,13 @@ export function HarmonicPatternScannerShell() {
                               className={`badge ${
                                 r.break_of_structure.includes("CONFIRMED")
                                   ? "bg-success"
-                                  : "bg-light text-secondary"
+                                  : "border text-secondary"
                               }`}
+                              style={
+                                !r.break_of_structure.includes("CONFIRMED")
+                                  ? { backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }
+                                  : undefined
+                              }
                             >
                               {r.break_of_structure}
                             </span>
@@ -1603,7 +1708,10 @@ export function HarmonicPatternScannerShell() {
         <div className="row g-4">
           {/* Qualified Stocks Table (Grouped by Symbol) */}
           <div className={selectedStock && !isMaximized ? "col-lg-5" : "col-12"}>
-            <div className="card shadow-sm border-0 bg-surface">
+            <div
+              className="card shadow-sm border ts-card"
+              style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+            >
               <div className="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                   <h5 className="mb-0 fw-bold">
@@ -1657,7 +1765,7 @@ export function HarmonicPatternScannerShell() {
                   </button>
                   <button
                     type="button"
-                    className={`btn ${lifecycleFilter === "SL_BREACHED" ? "btn-warning text-dark fw-bold" : "btn-outline-warning text-dark"}`}
+                    className={`btn ${lifecycleFilter === "SL_BREACHED" ? "btn-warning text-dark fw-bold" : "btn-outline-warning"}`}
                     onClick={() => setLifecycleFilter("SL_BREACHED")}
                   >
                     ⚠️ SL ({summary.slBreached})
@@ -1665,8 +1773,21 @@ export function HarmonicPatternScannerShell() {
                 </div>
               </div>
               <div className="table-responsive">
-                <table className="table align-middle mb-0">
-                  <thead className="table-light">
+                <table
+                  className="table align-middle mb-0"
+                  style={{
+                    backgroundColor: "var(--table-bg)",
+                    borderColor: "var(--table-border)",
+                    color: "var(--table-text)",
+                  }}
+                >
+                  <thead
+                    style={{
+                      backgroundColor: "var(--table-header)",
+                      color: "var(--text-secondary)",
+                      borderColor: "var(--table-border)",
+                    }}
+                  >
                     <tr>
                       <th>Symbol & Pattern Audit</th>
                       <th>Timeframe Formations</th>
@@ -1716,7 +1837,7 @@ export function HarmonicPatternScannerShell() {
                                 <span className={`badge ${lifecycle.badgeClass} small`}>
                                   {lifecycle.badgeLabel}
                                 </span>
-                                <span className="badge bg-light text-muted border small font-monospace">
+                                <span className="badge border small font-monospace" style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-metadata)", borderColor: "var(--border-subtle)" }}>
                                   {group.kind.toUpperCase()}
                                 </span>
                               </div>
@@ -1745,14 +1866,28 @@ export function HarmonicPatternScannerShell() {
                                       <button
                                         key={tf.id}
                                         type="button"
-                                        className={`btn btn-xs fw-bold ${
-                                          isCurrentActive
-                                            ? "btn-primary shadow-sm"
+                                        className="btn btn-xs fw-bold"
+                                        style={{
+                                          fontSize: "10px",
+                                          padding: "2px 6px",
+                                          backgroundColor: isCurrentActive
+                                            ? "var(--brand-primary, #3b82f6)"
                                             : isPatBull
-                                            ? "btn-success-subtle text-success border border-success"
-                                            : "btn-danger-subtle text-danger border border-danger"
-                                        }`}
-                                        style={{ fontSize: "10px", padding: "2px 6px" }}
+                                            ? "rgba(34, 197, 94, 0.15)"
+                                            : "rgba(239, 68, 68, 0.15)",
+                                          color: isCurrentActive
+                                            ? "#ffffff"
+                                            : isPatBull
+                                            ? "#4ade80"
+                                            : "#f87171",
+                                          border: `1px solid ${
+                                            isCurrentActive
+                                              ? "var(--brand-primary, #3b82f6)"
+                                              : isPatBull
+                                              ? "rgba(34, 197, 94, 0.4)"
+                                              : "rgba(239, 68, 68, 0.4)"
+                                          }`,
+                                        }}
                                         title={`${tf.label}: Completed ${pat.pattern_name} (${pat.direction}) in PRZ`}
                                         onClick={() => loadVisualChart(pat, tf.id)}
                                       >
@@ -1767,8 +1902,20 @@ export function HarmonicPatternScannerShell() {
                                       <button
                                         key={tf.id}
                                         type="button"
-                                        className="btn btn-xs fw-bold btn-info text-white shadow-sm"
-                                        style={{ fontSize: "10px", padding: "2px 6px" }}
+                                        className="btn btn-xs fw-bold shadow-sm"
+                                        style={{
+                                          fontSize: "10px",
+                                          padding: "2px 6px",
+                                          backgroundColor: isCurrentActive
+                                            ? "var(--brand-primary, #3b82f6)"
+                                            : "rgba(56, 189, 248, 0.15)",
+                                          color: isCurrentActive ? "#ffffff" : "#38bdf8",
+                                          border: `1px solid ${
+                                            isCurrentActive
+                                              ? "var(--brand-primary, #3b82f6)"
+                                              : "rgba(56, 189, 248, 0.4)"
+                                          }`,
+                                        }}
                                         title={`${tf.label}: 🔮 ${fData?.pattern_name || "Harmonic"} Forming (${fData?.direction || ""}) - Target D: ₹${fData?.predicted_d_mid ?? "—"}`}
                                         onClick={() =>
                                           handleOpenPredictiveDModal(
@@ -1788,12 +1935,23 @@ export function HarmonicPatternScannerShell() {
                                     <button
                                       key={tf.id}
                                       type="button"
-                                      className={`btn btn-xs ${
-                                        isCurrentActive
-                                          ? "btn-primary shadow-sm fw-bold"
-                                          : "btn-light text-muted opacity-50"
-                                      }`}
-                                      style={{ fontSize: "10px", padding: "2px 5px" }}
+                                      className="btn btn-xs"
+                                      style={{
+                                        fontSize: "10px",
+                                        padding: "2px 5px",
+                                        backgroundColor: isCurrentActive
+                                          ? "var(--brand-primary, #3b82f6)"
+                                          : "var(--bg-surface-2, #111C30)",
+                                        color: isCurrentActive
+                                          ? "#ffffff"
+                                          : "var(--text-secondary, #A7B1C3)",
+                                        border: `1px solid ${
+                                          isCurrentActive
+                                            ? "var(--brand-primary, #3b82f6)"
+                                            : "var(--border-subtle, rgba(148, 163, 184, 0.2))"
+                                        }`,
+                                        fontWeight: isCurrentActive ? "700" : "500",
+                                      }}
                                       title={`${tf.label}: No pattern detected`}
                                       onClick={() => loadVisualChart(prim, tf.id)}
                                     >
@@ -1851,7 +2009,7 @@ export function HarmonicPatternScannerShell() {
                                     >
                                       {topForming.direction}
                                     </span>
-                                    <span className="badge bg-dark-subtle text-dark small font-monospace">
+                                    <span className="badge border small font-monospace" style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-metadata)", borderColor: "var(--border-subtle)" }}>
                                       {topForming.timeframe}
                                     </span>
                                   </div>
@@ -1918,7 +2076,12 @@ export function HarmonicPatternScannerShell() {
                                 </button>
                                 {topForming ? (
                                   <button
-                                    className="btn btn-xs btn-info text-white fw-bold shadow-sm d-flex align-items-center gap-1 justify-content-center"
+                                    className="btn btn-xs fw-bold shadow-sm d-flex align-items-center gap-1 justify-content-center"
+                                    style={{
+                                      backgroundColor: "rgba(56, 189, 248, 0.15)",
+                                      color: "#38bdf8",
+                                      border: "1px solid rgba(56, 189, 248, 0.35)",
+                                    }}
                                     onClick={() =>
                                       handleOpenPredictiveDModal(
                                         group.instrument_key,
@@ -1934,15 +2097,16 @@ export function HarmonicPatternScannerShell() {
                                   </button>
                                 ) : isOXABC(prim) ? (
                                   <span
-                                    className="badge bg-light text-muted border text-center"
-                                    style={{ fontSize: "10px", padding: "3px 4px" }}
+                                    className="badge border text-center"
+                                    style={{ fontSize: "10px", padding: "3px 4px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}
                                     title="Pattern completed at Point C"
                                   >
                                     ● Completed at C
                                   </span>
                                 ) : (
                                   <button
-                                    className="btn btn-xs btn-light text-muted border opacity-75 d-flex align-items-center gap-1 justify-content-center"
+                                    className="btn btn-xs btn-outline-secondary border opacity-75 d-flex align-items-center gap-1 justify-content-center"
+                                    style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}
                                     onClick={() =>
                                       handleOpenPredictiveDModal(
                                         prim.instrument_key,
@@ -1996,13 +2160,13 @@ export function HarmonicPatternScannerShell() {
               style={isMaximized ? { zIndex: 1060, backdropFilter: "blur(6px)" } : {}}
             >
               <div
-                className={`card shadow-lg border-0 bg-surface ${
+                className={`card ts-card shadow-lg border-0 ${
                   isMaximized ? "w-100 h-100 overflow-auto" : "sticky-top"
                 }`}
                 style={
                   isMaximized
-                    ? { maxWidth: "1500px", maxHeight: "95vh" }
-                    : { top: "80px" }
+                    ? { maxWidth: "1500px", maxHeight: "95vh", backgroundColor: "var(--bg-surface-1)" }
+                    : { top: "80px", backgroundColor: "var(--bg-surface-1)" }
                 }
               >
                 <div className="card-header bg-transparent py-3 d-flex justify-content-between align-items-center border-bottom">
@@ -2077,7 +2241,7 @@ export function HarmonicPatternScannerShell() {
                       <span className="d-none d-sm-inline">{isMaximized ? "Restore" : "Maximize"}</span>
                     </button>
                     <button
-                      className="btn-close"
+                      className="btn-close btn-close-white"
                       onClick={() => {
                         setSelectedStock(null);
                         setChartData(null);
@@ -2100,14 +2264,28 @@ export function HarmonicPatternScannerShell() {
                           return (
                             <button
                               key={tf.id}
-                              className={`btn btn-xs fw-bold ${
-                                isCurrent
-                                  ? "btn-primary shadow-sm border-light"
+                              className="btn btn-xs fw-bold shadow-sm"
+                              style={{
+                                fontSize: "11px",
+                                padding: "3px 9px",
+                                backgroundColor: isCurrent
+                                  ? "var(--brand-primary, #3b82f6)"
                                   : isBull
-                                  ? "btn-success-subtle text-success border border-success"
-                                  : "btn-danger-subtle text-danger border border-danger"
-                              }`}
-                              style={{ fontSize: "11px", padding: "3px 9px" }}
+                                  ? "rgba(34, 197, 94, 0.15)"
+                                  : "rgba(239, 68, 68, 0.15)",
+                                color: isCurrent
+                                  ? "#ffffff"
+                                  : isBull
+                                  ? "#4ade80"
+                                  : "#f87171",
+                                border: `1px solid ${
+                                  isCurrent
+                                    ? "var(--brand-primary, #3b82f6)"
+                                    : isBull
+                                    ? "rgba(34, 197, 94, 0.4)"
+                                    : "rgba(239, 68, 68, 0.4)"
+                                }`,
+                              }}
                               title={`${tf.label}: Active ${pat.pattern_name} (${pat.direction}) - ${(pat.quality_score * 100).toFixed(0)}%`}
                               onClick={() => loadVisualChart(pat, tf.id)}
                             >
@@ -2119,10 +2297,23 @@ export function HarmonicPatternScannerShell() {
                         return (
                           <button
                             key={tf.id}
-                            className={`btn btn-xs ${
-                              isCurrent ? "btn-primary fw-bold shadow-sm" : "btn-outline-secondary opacity-75"
-                            }`}
-                            style={{ fontSize: "11px", padding: "3px 9px" }}
+                            className="btn btn-xs"
+                            style={{
+                              fontSize: "11px",
+                              padding: "3px 9px",
+                              backgroundColor: isCurrent
+                                ? "var(--brand-primary, #3b82f6)"
+                                : "var(--bg-surface-2, #111C30)",
+                              color: isCurrent
+                                ? "#ffffff"
+                                : "var(--text-secondary, #A7B1C3)",
+                              border: `1px solid ${
+                                isCurrent
+                                  ? "var(--brand-primary, #3b82f6)"
+                                  : "var(--border-subtle, rgba(148, 163, 184, 0.2))"
+                              }`,
+                              fontWeight: isCurrent ? "700" : "500",
+                            }}
                             title={`${tf.label}: Candlestick chart`}
                             onClick={() => loadVisualChart(selectedStock, tf.id)}
                           >
@@ -2700,7 +2891,7 @@ export function HarmonicPatternScannerShell() {
 
                           <div className="row g-2 small">
                             <div className="col-12 col-md-3">
-                              <div className="border rounded p-2 bg-body">
+                              <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                 <div className="text-secondary">PRZ Status</div>
                                 <div className="fw-bold">
                                   {activeMtfReport.in_prz ? (
@@ -2712,7 +2903,7 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </div>
                             <div className="col-12 col-md-3">
-                              <div className="border rounded p-2 bg-body">
+                              <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                 <div className="text-secondary">3M Micro Signals</div>
                                 <div className="fw-bold">
                                   RSI: {activeMtfReport.rsi_3m} ({activeMtfReport.rsi_divergence}) | {activeMtfReport.break_of_structure}
@@ -2720,7 +2911,7 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </div>
                             <div className="col-12 col-md-3">
-                              <div className="border rounded p-2 bg-body">
+                              <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                 <div className="text-secondary">Option Chain & PCR</div>
                                 <div className="fw-bold">
                                   {activeMtfReport.pcr_value !== undefined && activeMtfReport.pcr_value !== null ? (
@@ -2739,7 +2930,7 @@ export function HarmonicPatternScannerShell() {
                               </div>
                             </div>
                             <div className="col-12 col-md-3">
-                              <div className="border rounded p-2 bg-body">
+                              <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                 <div className="text-secondary">Micro Execution Risk</div>
                                 <div className="fw-bold text-danger">
                                   Micro SL: ₹{activeMtfReport.micro_stop_loss} (T1: ₹{activeMtfReport.macro_target_1})
@@ -2767,7 +2958,7 @@ export function HarmonicPatternScannerShell() {
                         const liveRR = Math.max(remT1, 0) / Math.max(liveRisk, 0.1);
 
                         return (
-                          <div className="card border-0 bg-body-tertiary p-3 mb-3">
+                          <div className="card border p-3 mb-3" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                             <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                               <div className="d-flex align-items-center gap-2">
                                 <span className="fw-bold small text-primary">
@@ -2785,14 +2976,14 @@ export function HarmonicPatternScannerShell() {
                             </div>
                             <div className="row g-2 small">
                               <div className="col-6 col-md-3">
-                                <div className="border rounded p-2 bg-body">
+                                <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <div className="text-secondary">Base Reversal Price ({isOxabc ? "Point C" : "Point D"})</div>
                                   <div className="fw-bold text-primary font-monospace">₹{baseP}</div>
                                   <div className="text-muted small">Pattern Anchor</div>
                                 </div>
                               </div>
                               <div className="col-6 col-md-3">
-                                <div className="border rounded p-2 bg-body">
+                                <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <div className="text-secondary">Current Live LTP</div>
                                   <div className="fw-bold font-monospace">₹{curP}</div>
                                   <div className={`small ${distBase >= 0 ? "text-success" : "text-warning"}`}>
@@ -2801,7 +2992,7 @@ export function HarmonicPatternScannerShell() {
                                 </div>
                               </div>
                               <div className="col-6 col-md-3">
-                                <div className="border rounded p-2 bg-body">
+                                <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <div className="text-success">Remaining to Target 1 & 2</div>
                                   <div className="fw-bold font-monospace text-success">
                                     T1: ₹{selectedStock.target_1} ({remT1 >= 0 ? `+${remT1.toFixed(1)}` : "Hit"}) | T2: ₹{selectedStock.target_2} ({remT2 >= 0 ? `+${remT2.toFixed(1)}` : "Hit"})
@@ -2812,7 +3003,7 @@ export function HarmonicPatternScannerShell() {
                                 </div>
                               </div>
                               <div className="col-6 col-md-3">
-                                <div className="border rounded p-2 bg-body">
+                                <div className="border rounded p-2" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <div className="text-danger">Current Risk to Stop Loss</div>
                                   <div className="fw-bold font-monospace text-danger">
                                     ₹{selectedStock.stop_loss} ({liveRisk >= 0 ? `-${liveRisk.toFixed(1)} pts` : "Breached"})
@@ -2825,7 +3016,7 @@ export function HarmonicPatternScannerShell() {
                             {/* Strong Support & Resistance Summary Row */}
                             <div className="row g-2 small mt-2">
                               <div className="col-12 col-md-6">
-                                <div className="border rounded p-2 bg-body d-flex justify-content-between align-items-center">
+                                <div className="border rounded p-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <span className="text-secondary">Major Support Floor:</span>
                                   <strong className="text-success font-monospace">
                                     {selectedStock.nearest_support ? `₹${selectedStock.nearest_support}` : "— (No major support below)"}
@@ -2833,7 +3024,7 @@ export function HarmonicPatternScannerShell() {
                                 </div>
                               </div>
                               <div className="col-12 col-md-6">
-                                <div className="border rounded p-2 bg-body d-flex justify-content-between align-items-center">
+                                <div className="border rounded p-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                   <span className="text-secondary">Major Resistance Ceiling:</span>
                                   <strong className="text-danger font-monospace">
                                     {selectedStock.nearest_resistance ? `₹${selectedStock.nearest_resistance}` : "— (Clean air above)"}
@@ -2863,13 +3054,13 @@ export function HarmonicPatternScannerShell() {
           className="position-fixed top-0 start-0 w-100 h-100 p-3 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center"
           style={{ zIndex: 1080, backdropFilter: "blur(4px)" }}
         >
-          <div className="card shadow-lg border-0 bg-surface" style={{ maxWidth: "480px", width: "100%" }}>
+          <div className="card ts-card shadow-lg border-0" style={{ maxWidth: "480px", width: "100%", backgroundColor: "var(--bg-surface-1)" }}>
             <div className="card-header bg-transparent py-3 border-bottom d-flex justify-content-between align-items-center">
               <h5 className="mb-0 fw-bold d-flex align-items-center gap-2">
                 <i className="bi bi-journal-plus text-success" />
                 <span>Take Paper Trade</span>
               </h5>
-              <button className="btn-close" onClick={() => setPaperModalItem(null)} />
+              <button className="btn-close btn-close-white" onClick={() => setPaperModalItem(null)} />
             </div>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between mb-3">
@@ -2907,7 +3098,7 @@ export function HarmonicPatternScannerShell() {
                 </div>
               </div>
 
-              <div className="bg-body-tertiary p-3 rounded mb-3 small font-monospace">
+              <div className="p-3 rounded mb-3 small font-monospace" style={{ backgroundColor: "var(--bg-surface-2)", border: "1px solid var(--border-subtle)" }}>
                 <div className="d-flex justify-content-between mb-1">
                   <span className="text-secondary">Target 1:</span>
                   <strong className="text-success">₹{paperModalItem.target_1}</strong>
@@ -2923,7 +3114,7 @@ export function HarmonicPatternScannerShell() {
               </div>
 
               <div className="d-flex gap-2">
-                <button className="btn btn-light flex-grow-1" onClick={() => setPaperModalItem(null)}>
+                <button className="btn btn-outline-secondary flex-grow-1" onClick={() => setPaperModalItem(null)}>
                   Cancel
                 </button>
                 <button

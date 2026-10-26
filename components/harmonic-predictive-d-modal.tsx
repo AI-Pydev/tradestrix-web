@@ -104,7 +104,7 @@ export function HarmonicPredictiveDModal({
       style={{ zIndex: 1070, backdropFilter: "blur(8px)" }}
     >
       <div
-        className={`card shadow-lg border-0 bg-surface d-flex flex-column ${
+        className={`card shadow-lg border ts-card d-flex flex-column ${
           isMaximized ? "w-100 h-100" : ""
         }`}
         style={{
@@ -113,10 +113,16 @@ export function HarmonicPredictiveDModal({
           width: "100%",
           borderRadius: "14px",
           overflow: "hidden",
+          backgroundColor: "var(--bg-surface-1)",
+          borderColor: "var(--border-subtle)",
+          color: "var(--text-primary)",
         }}
       >
         {/* Modal Header */}
-        <div className="card-header bg-dark text-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom border-secondary border-opacity-25">
+        <div
+          className="card-header text-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom"
+          style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+        >
           <div className="d-flex align-items-center gap-3">
             <div
               className="rounded-circle p-2 d-flex align-items-center justify-content-center bg-primary bg-opacity-20 text-primary"
@@ -163,7 +169,10 @@ export function HarmonicPredictiveDModal({
         {/* Modal Body */}
         <div className="card-body p-3 p-md-4 overflow-auto d-flex flex-column gap-3">
           {/* Timeframe Selector & Alternate Projections Switcher */}
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 bg-light bg-opacity-50 rounded border">
+          <div
+            className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 rounded border"
+            style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+          >
             <div className="d-flex flex-wrap gap-1 align-items-center">
               <span className="text-secondary small fw-semibold me-1">Timeframe:</span>
               {HARMONIC_SUPPORTED_TIMEFRAMES.filter((t) => t.id !== "all").map((tf) => (
@@ -428,7 +437,10 @@ export function HarmonicPredictiveDModal({
               <div className={isMaximized ? "col-12 col-xl-4" : "col-12 col-lg-4"}>
                 <div className="d-flex flex-column gap-3">
                   {/* Card 1: Point D Target Zone */}
-                  <div className="card shadow-sm border-0 bg-light p-3">
+                  <div
+                    className="card shadow-sm border p-3"
+                    style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                  >
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <span className="text-secondary small fw-bold">🎯 Predicted PRZ (Point D)</span>
                       <span className="badge bg-primary-subtle text-primary">Score: {(pred.quality_score * 100).toFixed(0)}%</span>
@@ -437,7 +449,7 @@ export function HarmonicPredictiveDModal({
                     <div className="text-muted small">
                       PRZ Range: <strong>₹{pred.predicted_d_low}</strong> – <strong>₹{pred.predicted_d_high}</strong>
                     </div>
-                    <div className="mt-2 pt-2 border-top d-flex justify-content-between small">
+                    <div className="mt-2 pt-2 border-top d-flex justify-content-between small" style={{ borderColor: "var(--border-subtle)" }}>
                       <span className="text-secondary">Distance from LTP:</span>
                       <strong className={pred.dist_to_d_points >= 0 ? "text-success" : "text-danger"}>
                         {pred.dist_to_d_points >= 0 ? "+" : ""}
@@ -447,9 +459,12 @@ export function HarmonicPredictiveDModal({
                   </div>
 
                   {/* Card 2: Strategy Option 1 (C -> D Expansion Scalp) */}
-                  <div className="card shadow-sm border-0 bg-light p-3">
+                  <div
+                    className="card shadow-sm border p-3"
+                    style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                  >
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="fw-bold small text-dark">⚡ Trade 1: C → D Expansion Move</span>
+                      <span className="fw-bold small" style={{ color: "var(--text-primary)" }}>⚡ Trade 1: C → D Expansion Move</span>
                       <span className={`badge ${pred.cd_trade_direction === "BUY" ? "bg-success" : "bg-danger"}`}>
                         {pred.cd_trade_direction}
                       </span>
@@ -464,9 +479,12 @@ export function HarmonicPredictiveDModal({
                   </div>
 
                   {/* Card 3: Strategy Option 2 (Post-D Reversal) */}
-                  <div className="card shadow-sm border-0 bg-light p-3">
+                  <div
+                    className="card shadow-sm border p-3"
+                    style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                  >
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="fw-bold small text-dark">🔄 Trade 2: Point D PRZ Reversal</span>
+                      <span className="fw-bold small" style={{ color: "var(--text-primary)" }}>🔄 Trade 2: Point D PRZ Reversal</span>
                       <span className={`badge ${isBull ? "bg-success" : "bg-danger"}`}>
                         {isBull ? "BUY / CE REVERSAL" : "SELL / PE REVERSAL"}
                       </span>
@@ -491,10 +509,13 @@ export function HarmonicPredictiveDModal({
                   </div>
 
                   {/* Card 4: Fibonacci Geometry Breakdown */}
-                  <div className="card shadow-sm border-0 bg-light p-3">
-                    <span className="fw-bold small text-dark mb-2">📐 Strategy Guide Ratio Compliance</span>
+                  <div
+                    className="card shadow-sm border p-3"
+                    style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                  >
+                    <span className="fw-bold small mb-2" style={{ color: "var(--text-primary)" }}>📐 Strategy Guide Ratio Compliance</span>
                     <div className="table-responsive">
-                      <table className="table table-sm table-borderless small mb-0 font-monospace">
+                      <table className="table table-sm table-borderless small mb-0 font-monospace" style={{ color: "var(--table-text)" }}>
                         <tbody>
                           <tr>
                             <td className="text-secondary">AB / XA:</td>
@@ -527,7 +548,10 @@ export function HarmonicPredictiveDModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="card-footer bg-transparent py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2 border-top">
+        <div
+          className="card-footer bg-transparent py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2 border-top"
+          style={{ borderColor: "var(--border-subtle)" }}
+        >
           <span className="text-secondary small">
             💡 Point D projection adapts in real-time as swing pivots are confirmed.
           </span>

@@ -1095,7 +1095,7 @@ export function HarmonicCustomStudio({
   }, [xPrice, aPrice, bPrice, cPrice, dPrice, sandboxResult, resolvedIsBullish]);
 
   return (
-    <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-surface">
+    <div className="card ts-card shadow-sm border-0 rounded-4 overflow-hidden mb-4" style={{ backgroundColor: "var(--bg-surface-1)" }}>
       {/* Top Header & Mode Toggle */}
       <div className="card-header bg-dark text-white p-3 p-md-4 border-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
@@ -1152,7 +1152,7 @@ export function HarmonicCustomStudio({
         {/* EXPANDABLE CANONICAL HARMONIC STANDARDS REFERENCE CHEATSHEET             */}
         {/* ========================================================================= */}
         {showCheatsheet && (
-          <div className="card border-primary border-opacity-25 rounded-4 shadow-sm bg-light mb-4 overflow-hidden">
+          <div className="card border-primary border-opacity-25 rounded-4 shadow-sm mb-4 overflow-hidden" style={{ backgroundColor: "var(--bg-surface-2)" }}>
             <div className="card-header bg-primary text-white py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
               <div className="d-flex align-items-center gap-2">
                 <span className="fs-5">📚</span>
@@ -1217,7 +1217,7 @@ export function HarmonicCustomStudio({
                     </span>
                   </div>
                   <div className="table-responsive">
-                    <table className="table table-sm table-bordered bg-white small mb-0 align-middle">
+                    <table className="table table-sm table-bordered small mb-0 align-middle" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)" }}>
                       <thead className="table-dark text-center">
                         <tr>
                           <th>Pattern Name</th>
@@ -1278,7 +1278,7 @@ export function HarmonicCustomStudio({
               {guideActiveTab === "why_harmonics" && (
                 <div className="row g-3">
                   <div className="col-12 col-md-6">
-                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                    <div className="card h-100 border p-3 rounded-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <span className="fs-4">🎯</span>
                         <h6 className="fw-bold mb-0 text-primary">
@@ -1292,7 +1292,7 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-6">
-                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                    <div className="card h-100 border p-3 rounded-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <span className="fs-4">⚖️</span>
                         <h6 className="fw-bold mb-0 text-success">
@@ -1306,7 +1306,7 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-6">
-                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                    <div className="card h-100 border p-3 rounded-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <span className="fs-4">🔄</span>
                         <h6 className="fw-bold mb-0 text-info">
@@ -1320,10 +1320,10 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-6">
-                    <div className="card h-100 border p-3 rounded-3 bg-white">
+                    <div className="card h-100 border p-3 rounded-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <span className="fs-4">🏦</span>
-                        <h6 className="fw-bold mb-0 text-warning text-dark">
+                        <h6 className="fw-bold mb-0 text-warning">
                           Institutional Algorithmic Confluence
                         </h6>
                       </div>
@@ -1339,7 +1339,7 @@ export function HarmonicCustomStudio({
               {guideActiveTab === "patterns_detail" && (
                 <div className="row g-3">
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <h6 className="fw-bold mb-0 text-primary">🦇 Bat & Alternate Bat</h6>
                         <span className="badge bg-primary-subtle text-primary">D = 0.886 / 1.130</span>
@@ -1347,29 +1347,29 @@ export function HarmonicCustomStudio({
                       <p className="small text-secondary mb-2">
                         <strong>The highest R:R pattern.</strong> Point B has a shallow retracement (0.382–0.500), which stores immense kinetic energy. The move drops deeply to a precise 0.886 PRZ for an explosive reversal.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         B: 0.382–0.500 | C: 0.382–0.886 | D: 0.886 (Alt: 1.130)
                       </div>
                     </div>
                   </div>
 
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h6 className="fw-bold mb-0 text-dark">🦅 Gartley 222</h6>
+                        <h6 className="fw-bold mb-0" style={{ color: "var(--text-primary)" }}>🦅 Gartley 222</h6>
                         <span className="badge bg-dark text-white">D = 0.786</span>
                       </div>
                       <p className="small text-secondary mb-2">
                         <strong>The golden ratio standard.</strong> Point B must hit exactly 0.618 of XA. Point D completes at 0.786 of XA. Best used for trend continuation and early structural reversals.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         B: Strict 0.618 | C: 0.382–0.886 | D: Strict 0.786
                       </div>
                     </div>
                   </div>
 
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <h6 className="fw-bold mb-0 text-info">🦋 Butterfly Pattern</h6>
                         <span className="badge bg-info text-white">D = 1.272–1.618</span>
@@ -1377,14 +1377,14 @@ export function HarmonicCustomStudio({
                       <p className="small text-secondary mb-2">
                         <strong>The trend exhaustion specialist.</strong> Point B dips deeply to 0.786. Point D extends beyond Point X (1.272–1.618), trapping late trend followers before snapping back into a major reversal.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         B: Strict 0.786 | C: 0.382–0.886 | D: 1.272–1.618 (XA)
                       </div>
                     </div>
                   </div>
 
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <h6 className="fw-bold mb-0 text-danger">🦀 Crab & Deep Crab</h6>
                         <span className="badge bg-danger text-white">D = 1.618</span>
@@ -1392,29 +1392,29 @@ export function HarmonicCustomStudio({
                       <p className="small text-secondary mb-2">
                         <strong>The extreme momentum pattern.</strong> Point D shoots to an extreme 1.618 extension of XA with a powerful 2.24–3.618 CD projection. Captures blow-off tops and capitulation bottoms.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         B: 0.382–0.618 (Deep: 0.886) | D: Extreme 1.618 (XA)
                       </div>
                     </div>
                   </div>
 
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h6 className="fw-bold mb-0 text-warning text-dark">🦈 Shark & ⚡ Cypher</h6>
+                        <h6 className="fw-bold mb-0 text-warning">🦈 Shark & ⚡ Cypher</h6>
                         <span className="badge bg-warning text-dark">Point C Breaks A</span>
                       </div>
                       <p className="small text-secondary mb-2">
                         <strong>The fake breakout trap.</strong> Point C breaks beyond Point A (1.130–1.618), luring breakout traders into the trap. Price then exhausts and completes at Point D for an explosive snapback.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         C: 1.130–1.618 (Breaks A) | D: 0.786–1.130
                       </div>
                     </div>
                   </div>
 
                   <div className="col-12 col-md-4">
-                    <div className="card h-100 border p-3 rounded-3 bg-white shadow-sm">
+                    <div className="card h-100 border p-3 rounded-3 shadow-sm" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <h6 className="fw-bold mb-0 text-success">📐 AB=CD Reciprocal</h6>
                         <span className="badge bg-success text-white">|CD| = 1.0 × |AB|</span>
@@ -1422,7 +1422,7 @@ export function HarmonicCustomStudio({
                       <p className="small text-secondary mb-2">
                         <strong>The foundation of harmonic price action.</strong> Leg CD equals Leg AB in point length and time duration, representing natural harmonic market equilibrium and symmetry.
                       </p>
-                      <div className="small bg-light p-2 rounded text-dark font-monospace" style={{ fontSize: "11px" }}>
+                      <div className="small p-2 rounded font-monospace" style={{ fontSize: "11px", backgroundColor: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}>
                         Leg CD = 1.000 × Leg AB | Time Symmetry: t(CD) ≈ t(AB)
                       </div>
                     </div>
@@ -1434,9 +1434,9 @@ export function HarmonicCustomStudio({
               {guideActiveTab === "playbook" && (
                 <div className="row g-3">
                   <div className="col-12 col-md-3">
-                    <div className="p-3 bg-white rounded-3 border h-100">
+                    <div className="p-3 rounded-3 border h-100" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <span className="badge bg-primary text-white mb-2">STEP 1</span>
-                      <h6 className="fw-bold text-dark">Setup & Quality Check</h6>
+                      <h6 className="fw-bold" style={{ color: "var(--text-primary)" }}>Setup & Quality Check</h6>
                       <p className="small text-secondary mb-0">
                         Ensure pattern quality score is <strong>≥ 75%</strong> and Fibonacci ratio compliance shows <code>PERFECT</code> or <code>ACCEPTABLE</code>.
                       </p>
@@ -1444,9 +1444,9 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-3">
-                    <div className="p-3 bg-white rounded-3 border h-100">
+                    <div className="p-3 rounded-3 border h-100" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <span className="badge bg-success text-white mb-2">STEP 2</span>
-                      <h6 className="fw-bold text-dark">Order Execution</h6>
+                      <h6 className="fw-bold" style={{ color: "var(--text-primary)" }}>Order Execution</h6>
                       <p className="small text-secondary mb-0">
                         Place a Limit Order inside the <strong>Suggested Best Buy Range</strong>. Place Stop Loss strictly below the Invalidation Level.
                       </p>
@@ -1454,9 +1454,9 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-3">
-                    <div className="p-3 bg-white rounded-3 border h-100">
+                    <div className="p-3 rounded-3 border h-100" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <span className="badge bg-info text-white mb-2">STEP 3</span>
-                      <h6 className="fw-bold text-dark">Target 1 & Breakeven</h6>
+                      <h6 className="fw-bold" style={{ color: "var(--text-primary)" }}>Target 1 & Breakeven</h6>
                       <p className="small text-secondary mb-0">
                         When price hits <strong>Target 1 (38.2% run)</strong>, book 50% profit and immediately trail Stop Loss to <strong>Breakeven (Entry Price)</strong>.
                       </p>
@@ -1464,9 +1464,9 @@ export function HarmonicCustomStudio({
                   </div>
 
                   <div className="col-12 col-md-3">
-                    <div className="p-3 bg-white rounded-3 border h-100">
+                    <div className="p-3 rounded-3 border h-100" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                       <span className="badge bg-dark text-white mb-2">STEP 4</span>
-                      <h6 className="fw-bold text-dark">Runners to T2 & T3</h6>
+                      <h6 className="fw-bold" style={{ color: "var(--text-primary)" }}>Runners to T2 & T3</h6>
                       <p className="small text-secondary mb-0">
                         Trail the remaining 50% position risk-free towards <strong>Target 2 (61.8%)</strong> and <strong>Target 3 (PRZ Full Run)</strong> for maximum gains!
                       </p>
@@ -1484,13 +1484,13 @@ export function HarmonicCustomStudio({
         {studioMode === "sandbox" && (
           <div>
             {/* Live Sync Status Bar & Quick Presets Bar */}
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 bg-light rounded-3 mb-4 border">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 rounded-3 mb-4 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
               <div className="d-flex align-items-center flex-wrap gap-2">
                 <span className="small fw-bold text-secondary">
                   ⚡ Quick Presets:
                 </span>
                 <button
-                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  className="btn btn-sm btn-outline-secondary fw-semibold"
                   onClick={() => {
                     handleLoadPreset("vedl_bat");
                     setTimeout(handleEvaluateSandbox, 50);
@@ -1499,7 +1499,7 @@ export function HarmonicCustomStudio({
                   🦇 VEDL (1D) Bat Setup
                 </button>
                 <button
-                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  className="btn btn-sm btn-outline-secondary fw-semibold"
                   onClick={() => {
                     handleLoadPreset("nifty_gartley");
                     setTimeout(handleEvaluateSandbox, 50);
@@ -1508,7 +1508,7 @@ export function HarmonicCustomStudio({
                   🦅 NIFTY (15m) Gartley
                 </button>
                 <button
-                  className="btn btn-sm btn-outline-dark fw-semibold"
+                  className="btn btn-sm btn-outline-secondary fw-semibold"
                   onClick={() => {
                     handleLoadPreset("butterfly_expansion");
                     setTimeout(handleEvaluateSandbox, 50);
@@ -1813,12 +1813,12 @@ export function HarmonicCustomStudio({
             {/* ========================================================================= */}
             {/* COMPREHENSIVE FIBONACCI LEG DISTANCES & POINTS MEASUREMENT TABLE         */}
             {/* ========================================================================= */}
-            <div className="card border rounded-4 bg-light p-3 mb-4 shadow-sm">
+            <div className="card border rounded-4 p-3 mb-4 shadow-sm" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="d-flex align-items-center gap-2">
                   <span className="fs-5">📐</span>
                   <div>
-                    <h6 className="fw-bold text-dark mb-0">
+                    <h6 className="fw-bold mb-0" style={{ color: "var(--text-primary)" }}>
                       Fibonacci Leg Distances & Standard Ratio Benchmarks ({sandboxSymbol} • {sandboxTf})
                     </h6>
                     <span className="text-secondary small">
@@ -1833,8 +1833,8 @@ export function HarmonicCustomStudio({
               </div>
 
               <div className="table-responsive">
-                <table className="table table-sm table-bordered bg-white small mb-0 align-middle">
-                  <thead className="table-light">
+                <table className="table table-sm table-bordered small mb-0 align-middle" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)" }}>
+                  <thead style={{ backgroundColor: "var(--table-header)", color: "var(--text-secondary)", borderColor: "var(--table-border)" }}>
                     <tr className="text-secondary">
                       <th>Harmonic Leg</th>
                       <th>Wave Trajectory</th>
@@ -2010,14 +2010,14 @@ export function HarmonicCustomStudio({
                     </tr>
 
                     {/* Overall XD Net Displacement */}
-                    <tr className="table-light">
-                      <td className="fw-bold text-dark">
+                    <tr className="border-top" style={{ backgroundColor: "var(--bg-surface-1)" }}>
+                      <td className="fw-bold" style={{ color: "var(--text-primary)" }}>
                         <span className="badge bg-dark text-white me-1">XD</span> Net Invalidation / PRZ
                       </td>
                       <td className="font-monospace">
                         ₹{legCalculations.xd.from.toFixed(2)} → ₹{legCalculations.xd.to.toFixed(2)}
                       </td>
-                      <td className="fw-bold text-dark font-monospace">
+                      <td className="fw-bold font-monospace" style={{ color: "var(--text-primary)" }}>
                         ₹{legCalculations.xd.points.toFixed(2)}
                       </td>
                       <td className="text-secondary font-monospace">
@@ -2068,14 +2068,14 @@ export function HarmonicCustomStudio({
               <div className="row g-4 mt-2">
                 {/* Left Card: Best Match & Trade Setup */}
                 <div className="col-12 col-lg-7">
-                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-light">
+                  <div className="card h-100 border-0 shadow-sm rounded-4" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                     <div className="card-body p-4">
                       <div className="d-flex justify-content-between align-items-start mb-3">
                         <div>
                           <span className="badge bg-primary text-white mb-1">
                             🎯 Best Pattern Classification
                           </span>
-                          <h3 className="fw-bold mb-0 text-dark">
+                          <h3 className="fw-bold mb-0" style={{ color: "var(--text-primary)" }}>
                             {sandboxResult.best_match.direction === "BULLISH"
                               ? "🟢 BULLISH"
                               : "🔴 BEARISH"}{" "}
@@ -2116,8 +2116,8 @@ export function HarmonicCustomStudio({
                         📐 Fibonacci Ratio Compliance
                       </h6>
                       <div className="table-responsive mb-3">
-                        <table className="table table-sm table-bordered bg-white small mb-0">
-                          <thead className="table-light">
+                        <table className="table table-sm table-bordered small mb-0" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)" }}>
+                          <thead style={{ backgroundColor: "var(--table-header)", color: "var(--text-secondary)", borderColor: "var(--table-border)" }}>
                             <tr>
                               <th>Leg Ratio</th>
                               <th>Actual Value</th>
@@ -2162,7 +2162,7 @@ export function HarmonicCustomStudio({
                             📐 Geometric Wave Dual-State Predictor
                           </span>
 
-                          <div className="btn-group btn-group-sm p-1 bg-light rounded-3 border">
+                          <div className="btn-group btn-group-sm p-1 rounded-3 border" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                             <button
                               type="button"
                               className={`btn btn-sm ${waveDisplayMode === "dual" ? "btn-primary shadow-sm fw-bold" : "btn-link text-secondary text-decoration-none"}`}
@@ -2193,13 +2193,13 @@ export function HarmonicCustomStudio({
                           {/* ========================================================================= */}
                           {(waveDisplayMode === "dual" || waveDisplayMode === "forming") && (
                             <div className={waveDisplayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
-                              <div className="p-3 bg-white rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between">
+                              <div className="p-3 rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                 <div>
                                   <div className="d-flex justify-content-between align-items-center mb-2">
                                     <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small fw-bold">
                                       🟡 Stage 1: Active Forming Phase
                                     </span>
-                                    <span className="badge bg-light text-dark border small font-monospace">
+                                    <span className="badge border small font-monospace" style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}>
                                       {waveSvgLayout?.progressPct}% to PRZ D
                                     </span>
                                   </div>
@@ -2420,27 +2420,27 @@ export function HarmonicCustomStudio({
 
                                   <div className="row g-2 text-center" style={{ fontSize: "11px" }}>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-warning-emphasis fw-bold d-block" style={{ fontSize: "10px" }}>Forming T1 (50%)</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingT1.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{waveSvgLayout?.formingT1.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           +{waveSvgLayout?.formingT1Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Forming T2 (PRZ D)</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingT2.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{waveSvgLayout?.formingT2.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           +{waveSvgLayout?.formingT2Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Forming SL (Pt C)</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{waveSvgLayout?.formingSL.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{waveSvgLayout?.formingSL.toFixed(1)}</span>
                                         <span className="text-danger small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           -{waveSvgLayout?.formingSlPct.toFixed(1)}%
                                         </span>
@@ -2462,13 +2462,13 @@ export function HarmonicCustomStudio({
                           {/* ========================================================================= */}
                           {(waveDisplayMode === "dual" || waveDisplayMode === "targets") && (
                             <div className={waveDisplayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
-                              <div className="p-3 bg-white rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between">
+                              <div className="p-3 rounded-3 border text-center shadow-sm h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                                 <div>
                                   <div className="d-flex justify-content-between align-items-center mb-2">
                                     <span className="badge bg-success-subtle text-success border border-success-subtle small fw-bold">
                                       🎯 Stage 2: Target Roadmap & Reversal
                                     </span>
-                                    <span className="badge bg-light text-dark border small font-monospace">
+                                    <span className="badge border small font-monospace" style={{ backgroundColor: "var(--bg-surface-2)", color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}>
                                       T1: ₹{targetSvgLayout?.t1Val.toFixed(1)} • T2: ₹{targetSvgLayout?.t2Val.toFixed(1)}
                                     </span>
                                   </div>
@@ -2719,27 +2719,27 @@ export function HarmonicCustomStudio({
                                   </div>
                                   <div className="row g-2 text-center" style={{ fontSize: "11px" }}>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-primary fw-bold d-block" style={{ fontSize: "10px" }}>Reversal T1 (38.2%)</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t1Val.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{targetSvgLayout?.t1Val.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           +{targetSvgLayout?.t1Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-info fw-bold d-block" style={{ fontSize: "10px" }}>Reversal T2 (61.8%)</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.t2Val.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{targetSvgLayout?.t2Val.toFixed(1)}</span>
                                         <span className="text-success small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           +{targetSvgLayout?.t2Pct.toFixed(1)}%
                                         </span>
                                       </div>
                                     </div>
                                     <div className="col-4">
-                                      <div className="p-1.5 bg-light rounded-2 border">
+                                      <div className="p-1.5 rounded-2 border" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                                         <span className="text-danger fw-bold d-block" style={{ fontSize: "10px" }}>Reversal SL</span>
-                                        <span className="font-monospace fw-bold text-dark">₹{targetSvgLayout?.slVal.toFixed(1)}</span>
+                                        <span className="font-monospace fw-bold" style={{ color: "var(--text-primary)" }}>₹{targetSvgLayout?.slVal.toFixed(1)}</span>
                                         <span className="text-danger small d-block font-monospace" style={{ fontSize: "9.5px" }}>
                                           -{targetSvgLayout?.slPct.toFixed(1)}%
                                         </span>
@@ -2774,9 +2774,9 @@ export function HarmonicCustomStudio({
 
                 {/* Right Card: Target Ladder & PRZ */}
                 <div className="col-12 col-lg-5">
-                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                  <div className="card h-100 border-0 shadow-sm rounded-4" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                     <div className="card-body p-4">
-                      <h5 className="fw-bold text-dark mb-3 d-flex justify-content-between align-items-center">
+                      <h5 className="fw-bold mb-3 d-flex justify-content-between align-items-center" style={{ color: "var(--text-primary)" }}>
                         <span>🎯 Trade Blueprint & Best Buy Price</span>
                         <span className={`badge ${sandboxResult.best_match.direction === "BULLISH" ? "bg-success text-white" : "bg-danger text-white"}`}>
                           {sandboxResult.best_match.entry_action || (sandboxResult.best_match.direction === "BULLISH" ? "BUY SETUP" : "SHORT SETUP")}
@@ -2790,14 +2790,14 @@ export function HarmonicCustomStudio({
                             <span className="small fw-bold text-uppercase text-secondary">
                               ⭐ Suggested Best {sandboxResult.best_match.direction === "BULLISH" ? "Buy" : "Sell"} Price
                             </span>
-                            <div className="fs-4 fw-bold text-dark font-monospace">
+                            <div className="fs-4 fw-bold font-monospace" style={{ color: "var(--text-primary)" }}>
                               ₹{(sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid).toFixed(2)}
                             </div>
                           </div>
 
                           <div className="text-end">
                             <span className="small text-secondary fw-semibold d-block">Optimal Entry Range</span>
-                            <span className="badge bg-white text-dark border font-monospace px-2 py-1">
+                            <span className="badge border font-monospace px-2 py-1" style={{ backgroundColor: "var(--bg-surface-1)", color: "var(--text-primary)", borderColor: "var(--border-subtle)" }}>
                               ₹{(sandboxResult.best_match.entry_zone_low || (sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid) * 0.99).toFixed(2)} – ₹{(sandboxResult.best_match.entry_zone_high || (sandboxResult.best_match.best_entry_price || sandboxResult.best_match.predicted_d_mid) * 1.015).toFixed(2)}
                             </span>
                           </div>
@@ -2822,9 +2822,9 @@ export function HarmonicCustomStudio({
                         const rDistPct = cmpPrice > 0 ? (rDistPts / cmpPrice) * 100 : 0;
 
                         return (
-                          <div className="p-2.5 px-3 rounded-3 bg-light border mb-3">
+                          <div className="p-2.5 px-3 rounded-3 border mb-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="small fw-bold text-dark text-uppercase d-flex align-items-center gap-1">
+                              <span className="small fw-bold text-uppercase d-flex align-items-center gap-1" style={{ color: "var(--text-primary)" }}>
                                 <span>🛡️</span> Immediate Support & Resistance
                               </span>
                               <span className="badge bg-secondary-subtle text-secondary font-monospace" style={{ fontSize: "10px" }}>
@@ -2834,11 +2834,11 @@ export function HarmonicCustomStudio({
 
                             <div className="row g-2 text-center">
                               <div className="col-6">
-                                <div className="p-2 bg-white rounded-2 border border-success-subtle shadow-sm">
+                                <div className="p-2 rounded-2 border border-success-subtle shadow-sm" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                                   <div className="small fw-bold text-success text-uppercase" style={{ fontSize: "10.5px" }}>
                                     Immediate Support (S₁)
                                   </div>
-                                  <div className="fs-6 fw-bold text-dark font-monospace mt-0.5">
+                                  <div className="fs-6 fw-bold font-monospace mt-0.5" style={{ color: "var(--text-primary)" }}>
                                     ₹{immSupp.toFixed(2)}
                                   </div>
                                   <span className="text-secondary small font-monospace d-block" style={{ fontSize: "10px" }}>
@@ -2848,11 +2848,11 @@ export function HarmonicCustomStudio({
                               </div>
 
                               <div className="col-6">
-                                <div className="p-2 bg-white rounded-2 border border-danger-subtle shadow-sm">
+                                <div className="p-2 rounded-2 border border-danger-subtle shadow-sm" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                                   <div className="small fw-bold text-danger text-uppercase" style={{ fontSize: "10.5px" }}>
                                     Immediate Resistance (R₁)
                                   </div>
-                                  <div className="fs-6 fw-bold text-dark font-monospace mt-0.5">
+                                  <div className="fs-6 fw-bold font-monospace mt-0.5" style={{ color: "var(--text-primary)" }}>
                                     ₹{immRes.toFixed(2)}
                                   </div>
                                   <span className="text-secondary small font-monospace d-block" style={{ fontSize: "10px" }}>
@@ -2974,8 +2974,13 @@ export function HarmonicCustomStudio({
                                     className={`badge ${
                                       m.is_valid
                                         ? "bg-success-subtle text-success"
-                                        : "bg-light text-secondary"
+                                        : "border text-secondary"
                                     }`}
+                                    style={
+                                      !m.is_valid
+                                        ? { backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }
+                                        : undefined
+                                    }
                                   >
                                     {m.status}
                                   </span>
@@ -3152,7 +3157,7 @@ export function HarmonicCustomStudio({
               <div className="row g-4">
                 {/* Header Summary */}
                 <div className="col-12">
-                  <div className="p-3 bg-light rounded-4 border d-flex flex-wrap justify-content-between align-items-center gap-3">
+                  <div className="p-3 rounded-4 border d-flex flex-wrap justify-content-between align-items-center gap-3" style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}>
                     <div>
                       <h4 className="fw-bold mb-0">
                         {scannerData.symbol_label}{" "}
@@ -3169,7 +3174,7 @@ export function HarmonicCustomStudio({
                     <div className="d-flex align-items-center gap-3">
                       <div className="text-end">
                         <div className="small text-secondary">CMP</div>
-                        <div className="fs-5 fw-bold text-dark font-monospace">
+                        <div className="fs-5 fw-bold font-monospace" style={{ color: "var(--text-primary)" }}>
                           ₹{scannerData.current_price.toFixed(2)}
                         </div>
                       </div>
@@ -3183,9 +3188,9 @@ export function HarmonicCustomStudio({
 
                 {/* Left: Detected Patterns / Predictions */}
                 <div className="col-12 col-lg-6">
-                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                  <div className="card h-100 border-0 shadow-sm rounded-4" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                     <div className="card-body p-3 p-md-4">
-                      <h5 className="fw-bold text-dark mb-3">
+                      <h5 className="fw-bold mb-3" style={{ color: "var(--text-primary)" }}>
                         🔮 Emerging & Completed Setups
                       </h5>
 
@@ -3214,11 +3219,11 @@ export function HarmonicCustomStudio({
                               <span className="badge bg-info text-white me-2">
                                 🔮 FORMING POINT D
                               </span>
-                              <span className="fw-bold text-dark">
+                              <span className="fw-bold" style={{ color: "var(--text-primary)" }}>
                                 {p.direction} {p.pattern_name}
                               </span>
                             </div>
-                            <span className="badge bg-white text-dark border">
+                            <span className="badge border" style={{ backgroundColor: "var(--bg-surface-1)", color: "var(--text-primary)", borderColor: "var(--border-subtle)" }}>
                               Quality: {(p.quality_score * 100).toFixed(0)}%
                             </span>
                           </div>
@@ -3226,7 +3231,7 @@ export function HarmonicCustomStudio({
                           <div className="row g-2 small text-secondary mb-2 font-monospace">
                             <div className="col-6">
                               Point D PRZ:{" "}
-                              <strong className="text-dark">
+                              <strong style={{ color: "var(--text-primary)" }}>
                                 ₹{p.predicted_d_mid.toFixed(2)}
                               </strong>
                             </div>
@@ -3244,7 +3249,7 @@ export function HarmonicCustomStudio({
                             </div>
                             <div className="col-6">
                               AB/XA:{" "}
-                              <strong className="text-dark">
+                              <strong style={{ color: "var(--text-primary)" }}>
                                 {p.ratio_ab_xa.toFixed(3)}
                               </strong>
                             </div>
@@ -3266,14 +3271,15 @@ export function HarmonicCustomStudio({
                       {scannerData.patterns.map((pat, idx) => (
                         <div
                           key={idx}
-                          className="p-3 rounded-3 border bg-light mb-3"
+                          className="p-3 rounded-3 border mb-3"
+                          style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
                         >
                           <div className="d-flex justify-content-between align-items-start mb-2">
                             <div>
                               <span className="badge bg-success text-white me-2">
                                 COMPLETED
                               </span>
-                              <span className="fw-bold text-dark">
+                              <span className="fw-bold" style={{ color: "var(--text-primary)" }}>
                                 {pat.direction} {pat.pattern_name}
                               </span>
                             </div>
@@ -3298,7 +3304,7 @@ export function HarmonicCustomStudio({
                           </div>
 
                           <button
-                            className="btn btn-sm btn-outline-dark w-100 fw-semibold"
+                            className="btn btn-sm btn-outline-secondary w-100 fw-semibold"
                             onClick={() =>
                               onOpenPatternModal && onOpenPatternModal(pat)
                             }
@@ -3314,14 +3320,14 @@ export function HarmonicCustomStudio({
 
                 {/* Right: Candlestick History Chart Visualizer */}
                 <div className="col-12 col-lg-6">
-                  <div className="card h-100 border-0 shadow-sm rounded-4 bg-white">
+                  <div className="card h-100 border-0 shadow-sm rounded-4" style={{ backgroundColor: "var(--bg-surface-2)" }}>
                     <div className="card-body p-3 p-md-4">
-                      <h5 className="fw-bold text-dark mb-3">
+                      <h5 className="fw-bold mb-3" style={{ color: "var(--text-primary)" }}>
                         📊 Candlestick History & Pivot Structure
                       </h5>
 
                       {/* Candlestick Canvas / Summary */}
-                      <div className="p-3 bg-light rounded-3 border text-center mb-3">
+                      <div className="p-3 rounded-3 border text-center mb-3" style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}>
                         <div className="small fw-semibold text-secondary mb-2">
                           Recent 150 Bars History
                         </div>

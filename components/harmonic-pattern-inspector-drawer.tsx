@@ -32,9 +32,16 @@ export function HarmonicPatternInspectorDrawer({
       style={{ backgroundColor: "rgba(0, 0, 0, 0.65)", zIndex: 1060 }}
     >
       <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
-        <div className="modal-content shadow-lg border-0 bg-surface">
+        <div
+          className="modal-content shadow-lg border ts-card"
+          style={{
+            backgroundColor: "var(--bg-surface-1)",
+            borderColor: "var(--border-subtle)",
+            color: "var(--text-primary)",
+          }}
+        >
           {/* Header */}
-          <div className="modal-header border-bottom pb-3">
+          <div className="modal-header border-bottom pb-3" style={{ borderColor: "var(--border-subtle)" }}>
             <div className="d-flex align-items-center gap-3">
               <div
                 className={`rounded-circle p-2 d-flex align-items-center justify-content-center ${
@@ -73,7 +80,7 @@ export function HarmonicPatternInspectorDrawer({
             </div>
             <button
               type="button"
-              className="btn-close"
+              className="btn-close btn-close-white"
               aria-label="Close"
               onClick={onClose}
             />
@@ -84,7 +91,10 @@ export function HarmonicPatternInspectorDrawer({
             {/* Quick Metrics Bar */}
             <div className="row g-2 mb-4">
               <div className="col-6 col-md-3">
-                <div className="p-3 rounded border bg-body-tertiary">
+                <div
+                  className="p-3 rounded border"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <span className="text-secondary small d-block">Action</span>
                   <span
                     className={`fw-bold fs-6 ${
@@ -96,7 +106,10 @@ export function HarmonicPatternInspectorDrawer({
                 </div>
               </div>
               <div className="col-6 col-md-3">
-                <div className="p-3 rounded border bg-body-tertiary">
+                <div
+                  className="p-3 rounded border"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <span className="text-secondary small d-block">PRZ Zone</span>
                   <span className="fw-semibold small font-monospace">
                     ₹{pattern.entryZone.min.toFixed(2)} - ₹{pattern.entryZone.max.toFixed(2)}
@@ -104,7 +117,10 @@ export function HarmonicPatternInspectorDrawer({
                 </div>
               </div>
               <div className="col-6 col-md-3">
-                <div className="p-3 rounded border bg-body-tertiary">
+                <div
+                  className="p-3 rounded border"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <span className="text-secondary small d-block">Stop Loss</span>
                   <span className="fw-bold text-danger small font-monospace">
                     ₹{pattern.stopLoss.price.toFixed(2)} ({pattern.stopLoss.percent}%)
@@ -112,7 +128,10 @@ export function HarmonicPatternInspectorDrawer({
                 </div>
               </div>
               <div className="col-6 col-md-3">
-                <div className="p-3 rounded border bg-body-tertiary">
+                <div
+                  className="p-3 rounded border"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <span className="text-secondary small d-block">Status</span>
                   <span
                     className={`badge ${
@@ -136,8 +155,21 @@ export function HarmonicPatternInspectorDrawer({
                 Fibonacci Leg Measurements
               </h6>
               <div className="table-responsive">
-                <table className="table table-sm table-bordered align-middle mb-0 font-monospace small">
-                  <thead className="table-light">
+                <table
+                  className="table table-sm table-bordered align-middle mb-0 font-monospace small"
+                  style={{
+                    backgroundColor: "var(--table-bg)",
+                    borderColor: "var(--table-border)",
+                    color: "var(--table-text)",
+                  }}
+                >
+                  <thead
+                    style={{
+                      backgroundColor: "var(--table-header)",
+                      color: "var(--text-secondary)",
+                      borderColor: "var(--table-border)",
+                    }}
+                  >
                     <tr>
                       <th>Leg Ratio</th>
                       <th>Actual</th>
@@ -180,7 +212,10 @@ export function HarmonicPatternInspectorDrawer({
             {/* Take Profit Targets & Risk Management */}
             <div className="row g-3 mb-4">
               <div className="col-md-6">
-                <div className="p-3 rounded border bg-body-tertiary h-100">
+                <div
+                  className="p-3 rounded border h-100"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <h6 className="fw-bold mb-2 text-success d-flex align-items-center gap-2">
                     <i className="bi bi-bullseye" /> Profit Taking Rules
                   </h6>
@@ -188,7 +223,8 @@ export function HarmonicPatternInspectorDrawer({
                     {pattern.targets.map((t) => (
                       <div
                         key={t.id}
-                        className="p-2 rounded bg-surface border d-flex justify-content-between align-items-center"
+                        className="p-2 rounded border d-flex justify-content-between align-items-center"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
                       >
                         <div>
                           <div className="fw-bold">{t.name}</div>
@@ -211,16 +247,25 @@ export function HarmonicPatternInspectorDrawer({
               </div>
 
               <div className="col-md-6">
-                <div className="p-3 rounded border bg-body-tertiary h-100">
+                <div
+                  className="p-3 rounded border h-100"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <h6 className="fw-bold mb-2 text-danger d-flex align-items-center gap-2">
                     <i className="bi bi-shield-slash" /> Stop Loss & Trailing Plan
                   </h6>
                   <div className="d-flex flex-column gap-2 small">
-                    <div className="p-2 rounded bg-surface border">
+                    <div
+                      className="p-2 rounded border"
+                      style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                    >
                       <span className="fw-semibold text-danger d-block">Stop Loss Protection</span>
                       <span className="text-secondary">{pattern.stopLoss.reason}</span>
                     </div>
-                    <div className="p-2 rounded bg-surface border">
+                    <div
+                      className="p-2 rounded border"
+                      style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                    >
                       <span className="fw-semibold text-primary d-block">Trailing SL Rule</span>
                       <span className="text-secondary">{pattern.trailingRule}</span>
                     </div>
@@ -239,7 +284,7 @@ export function HarmonicPatternInspectorDrawer({
           </div>
 
           {/* Footer */}
-          <div className="modal-footer border-top py-2">
+          <div className="modal-footer border-top py-2" style={{ borderColor: "var(--border-subtle)" }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"

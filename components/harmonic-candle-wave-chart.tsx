@@ -457,9 +457,19 @@ export function HarmonicCandleWaveChart({
       : displayCandles[displayCandles.length - 1];
 
   return (
-    <div className="card border-0 shadow-sm rounded-4 bg-white overflow-hidden my-3">
+    <div
+      className="card border shadow-sm rounded-4 overflow-hidden my-3 ts-card"
+      style={{
+        backgroundColor: "var(--bg-surface-1)",
+        borderColor: "var(--border-subtle)",
+        color: "var(--text-primary)",
+      }}
+    >
       {/* Top Main Toolbar */}
-      <div className="card-header bg-dark text-white p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div
+        className="card-header text-white p-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+        style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+      >
         <div className="d-flex align-items-center gap-2">
           <span className="fs-5">🕯️</span>
           <div>
@@ -542,21 +552,34 @@ export function HarmonicCandleWaveChart({
         </div>
       </div>
 
-      <div className="p-3 bg-light bg-opacity-50">
+      <div className="p-3" style={{ backgroundColor: "var(--bg-canvas)" }}>
         <div className="row g-3">
           {/* ========================================================================= */}
           {/* STAGE 1 CANDLESTICK OVERLAY: ACTIVE FORMING WAVE (C -> D PRZ EXPANSION)   */}
           {/* ========================================================================= */}
           {(displayMode === "dual" || displayMode === "forming") && (
             <div className={displayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
-              <div className="card h-100 border rounded-4 bg-white shadow-sm overflow-hidden">
+              <div
+                className="card h-100 border rounded-4 shadow-sm overflow-hidden"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 {/* Sub-Card Header */}
-                <div className="card-header bg-white py-2 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div
+                  className="card-header py-2 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                >
                   <div className="d-flex align-items-center gap-2">
                     <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold">
                       🟡 Stage 1: Active Forming Phase (C → D)
                     </span>
-                    <span className="badge bg-light text-dark border font-monospace small">
+                    <span
+                      className="badge border font-monospace small"
+                      style={{
+                        backgroundColor: "var(--bg-surface-1)",
+                        color: "var(--text-secondary)",
+                        borderColor: "var(--border-subtle)",
+                      }}
+                    >
                       {formingData.progressPct}% to PRZ D
                     </span>
                   </div>
@@ -908,14 +931,17 @@ export function HarmonicCandleWaveChart({
                 </div>
 
                 {/* Sub-Card Footer: Forming Stage Metrics */}
-                <div className="card-footer bg-white border-top p-2.5">
+                <div
+                  className="card-footer border-top p-2.5"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <div className="d-flex justify-content-between align-items-center small mb-1">
                     <span className="text-secondary" style={{ fontSize: "10.5px" }}>
                       Trajectory to PRZ D:
                     </span>
                     <span
-                      className="fw-bold font-monospace text-dark"
-                      style={{ fontSize: "10.5px" }}
+                      className="fw-bold font-monospace"
+                      style={{ fontSize: "10.5px", color: "var(--text-primary)" }}
                     >
                       {formingData.ptsToD.toFixed(1)} pts ({formingData.progressPct}% done)
                     </span>
@@ -935,11 +961,17 @@ export function HarmonicCandleWaveChart({
 
                   <div className="row g-1 text-center" style={{ fontSize: "10px" }}>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-warning-emphasis fw-bold d-block">
                           T1 (50%)
                         </span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{formingData.formingT1.toFixed(1)}
                         </span>
                         <span className="text-success small d-block font-monospace">
@@ -948,11 +980,17 @@ export function HarmonicCandleWaveChart({
                       </div>
                     </div>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-primary fw-bold d-block">
                           T2 (PRZ D)
                         </span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{formingData.formingT2.toFixed(1)}
                         </span>
                         <span className="text-success small d-block font-monospace">
@@ -961,9 +999,15 @@ export function HarmonicCandleWaveChart({
                       </div>
                     </div>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-danger fw-bold d-block">SL (C)</span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{formingData.formingSL.toFixed(1)}
                         </span>
                         <span className="text-danger small d-block font-monospace">
@@ -982,14 +1026,27 @@ export function HarmonicCandleWaveChart({
           {/* ========================================================================= */}
           {(displayMode === "dual" || displayMode === "reversal") && (
             <div className={displayMode === "dual" ? "col-12 col-xl-6" : "col-12"}>
-              <div className="card h-100 border rounded-4 bg-white shadow-sm overflow-hidden">
+              <div
+                className="card h-100 border rounded-4 shadow-sm overflow-hidden"
+                style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+              >
                 {/* Sub-Card Header */}
-                <div className="card-header bg-white py-2 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div
+                  className="card-header py-2 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}
+                >
                   <div className="d-flex align-items-center gap-2">
                     <span className="badge bg-success-subtle text-success border border-success-subtle fw-bold">
                       🎯 Stage 2: Target Roadmap & Reversal
                     </span>
-                    <span className="badge bg-light text-dark border font-monospace small">
+                    <span
+                      className="badge border font-monospace small"
+                      style={{
+                        backgroundColor: "var(--bg-surface-1)",
+                        color: "var(--text-secondary)",
+                        borderColor: "var(--border-subtle)",
+                      }}
+                    >
                       R:R 1 : {reversalData.rrRatio}
                     </span>
                   </div>
@@ -1442,7 +1499,10 @@ export function HarmonicCandleWaveChart({
                 </div>
 
                 {/* Sub-Card Footer: Reversal Targets Metrics */}
-                <div className="card-footer bg-white border-top p-2.5">
+                <div
+                  className="card-footer border-top p-2.5"
+                  style={{ backgroundColor: "var(--bg-surface-2)", borderColor: "var(--border-subtle)" }}
+                >
                   <div className="d-flex justify-content-between align-items-center small mb-1">
                     <span className="text-secondary" style={{ fontSize: "10.5px" }}>
                       Reversal Risk / Reward:
@@ -1457,11 +1517,17 @@ export function HarmonicCandleWaveChart({
 
                   <div className="row g-1 text-center" style={{ fontSize: "10px" }}>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-primary fw-bold d-block">
                           T1 (38.2%)
                         </span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{reversalData.t1Val.toFixed(1)}
                         </span>
                         <span className="text-success small d-block font-monospace">
@@ -1470,11 +1536,17 @@ export function HarmonicCandleWaveChart({
                       </div>
                     </div>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-info fw-bold d-block">
                           T2 (61.8%)
                         </span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{reversalData.t2Val.toFixed(1)}
                         </span>
                         <span className="text-success small d-block font-monospace">
@@ -1483,9 +1555,15 @@ export function HarmonicCandleWaveChart({
                       </div>
                     </div>
                     <div className="col-4">
-                      <div className="p-1 bg-light rounded border">
+                      <div
+                        className="p-1 rounded border"
+                        style={{ backgroundColor: "var(--bg-surface-1)", borderColor: "var(--border-subtle)" }}
+                      >
                         <span className="text-danger fw-bold d-block">Reversal SL</span>
-                        <span className="font-monospace fw-bold text-dark">
+                        <span
+                          className="font-monospace fw-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           ₹{reversalData.slVal.toFixed(1)}
                         </span>
                         <span className="text-danger small d-block font-monospace">
@@ -1502,7 +1580,14 @@ export function HarmonicCandleWaveChart({
       </div>
 
       {/* Global Bottom Legend Bar */}
-      <div className="card-footer bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center small text-secondary">
+      <div
+        className="card-footer py-2 px-3 d-flex flex-wrap justify-content-between align-items-center small"
+        style={{
+          backgroundColor: "var(--bg-surface-2)",
+          borderColor: "var(--border-subtle)",
+          color: "var(--text-secondary)",
+        }}
+      >
         <div
           className="d-flex align-items-center gap-3 flex-wrap"
           style={{ fontSize: "11px" }}
@@ -1521,7 +1606,10 @@ export function HarmonicCandleWaveChart({
             />
             Bearish
           </span>
-          <span className="d-flex align-items-center gap-1 fw-bold text-dark">
+          <span
+            className="d-flex align-items-center gap-1 fw-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
             <span
               className="badge bg-warning p-1 rounded-circle"
               style={{ width: "7px", height: "7px" }}
