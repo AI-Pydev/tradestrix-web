@@ -173,31 +173,31 @@ export function TrendlineIntelligenceShell() {
       {/* Main View Mode Selector Tabs */}
       <div className="btn-group shadow-sm mb-3 flex-wrap">
         <button
-          className={`btn btn-sm ${viewMode === "universe" ? "btn-primary fw-bold" : "btn-outline-secondary bg-surface text-slate-300"}`}
+          className={`btn btn-sm ${viewMode === "universe" ? "btn-primary fw-bold" : "btn-outline-secondary border-0"}`}
           onClick={() => setViewMode("universe")}
         >
           📂 Qualified Universe ({results.length})
         </button>
         <button
-          className={`btn btn-sm ${viewMode === "custom_studio" ? "btn-primary fw-bold" : "btn-outline-secondary bg-surface text-slate-300"}`}
+          className={`btn btn-sm ${viewMode === "custom_studio" ? "btn-primary fw-bold" : "btn-outline-secondary border-0"}`}
           onClick={() => setViewMode("custom_studio")}
         >
           🎨 Visual Trendline Studio & Lab
         </button>
         <button
-          className={`btn btn-sm ${viewMode === "mtf_confluence" ? "btn-primary fw-bold" : "btn-outline-secondary bg-surface text-slate-300"}`}
+          className={`btn btn-sm ${viewMode === "mtf_confluence" ? "btn-primary fw-bold" : "btn-outline-secondary border-0"}`}
           onClick={() => setViewMode("mtf_confluence")}
         >
           🧭 MTF Alignment Matrix
         </button>
         <button
-          className={`btn btn-sm ${viewMode === "headroom_governor" ? "btn-primary fw-bold" : "btn-outline-secondary bg-surface text-slate-300"}`}
+          className={`btn btn-sm ${viewMode === "headroom_governor" ? "btn-primary fw-bold" : "btn-outline-secondary border-0"}`}
           onClick={() => setViewMode("headroom_governor")}
         >
           🛡️ Headroom Governor Lab
         </button>
         <button
-          className={`btn btn-sm ${viewMode === "guide" ? "btn-primary fw-bold" : "btn-outline-secondary bg-surface text-slate-300"}`}
+          className={`btn btn-sm ${viewMode === "guide" ? "btn-primary fw-bold" : "btn-outline-secondary border-0"}`}
           onClick={() => setViewMode("guide")}
         >
           📖 Institutional Guide & Rulebook
@@ -211,7 +211,7 @@ export function TrendlineIntelligenceShell() {
       {viewMode === "universe" && (
         <>
           {/* Filter Toolbar */}
-          <div className="card shadow-sm border-0 mb-3 bg-surface">
+          <div className="card shadow-sm border mb-3 ts-card">
             <div className="card-body py-2.5">
               <div className="row g-3 align-items-center">
                 <div className="col-12 col-md-3">
@@ -316,14 +316,14 @@ export function TrendlineIntelligenceShell() {
           <div className="row g-3 mb-4">
             <div className="col">
               <div
-                className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "ALL" ? "border-primary border-2" : ""}`}
+                className={`card shadow-sm border p-3 ts-kpi-card cursor-pointer ${lifecycleFilter === "ALL" ? "border-primary border-2" : ""}`}
                 onClick={() => setLifecycleFilter("ALL")}
                 style={{ cursor: "pointer" }}
                 title="Click to show all scanned instruments"
               >
                 <div className="d-flex justify-content-between align-items-center">
                   <div className="text-secondary small">⚡ All Scanned</div>
-                  <span className="badge bg-light text-dark border small">All</span>
+                  <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle small">All</span>
                 </div>
                 <div className="h3 fw-bold mb-0 text-white">{summary.total}</div>
               </div>
@@ -331,7 +331,7 @@ export function TrendlineIntelligenceShell() {
 
             <div className="col">
               <div
-                className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "A_PLUS_A" ? "border-success border-2" : ""}`}
+                className={`card shadow-sm border p-3 ts-kpi-card cursor-pointer ${lifecycleFilter === "A_PLUS_A" ? "border-success border-2" : ""}`}
                 onClick={() => setLifecycleFilter(lifecycleFilter === "A_PLUS_A" ? "ALL" : "A_PLUS_A")}
                 style={{ cursor: "pointer" }}
                 title="Click to filter Grade A+/A quality setups"
@@ -346,7 +346,7 @@ export function TrendlineIntelligenceShell() {
 
             <div className="col">
               <div
-                className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "VETOED" ? "border-danger border-2" : ""}`}
+                className={`card shadow-sm border p-3 ts-kpi-card cursor-pointer ${lifecycleFilter === "VETOED" ? "border-danger border-2" : ""}`}
                 onClick={() => setLifecycleFilter(lifecycleFilter === "VETOED" ? "ALL" : "VETOED")}
                 style={{ cursor: "pointer" }}
                 title="Click to filter vetoed obstacle traps"
@@ -361,7 +361,7 @@ export function TrendlineIntelligenceShell() {
 
             <div className="col">
               <div
-                className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "FORMATIONS" ? "border-warning border-2" : ""}`}
+                className={`card shadow-sm border p-3 ts-kpi-card cursor-pointer ${lifecycleFilter === "FORMATIONS" ? "border-warning border-2" : ""}`}
                 onClick={() => setLifecycleFilter(lifecycleFilter === "FORMATIONS" ? "ALL" : "FORMATIONS")}
                 style={{ cursor: "pointer" }}
                 title="Click to filter active Channels & Triangles"
@@ -376,7 +376,7 @@ export function TrendlineIntelligenceShell() {
 
             <div className="col">
               <div
-                className={`card shadow-sm border-0 p-3 bg-surface cursor-pointer ${lifecycleFilter === "EVENTS" ? "border-info border-2" : ""}`}
+                className={`card shadow-sm border p-3 ts-kpi-card cursor-pointer ${lifecycleFilter === "EVENTS" ? "border-info border-2" : ""}`}
                 onClick={() => setLifecycleFilter(lifecycleFilter === "EVENTS" ? "ALL" : "EVENTS")}
                 style={{ cursor: "pointer" }}
                 title="Click to filter Rejections and Breakouts"
@@ -391,10 +391,10 @@ export function TrendlineIntelligenceShell() {
           </div>
 
           {/* Universe Results Table */}
-          <div className="card shadow-sm border-0 overflow-hidden bg-surface">
+          <div className="card shadow-sm border overflow-hidden ts-card">
             <div className="table-responsive">
-              <table className="table table-hover table-sm mb-0 text-sm align-middle">
-                <thead className="table-dark text-xs uppercase">
+              <table className="table table-hover table-sm mb-0 text-sm align-middle" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)", color: "var(--table-text)" }}>
+                <thead className="text-xs uppercase" style={{ backgroundColor: "var(--table-header)", color: "var(--text-secondary)", borderColor: "var(--table-border)" }}>
                   <tr>
                     <th className="py-2.5 px-3">Symbol</th>
                     <th className="py-2.5 px-2 text-end">Price</th>
@@ -519,15 +519,15 @@ export function TrendlineIntelligenceShell() {
 
       {/* View Mode 3: Multi-Timeframe Confluence Matrix */}
       {viewMode === "mtf_confluence" && (
-        <div className="card shadow-sm border-0 bg-surface p-4 space-y-3">
+        <div className="card shadow-sm border ts-card p-4 space-y-3">
           <h3 className="h6 text-white font-bold mb-1">🧭 Multi-Timeframe Structural Alignment Matrix</h3>
           <p className="text-secondary small mb-3">
             Validates execution timeframe trades (1m/3m) against higher timeframe channels and structural boundaries (15m/1h) to eliminate obstacle traps.
           </p>
 
           <div className="table-responsive">
-            <table className="table table-hover table-sm mb-0 text-xs align-middle">
-              <thead className="table-dark">
+            <table className="table table-hover table-sm mb-0 text-xs align-middle" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)", color: "var(--table-text)" }}>
+              <thead style={{ backgroundColor: "var(--table-header)", color: "var(--text-secondary)", borderColor: "var(--table-border)" }}>
                 <tr>
                   <th className="py-2 px-3">Symbol</th>
                   <th className="py-2 px-2 text-center">1m Trigger</th>
@@ -577,7 +577,7 @@ export function TrendlineIntelligenceShell() {
 
       {/* View Mode 4: Headroom Governor Lab */}
       {viewMode === "headroom_governor" && (
-        <div className="card shadow-sm border-0 bg-surface p-4 space-y-3">
+        <div className="card shadow-sm border ts-card p-4 space-y-3">
           <h3 className="h6 text-white font-bold mb-1">🛡️ Headroom Governor & Strategy Signal Filter Lab</h3>
           <p className="text-secondary small mb-3">
             Real-time audit log showing how TradeStrix strategies are gated by distance-to-obstacle checks before orders reach brokers.
@@ -623,7 +623,7 @@ export function TrendlineIntelligenceShell() {
       {viewMode === "guide" && (
         <div className="space-y-4">
           {/* Hero Banner */}
-          <div className="card shadow-sm border-0 bg-surface p-4">
+          <div className="card shadow-sm border ts-card p-4">
             <div className="d-flex align-items-center gap-3">
               <div className="p-3 rounded bg-primary-subtle text-primary fs-3">📖</div>
               <div>
@@ -639,7 +639,7 @@ export function TrendlineIntelligenceShell() {
           </div>
 
           {/* Section 1: The 3 Core Practical Questions */}
-          <div className="card shadow-sm border-0 bg-surface p-4">
+          <div className="card shadow-sm border ts-card p-4">
             <h3 className="h6 text-white font-bold mb-3 d-flex align-items-center gap-2">
               <span>🎯</span> Three Questions Every Trendline Engine Must Answer
             </h3>
@@ -672,7 +672,7 @@ export function TrendlineIntelligenceShell() {
           </div>
 
           {/* Section 2: Pattern Taxonomy Cards */}
-          <div className="card shadow-sm border-0 bg-surface p-4">
+          <div className="card shadow-sm border ts-card p-4">
             <h3 className="h6 text-white font-bold mb-3 d-flex align-items-center gap-2">
               <span>📐</span> Pattern Taxonomy & Formation Structures
             </h3>
@@ -746,13 +746,13 @@ export function TrendlineIntelligenceShell() {
           </div>
 
           {/* Section 3: Breakout & Role Reversal State Machine */}
-          <div className="card shadow-sm border-0 bg-surface p-4">
+          <div className="card shadow-sm border ts-card p-4">
             <h3 className="h6 text-white font-bold mb-3 d-flex align-items-center gap-2">
               <span>🔄</span> Breakout, Fakeout & Role Reversal State Machine
             </h3>
             <div className="table-responsive">
-              <table className="table table-hover table-sm mb-0 text-xs align-middle">
-                <thead className="table-dark">
+              <table className="table table-hover table-sm mb-0 text-xs align-middle" style={{ backgroundColor: "var(--table-bg)", borderColor: "var(--table-border)", color: "var(--table-text)" }}>
+                <thead style={{ backgroundColor: "var(--table-header)", color: "var(--text-secondary)", borderColor: "var(--table-border)" }}>
                   <tr>
                     <th>State</th>
                     <th>Market Event</th>
@@ -796,7 +796,7 @@ export function TrendlineIntelligenceShell() {
           </div>
 
           {/* Section 4: 10-Point Validation Checklist */}
-          <div className="card shadow-sm border-0 bg-surface p-4">
+          <div className="card shadow-sm border ts-card p-4">
             <h3 className="h6 text-white font-bold mb-3 d-flex align-items-center gap-2">
               <span>✅</span> 10-Point Pre-Trade Structural Checklist
             </h3>
