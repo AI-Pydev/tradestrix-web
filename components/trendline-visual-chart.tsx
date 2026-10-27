@@ -239,7 +239,11 @@ export function TrendlineVisualChart({
       // Avoid vertical crowding: skip if last label is within 12px
       const lastLabel = labels[labels.length - 1];
       if (lastLabel && Math.abs(lastLabel.y - rawY) < 12) {
-        // Skip secondary; nearest is already represented
+        continue;
+      }
+      // Avoid collision with current-price amber box (18px tall, centred on priceToY(currentPrice))
+      const cpY = priceToY(currentPrice);
+      if (Math.abs(rawY - cpY) < 11) {
         continue;
       }
 
@@ -344,7 +348,7 @@ export function TrendlineVisualChart({
           viewBox={`0 0 ${width} ${height}`}
           className="w-100 h-auto user-select-none"
           style={{ display: "block" }}
-          onMouseLeave={() => { setHoveredIdx(null); }}
+          onMouseLeave={() => { setHoveredIdx(null); setHoveredLineId(null); }}
         >
           <defs>
             <clipPath id="chartClip">
@@ -526,12 +530,16 @@ export function TrendlineVisualChart({
             )}
           </g>
 
-          {/* Rejection pins — structure + debug only when crowded; always show in focus if significant */}
+          {/* Rejection pins — focus: capped to most-recent 5 (score-filtered when available) */}
           {rejections.map((r, rIdx) => {
             const matchCandle = viewportCandles.findIndex(c => c.time === r.time);
             if (matchCandle === -1) return null;
-            // Focus: only show high-score rejections (score > 0.6 if available)
-            if (displayMode === "focus" && r.score != null && r.score < 0.6) return null;
+            if (displayMode === "focus") {
+              // Score available: filter low-quality
+              if (r.score != null && r.score < 0.6) return null;
+              // Score unavailable: cap to most-recent 5 by array position (backend returns chronological)
+              if (r.score == null && rIdx < rejections.length - 5) return null;
+            }
             const isBull = r.event_type.includes("SUPPORT") || r.event_type.includes("BOUNCE");
             const x = indexToX(matchCandle);
             const c = viewportCandles[matchCandle];
