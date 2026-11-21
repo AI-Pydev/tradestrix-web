@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   // webpack config even when disabled in development, which triggers a startup
   // error unless Turbopack is explicitly configured.
   turbopack: {},
+  experimental: {
+    agentUpgrade: "security",
+  },
 };
 
 export default withPWA(nextConfig);
