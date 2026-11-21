@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -15,6 +15,7 @@ import {
   BoxIcon,
   BrainCircuitIcon,
   ChartCandlestickIcon,
+  ChevronDownIcon,
   CoinsIcon,
   FlaskConicalIcon,
   HistoryIcon,
@@ -28,31 +29,25 @@ import {
   RefreshCwIcon,
   RocketIcon,
   ScanSearchIcon,
+  SearchIcon,
   ShieldCheckIcon,
   TargetIcon,
   TrendingUpIcon,
 } from "./dashboard/icons";
 import { TradeStrixBrandMark } from "./dashboard/tradestrix-brand-mark";
+import {
+  BACKEND_BASE_URL,
+  getCategoryGroups,
+  MODULE_CATEGORIES,
+  ModuleCategoryId,
+} from "./platform-modules";
 
 type PlatformAppShellProps = {
   children: React.ReactNode;
 };
 
-type NavItem = {
-  href: string;
-  label: string;
-  caption: string;
-  icon: React.ComponentType<{ className?: string }>;
-  external?: boolean;
-};
-
-type NavGroup = {
-  title: string;
-  items: NavItem[];
-};
-
 const SIDEBAR_STORAGE_KEY = "tradestrix.sidebar.collapsed";
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+const SIDEBAR_GROUPS_STORAGE_KEY = "tradestrix.sidebar.groups";
 const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite"];
 const BROKER_HEALTH_LABELS: Record<string, string> = {
   dhan: "Dhan",
@@ -81,217 +76,14 @@ function normalizeBrokerHealthId(value: string) {
   return normalized;
 }
 
-// Navigation Groups with Dedicated History and Trendline/Harmonics Research
-const baseNavGroups: NavGroup[] = [
-  {
-    title: "OVERVIEW",
-    items: [
-      {
-        href: "/",
-        label: "Platform Home",
-        caption: "Landing and module map",
-        icon: HouseIcon,
-      },
-      {
-        href: "/dashboard",
-        label: "Execution Desk",
-        caption: "Bot control center",
-        icon: PlayCircleIcon,
-      },
-      {
-        href: "/execution-dashboard",
-        label: "Execution Accordion",
-        caption: "Multi-bot launcher & monitor",
-        icon: Layers3Icon,
-      },
-      {
-        href: "/equity-desk",
-        label: "Stock & ETF Desk",
-        caption: "Stock, ETF & BeeS bots",
-        icon: ChartCandlestickIcon,
-      },
-      {
-        href: "/multi-stock-monitor",
-        label: "Multi-Stock Monitor",
-        caption: "Live quote & trade monitor",
-        icon: ActivityIcon,
-      },
-    ],
-  },
-  {
-    title: "RESEARCH",
-    items: [
-      {
-        href: "/opportunity-scanner",
-        label: "Opportunity Scanner",
-        caption: "Stock and index setups",
-        icon: ScanSearchIcon,
-      },
-      {
-        href: "/support-resistance-scanner",
-        label: "3M S/R Scanner",
-        caption: "Intraday S/R analysis",
-        icon: RadarIcon,
-      },
-      {
-        href: "/trendline-intelligence",
-        label: "Trendlines",
-        caption: "Breakouts & headroom gate",
-        icon: TrendingUpIcon,
-      },
-      {
-        href: "/harmonic-patterns",
-        label: "Harmonics",
-        caption: "Pattern scanner & PRZ chart",
-        icon: ActivityIcon,
-      },
-      {
-        href: "/research-agent",
-        label: "AI Research Agent",
-        caption: "AI strategy diagnosis + fixes",
-        icon: BrainCircuitIcon,
-      },
-      {
-        href: "/strategy-qualification",
-        label: "Strategy Qualification",
-        caption: "Auto backtest & scoring",
-        icon: TargetIcon,
-      },
-      {
-        href: "/custom-candle-lab",
-        label: "Custom Candle Lab",
-        caption: "Custom modes & replay",
-        icon: FlaskConicalIcon,
-      },
-    ],
-  },
-  {
-    title: "HISTORY",
-    items: [
-      {
-        href: "/trade-history",
-        label: "Options Trade History",
-        caption: "Daily and monthly options PnL",
-        icon: HistoryIcon,
-      },
-      {
-        href: "/equity-trade-history",
-        label: "Stock & ETF History",
-        caption: "Stock, ETF & BeeS PnL",
-        icon: HistoryIcon,
-      },
-      {
-        href: "/tradingview-alerts/trade-history",
-        label: "TV Alert History",
-        caption: "Webhook execution PnL",
-        icon: HistoryIcon,
-      },
-    ],
-  },
-  {
-    title: "MARKETS",
-    items: [
-      {
-        href: "/index-auto-launch",
-        label: "Index Auto Launch",
-        caption: "Auto-launch basket",
-        icon: RocketIcon,
-      },
-      {
-        href: "/stock-auto-launch",
-        label: "Stock Auto Launch",
-        caption: "Qualified stock universe",
-        icon: RocketIcon,
-      },
-      {
-        href: "/mcx-market",
-        label: "MCX Market",
-        caption: "Commodity market tools",
-        icon: BoxIcon,
-      },
-      {
-        href: "/crypto-market",
-        label: "Crypto Market",
-        caption: "Delta & demo trading tools",
-        icon: CoinsIcon,
-      },
-      {
-        href: "/crypto-jobs",
-        label: "Crypto Jobs",
-        caption: "Continuous paper runtime",
-        icon: BotIcon,
-      },
-      {
-        href: "/crypto-research",
-        label: "Crypto Research",
-        caption: "Strategy optimizer & backtest",
-        icon: ScanSearchIcon,
-      },
-      {
-        href: "/crypto-tradingview-templates",
-        label: "Crypto TV Templates",
-        caption: "Delta webhook templates",
-        icon: BellRingIcon,
-      },
-    ],
-  },
-  {
-    title: "BACKEND",
-    items: [
-      {
-        href: "/multi-bot-launcher",
-        label: "Multi-Bot Launcher",
-        caption: "Batch launch bots",
-        icon: Layers3Icon,
-      },
-      {
-        href: "/tradingview-alerts",
-        label: "TradingView Alerts",
-        caption: "Webhook templates",
-        icon: BellRingIcon,
-      },
-      {
-        href: "/brokers",
-        label: "Brokers",
-        caption: "Connections & auth",
-        icon: PlugZapIcon,
-      },
-      {
-        href: "/symbol-map",
-        label: "Symbol Map",
-        caption: "Broker symbol mappings",
-        icon: NetworkIcon,
-      },
-      {
-        href: "/upstox-backtest",
-        label: "Upstox Backtest",
-        caption: "Options backtest engine",
-        icon: PlayCircleIcon,
-      },
-      {
-        href: `${BACKEND_BASE_URL}/docs`,
-        label: "API Docs",
-        caption: "FastAPI Swagger docs",
-        icon: NetworkIcon,
-        external: true,
-      },
-    ],
-  },
-];
-
-const adminNavGroup: NavGroup = {
-  title: "ADMIN",
-  items: [
-    {
-      href: "/admin",
-      label: "Approvals",
-      caption: "Gmail access control",
-      icon: ShieldCheckIcon,
+const DEFAULT_EXPANDED_GROUPS: Record<ModuleCategoryId, boolean> =
+  MODULE_CATEGORIES.reduce(
+    (acc, category) => {
+      acc[category.id] = true;
+      return acc;
     },
-  ],
-};
-
-const adminNavGroups: NavGroup[] = [...baseNavGroups, adminNavGroup];
+    {} as Record<ModuleCategoryId, boolean>,
+  );
 
 const routeMeta: Record<string, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }> }> = {
   "/": {
@@ -466,13 +258,37 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Record<ModuleCategoryId, boolean>>(
+    DEFAULT_EXPANDED_GROUPS,
+  );
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [brokerHealth, setBrokerHealth] = useState<Record<string, BrokerHealth>>({});
   const [brokerHealthRefreshing, setBrokerHealthRefreshing] = useState(false);
   const [brokerHealthRefreshingId, setBrokerHealthRefreshingId] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const isPublicPath = pathname === "/login";
-  const navGroups = user?.role === "ADMIN" ? adminNavGroups : baseNavGroups;
+  const isAdmin = user?.role === "ADMIN";
+  const categoryGroups = useMemo(() => getCategoryGroups(isAdmin), [isAdmin]);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredGroups = useMemo(() => {
+    if (!normalizedQuery) {
+      return categoryGroups;
+    }
+    return categoryGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(normalizedQuery) ||
+            item.caption.toLowerCase().includes(normalizedQuery) ||
+            item.description.toLowerCase().includes(normalizedQuery) ||
+            group.title.toLowerCase().includes(normalizedQuery),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [categoryGroups, normalizedQuery]);
 
   async function loadBrokerHealth(refresh = false) {
     setBrokerHealthRefreshing(true);
@@ -518,11 +334,69 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
     if (stored === "1") {
       setCollapsed(true);
     }
+    const storedGroups = window.localStorage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
+    if (storedGroups) {
+      try {
+        const parsed = JSON.parse(storedGroups) as Partial<Record<ModuleCategoryId, boolean>>;
+        setExpandedGroups((prev) => ({ ...prev, ...parsed }));
+      } catch {
+      }
+    }
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_GROUPS_STORAGE_KEY, JSON.stringify(expandedGroups));
+  }, [expandedGroups]);
+
+  useEffect(() => {
+    const activeGroup = categoryGroups.find((group) =>
+      group.items.some((item) => !item.external && isItemActive(item.href, pathname, currentHash)),
+    );
+    if (activeGroup) {
+      setExpandedGroups((prev) =>
+        prev[activeGroup.id] ? prev : { ...prev, [activeGroup.id]: true },
+      );
+    }
+  }, [categoryGroups, pathname, currentHash]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCollapsed(false);
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+        return;
+      }
+
+      if (!isEditable && event.key === "/") {
+        event.preventDefault();
+        setCollapsed(false);
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  function toggleGroup(groupId: ModuleCategoryId) {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  }
 
   useEffect(() => {
     setMobileOpen(false);
@@ -609,84 +483,208 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
           </button>
         </div>
 
-        {/* Navigation Sections */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin scrollbar-thumb-slate-800">
-          {navGroups.map((group) => (
-            <div key={group.title} className="space-y-1.5">
-              {!collapsed && (
-                <div className="px-3 pb-1 text-[11px] font-extrabold tracking-[0.14em] text-slate-400 uppercase select-none font-mono flex items-center justify-between">
-                  <span>{group.title}</span>
-                  <div className="h-px flex-1 ml-3 bg-gradient-to-r from-slate-800/80 to-transparent" />
-                </div>
+        {/* Search & Pinned Platform Home */}
+        <div className="px-3 pt-3 pb-2 space-y-2.5 shrink-0">
+          {collapsed ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCollapsed(false);
+                setTimeout(() => searchInputRef.current?.focus(), 0);
+              }}
+              className="w-full flex items-center justify-center p-2 rounded-xl border border-slate-800/80 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/70 transition-colors"
+              title="Search modules (Ctrl+K)"
+            >
+              <SearchIcon className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="relative">
+              <SearchIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search modules"
+                aria-label="Search modules"
+                className="w-full pl-8 pr-8 py-2 rounded-xl border border-slate-800/90 bg-slate-900/70 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 focus:bg-slate-900 transition-colors"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 border-0 bg-transparent p-0 text-[11px] text-slate-500 hover:text-slate-200"
+                  aria-label="Clear module search"
+                >
+                  ✕
+                </button>
+              ) : (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-500 border border-slate-800 rounded px-1 py-0.5 pointer-events-none">
+                  /
+                </span>
               )}
+            </div>
+          )}
 
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const active = isItemActive(item.href, pathname, currentHash);
-                  const Icon = item.icon;
+          {/* Pinned Platform Home */}
+          {(() => {
+            const homeActive = isItemActive("/", pathname, currentHash);
+            return (
+              <Link
+                href="/"
+                title={collapsed ? "Platform Home" : undefined}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  homeActive
+                    ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25 shadow-sm"
+                    : "text-slate-300 hover:text-white hover:bg-slate-900/80 border border-transparent"
+                } ${collapsed ? "justify-center px-2" : ""}`}
+              >
+                <HouseIcon
+                  className={`w-4 h-4 shrink-0 ${
+                    homeActive ? "text-emerald-400" : "text-slate-400"
+                  }`}
+                />
+                {!collapsed && <span className="truncate">Platform Home</span>}
+              </Link>
+            );
+          })()}
+        </div>
 
-                  const linkClasses = `group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                    active
-                      ? "ts-nav-active"
-                      : "ts-nav-link text-slate-300"
-                  } ${collapsed ? "justify-center px-2" : ""}`;
+        {/* Navigation Sections */}
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-800">
+          {filteredGroups.length === 0 && !collapsed && (
+            <div className="px-3 py-6 text-center text-xs text-slate-500">
+              No modules match &ldquo;{searchQuery}&rdquo;
+            </div>
+          )}
 
-                  const content = (
-                    <>
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                          active
-                            ? "bg-blue-500 text-white shadow-sm"
-                            : "bg-slate-900 text-slate-400 group-hover:text-slate-200 group-hover:bg-slate-800"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </div>
+          {filteredGroups.map((group) => {
+            const GroupIcon = group.icon;
+            const isExpanded = normalizedQuery
+              ? true
+              : (expandedGroups[group.id] ?? true);
 
-                      {!collapsed && (
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate leading-snug">{item.label}</span>
-                          <span
-                            className={`text-[10px] font-normal truncate leading-none mt-0.5 ${
-                              active ? "text-blue-300/80" : "text-slate-400"
-                            }`}
-                          >
-                            {item.caption}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  );
+            if (collapsed) {
+              return (
+                <div key={group.id} className="space-y-1 pt-2 border-t border-slate-800/60 first:border-t-0 first:pt-0">
+                  {group.items.map((item) => {
+                    const active = !item.external && isItemActive(item.href, pathname, currentHash);
+                    const Icon = item.icon;
+                    const cls = `flex items-center justify-center p-2 rounded-xl transition-colors ${
+                      active
+                        ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/25"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    }`;
 
-                  if (item.external) {
-                    return (
+                    return item.external ? (
                       <a
-                        key={item.href}
+                        key={item.id}
                         href={item.href}
                         target="_blank"
                         rel="noreferrer"
-                        className={linkClasses}
-                        title={collapsed ? item.label : undefined}
+                        className={cls}
+                        title={item.label}
                       >
-                        {content}
+                        <Icon className="w-4 h-4" />
                       </a>
+                    ) : (
+                      <Link key={item.id} href={item.href} className={cls} title={item.label}>
+                        <Icon className="w-4 h-4" />
+                      </Link>
                     );
-                  }
+                  })}
+                </div>
+              );
+            }
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={linkClasses}
-                      title={collapsed ? item.label : undefined}
+            return (
+              <div key={group.id} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg border-0 bg-transparent text-xs font-semibold text-slate-200 hover:bg-slate-900/70 transition-colors select-none"
+                  aria-expanded={isExpanded}
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${group.iconBg} ${group.iconColor}`}
                     >
-                      {content}
-                    </Link>
-                  );
-                })}
+                      <GroupIcon className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="truncate">{group.title}</span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0 text-[11px] text-slate-500">
+                    <span className="font-mono">{group.items.length}</span>
+                    <ChevronDownIcon
+                      className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                        isExpanded ? "rotate-180 text-slate-400" : ""
+                      }`}
+                    />
+                  </span>
+                </button>
+
+                {isExpanded && (
+                  <div className="ml-4 pl-3 border-l border-slate-800/80 space-y-0.5 py-0.5">
+                    {group.items.map((item) => {
+                      const active = !item.external && isItemActive(item.href, pathname, currentHash);
+                      const Icon = item.icon;
+                      const linkClasses = `group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        active
+                          ? "bg-emerald-500/12 text-emerald-300 font-semibold"
+                          : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60 font-medium"
+                      }`;
+
+                      const inner = (
+                        <>
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <Icon
+                              className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                                active
+                                  ? "text-emerald-400"
+                                  : `${item.iconColor} opacity-80 group-hover:opacity-100`
+                              }`}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </span>
+                          {item.badge && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 shrink-0">
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      );
+
+                      if (item.external) {
+                        return (
+                          <a
+                            key={item.id}
+                            href={item.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={linkClasses}
+                            title={item.caption}
+                          >
+                            {inner}
+                          </a>
+                        );
+                      }
+
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          className={linkClasses}
+                          title={item.caption}
+                        >
+                          {inner}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
       </aside>
 
