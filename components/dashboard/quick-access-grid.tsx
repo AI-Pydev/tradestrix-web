@@ -11,7 +11,7 @@ import {
   ModuleCategoryId,
   PlatformModule,
 } from "@/components/platform-modules";
-import { ArrowRightIcon, StarIcon } from "./icons";
+import { StarIcon } from "./icons";
 
 const PINNED_STORAGE_KEY = "tradestrix.home.pinned";
 
@@ -29,30 +29,30 @@ function ModuleCard({ item, isPinned, onTogglePin }: ModuleCardProps) {
       <button
         type="button"
         onClick={(e) => onTogglePin(e, item.id)}
-        className={`absolute top-3.5 right-3.5 card-favorite ${isPinned ? "active" : ""}`}
+        className={`absolute top-2.5 right-2.5 border-0 bg-transparent p-0.5 card-favorite ${isPinned ? "active" : ""}`}
         aria-label={isPinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
         title={isPinned ? "Pinned to top" : "Pin to top"}
       >
         <StarIcon
-          className={`w-4 h-4 transition-all ${
+          className={`w-3.5 h-3.5 transition-all ${
             isPinned
               ? "fill-[#E6B94B] text-[#E6B94B]"
-              : "fill-none text-slate-600 hover:text-slate-400"
+              : "fill-none text-slate-600 opacity-0 group-hover:opacity-100 hover:text-slate-400"
           }`}
           strokeWidth={1.5}
         />
       </button>
 
-      <div className="flex items-start gap-3.5">
+      <div className="flex items-start gap-3">
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${item.iconBg} ${item.iconBorder} ${item.iconColor} group-hover:scale-105 transition-transform`}
+          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${item.iconBg} ${item.iconBorder} ${item.iconColor} group-hover:scale-105 transition-transform`}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-4 h-4" />
         </div>
 
-        <div className="min-w-0 pr-6">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-[#E4E9F2] group-hover:text-[#E6B94B] transition-colors leading-tight truncate">
+        <div className="min-w-0 pr-5">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[13px] font-semibold text-[#E4E9F2] group-hover:text-[#E6B94B] transition-colors leading-snug truncate">
               {item.label}
             </h3>
             {item.badge && (
@@ -61,25 +61,16 @@ function ModuleCard({ item, isPinned, onTogglePin }: ModuleCardProps) {
               </span>
             )}
           </div>
-          <p className="text-xs text-[#A7B1C3] mt-1.5 line-clamp-2 leading-relaxed">
+          <p className="text-[11px] text-[#A7B1C3] mt-1 line-clamp-2 leading-snug">
             {item.description}
           </p>
         </div>
-      </div>
-
-      <div className="mt-4 flex items-center justify-end">
-        <span className="inline-flex items-center gap-1.5 pl-3 pr-1 py-0.5 rounded-full text-xs font-semibold text-slate-300 bg-[#0B1322] border border-[rgba(148,163,184,0.14)] group-hover:border-[rgba(96,165,250,0.4)] group-hover:text-white transition-all shadow-sm">
-          Open
-          <span className="w-5 h-5 rounded-full bg-blue-500/15 text-[#6EA8FE] flex items-center justify-center group-hover:bg-[#6EA8FE] group-hover:text-slate-950 transition-colors">
-            <ArrowRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </span>
-        </span>
       </div>
     </>
   );
 
   const cardClasses =
-    "group relative flex flex-col justify-between p-4 rounded-xl ts-card-soft overflow-hidden";
+    "group relative flex flex-col justify-center px-3.5 py-3 rounded-xl ts-card-soft overflow-hidden";
 
   if (item.external) {
     return (
