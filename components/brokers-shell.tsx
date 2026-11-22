@@ -16,7 +16,7 @@ import {
 } from "@/modules/brokers";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
-const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite", "shoonya"];
+const BROKER_HEALTH_ORDER = ["dhan", "kotakneo", "upstox", "kite", "shoonya", "fyers"];
 
 function normalizeBrokerHealthId(value: string) {
   const normalized = String(value || "")
@@ -37,6 +37,9 @@ function normalizeBrokerHealthId(value: string) {
   }
   if (normalized === "shoonya" || normalized === "finvasia") {
     return "shoonya";
+  }
+  if (normalized === "fyers" || normalized === "fyres") {
+    return "fyers";
   }
   return normalized;
 }
