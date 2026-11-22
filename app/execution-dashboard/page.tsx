@@ -1,9 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import styles from './execution-dashboard.module.css';
+import { useEffect, useState } from "react";
 
-import { buildAuthorizedHeaders, throwIfApiError } from '@/lib/auth';
+import { buildAuthorizedHeaders, throwIfApiError } from "@/lib/auth";
 
 interface ExecutionStatus {
   mode: string;
@@ -30,11 +29,13 @@ interface SignalQualifierSettings {
   partial_profit_pct: number;
 }
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://127.0.0.1:8000';
+const BACKEND_BASE_URL =
+  process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 
 export default function ExecutionDashboard() {
   const [status, setStatus] = useState<ExecutionStatus | null>(null);
-  const [qualifierSettings, setQualifierSettings] = useState<SignalQualifierSettings | null>(null);
+  const [qualifierSettings, setQualifierSettings] =
+    useState<SignalQualifierSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -48,17 +49,20 @@ export default function ExecutionDashboard() {
         fetch(`${BACKEND_BASE_URL}/api/v1/execution/status`, {
           headers: buildAuthorizedHeaders(),
         }),
-        fetch(`${BACKEND_BASE_URL}/api/webhooks/tradingview/signal-qualifier/settings`, {
-          headers: buildAuthorizedHeaders(),
-        }),
+        fetch(
+          `${BACKEND_BASE_URL}/api/webhooks/tradingview/signal-qualifier/settings`,
+          {
+            headers: buildAuthorizedHeaders(),
+          },
+        ),
       ]);
 
-      if (statusRes.status === 'fulfilled') {
+      if (statusRes.status === "fulfilled") {
         await throwIfApiError(statusRes.value);
         const data: ExecutionStatus = await statusRes.value.json();
         setStatus(data);
       }
-      if (qualRes.status === 'fulfilled') {
+      if (qualRes.status === "fulfilled") {
         await throwIfApiError(qualRes.value);
         const qualData = await qualRes.value.json();
         if (qualData.settings) {
@@ -67,32 +71,39 @@ export default function ExecutionDashboard() {
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateQualifier = async (patch: Partial<SignalQualifierSettings>) => {
+  const handleUpdateQualifier = async (
+    patch: Partial<SignalQualifierSettings>,
+  ) => {
     setQualifierUpdating(true);
     try {
-      const res = await fetch(`${BACKEND_BASE_URL}/api/webhooks/tradingview/signal-qualifier/settings`, {
-        method: 'POST',
-        headers: {
-          ...buildAuthorizedHeaders(),
-          'Content-Type': 'application/json',
+      const res = await fetch(
+        `${BACKEND_BASE_URL}/api/webhooks/tradingview/signal-qualifier/settings`,
+        {
+          method: "POST",
+          headers: {
+            ...buildAuthorizedHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(patch),
         },
-        body: JSON.stringify(patch),
-      });
+      );
       await throwIfApiError(res);
       const data = await res.json();
       if (data.settings) {
         setQualifierSettings(data.settings);
       }
-      setSuccessMsg('Signal Gatekeeper settings updated successfully.');
+      setSuccessMsg("Signal Gatekeeper settings updated successfully.");
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update qualifier');
+      setError(
+        err instanceof Error ? err.message : "Failed to update qualifier",
+      );
     } finally {
       setQualifierUpdating(false);
     }
@@ -100,48 +111,54 @@ export default function ExecutionDashboard() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000); // Refresh every 5 seconds
+    const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const handleToggleMode = async () => {
     if (!status) return;
 
-    const targetMode = status.mode === 'paper' ? 'real' : 'paper';
+    const targetMode = status.mode === "paper" ? "real" : "paper";
 
-    // Security: Only allow real mode toggle if IP is verified AND real trading is approved
-    if (targetMode === 'real') {
+    if (targetMode === "real") {
       if (!status.ip_verified) {
         setError(
-          `❌ Cannot enable real trading: Your IP (${status.client_ip}) is not whitelisted.` +
-          (status.dev_mode ? ' Using DEV mode? Try localhost (127.0.0.1).' : '')
+          `Cannot enable real trading: Your IP (${status.client_ip}) is not whitelisted.` +
+            (status.dev_mode
+              ? " Using DEV mode? Try localhost (127.0.0.1)."
+              : ""),
         );
         return;
       }
 
       if (!status.real_trading_approved) {
-        setError('❌ Real trading is not approved. Please approve it first.');
+        setError("Real trading is not approved. Please approve it first.");
         return;
       }
     }
 
     setToggling(true);
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/execution/toggle`, {
-        method: 'POST',
-        headers: buildAuthorizedHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          mode: targetMode,
-          reason: `User toggled from ${status.mode} to ${targetMode}`,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/v1/execution/toggle`,
+        {
+          method: "POST",
+          headers: buildAuthorizedHeaders({
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify({
+            mode: targetMode,
+            reason: `User toggled from ${status.mode} to ${targetMode}`,
+          }),
+        },
+      );
 
       await throwIfApiError(response);
 
       await fetchStatus();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Toggle failed');
+      setError(err instanceof Error ? err.message : "Toggle failed");
     } finally {
       setToggling(false);
     }
@@ -152,194 +169,308 @@ export default function ExecutionDashboard() {
 
     setApproving(true);
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/execution/approve-real-trading`, {
-        method: 'POST',
-        headers: buildAuthorizedHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          approved,
-          reason: `User ${approved ? 'approved' : 'disapproved'} real trading`,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/v1/execution/approve-real-trading`,
+        {
+          method: "POST",
+          headers: buildAuthorizedHeaders({
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify({
+            approved,
+            reason: `User ${approved ? "approved" : "disapproved"} real trading`,
+          }),
+        },
+      );
 
       await throwIfApiError(response);
 
       await fetchStatus();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Approval action failed');
+      setError(err instanceof Error ? err.message : "Approval action failed");
     } finally {
       setApproving(false);
     }
   };
 
   if (loading) {
-    return <div className={styles.container}><p>Loading execution status...</p></div>;
+    return (
+      <div className="min-h-screen ts-command-shell p-4 sm:p-6">
+        <div className="max-w-[1400px] mx-auto ts-card-soft rounded-2xl p-6 text-sm text-slate-400 font-mono">
+          Loading execution status...
+        </div>
+      </div>
+    );
   }
 
   if (!status) {
-    return <div className={styles.container}><p>Failed to load status</p></div>;
+    return (
+      <div className="min-h-screen ts-command-shell p-4 sm:p-6">
+        <div className="max-w-[1400px] mx-auto ts-card-soft rounded-2xl p-6 text-sm text-rose-400">
+          Failed to load execution status.
+        </div>
+      </div>
+    );
   }
 
-  const modeColor = status.mode === 'real' ? '#ff6b6b' : '#51cf66';
-  const modeLabel = status.mode === 'real' ? '🔴 REAL TRADING' : '🟢 PAPER TRADING';
+  const isRealMode = status.mode === "real";
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        <h1>Trading Execution Mode</h1>
-        {successMsg && (
-          <div style={{ padding: '8px 12px', marginBottom: '16px', borderRadius: '6px', background: '#d3f9d8', color: '#2b8a3e', fontSize: '13px', fontWeight: 600 }}>
-            ✅ {successMsg}
-          </div>
-        )}
+    <div className="min-h-screen ts-command-shell p-4 sm:p-5 md:p-6">
+      <div className="max-w-[1400px] mx-auto space-y-5">
+        {/* Header & Mode Banner */}
+        <section
+          className={`ts-card-soft rounded-2xl p-5 border ${
+            isRealMode ? "border-rose-500/35" : "border-emerald-500/35"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-100 tracking-tight">
+                Trading Execution Mode & Gatekeeper
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Paper/real mode guardrails, IP whitelist verification, and
+                pre-trade signal quality controls.
+              </p>
+            </div>
 
-        {/* Current Mode Display */}
-        <div className={styles.modeDisplay} style={{ borderColor: modeColor }}>
-          <div className={styles.modeBadge} style={{ backgroundColor: modeColor }}>
-            {modeLabel}
+            <span
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide border ${
+                isRealMode
+                  ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                  : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isRealMode ? "bg-rose-400 animate-pulse" : "bg-emerald-400"
+                }`}
+              />
+              {isRealMode ? "REAL TRADING" : "PAPER TRADING"}
+            </span>
           </div>
-          <div className={styles.statusGrid}>
-            <div className={styles.statusField}>
-              <span className={styles.statusLabel}>Current Mode</span>
-              <span className={styles.statusValue}>{status.mode.toUpperCase()}</span>
-            </div>
-            <div className={styles.statusField}>
-              <span className={styles.statusLabel}>Max Position Value</span>
-              <span className={styles.statusValue}>₹{status.max_position_value.toLocaleString()}</span>
-            </div>
-            <div className={styles.statusField}>
-              <span className={styles.statusLabel}>Kotak Environment</span>
-              <span className={styles.statusValue}>{status.kotak_environment.toUpperCase()}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* IP Verification Status */}
-        <div className={styles.section}>
-          <h3>🔐 IP Whitelist Verification</h3>
-          <div className={styles.compactGrid}>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Your IP Address</label>
-              <div className={styles.fieldValue}><code>{status.client_ip}</code></div>
+          {successMsg && (
+            <div className="mb-4 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+              {successMsg}
             </div>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Whitelisted IP</label>
-              <div className={styles.fieldValue}><code>{status.execution_desk_ip}</code></div>
+          )}
+
+          {error && (
+            <div className="mb-4 px-3.5 py-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
+              {error}
             </div>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Dev Mode</label>
-              <div className={styles.fieldValue}><code>{status.dev_mode ? 'localhost (127.0.0.1) allowed' : 'Disabled'}</code></div>
-            </div>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Whitelist Status</label>
-              <div className={styles.fieldValue}>
-                {status.ip_verified ? (
-                  <span className={styles.verified}>✅ VERIFIED</span>
-                ) : (
-                  <span className={styles.notVerified}>❌ NOT VERIFIED</span>
-                )}
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Current Mode
+              </div>
+              <div className="text-base font-bold text-slate-100 mt-1">
+                {status.mode.toUpperCase()}
               </div>
             </div>
-            <div className={`${styles.fieldShell} ${styles.spanTwo}`}>
-              <label className={styles.fieldLabel}>Notes</label>
-              <div className={styles.fieldValue}>
-                {status.ip_verified
-                  ? 'IP verification passed for execution checks.'
-                  : `Your IP does not match. Real trading is disabled.${status.dev_mode ? ' Try localhost (127.0.0.1) for development.' : ''}`}
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Max Position Value
+              </div>
+              <div className="text-base font-bold text-slate-100 mt-1">
+                ₹{status.max_position_value.toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Kotak Environment
+              </div>
+              <div className="text-base font-bold text-slate-100 mt-1">
+                {status.kotak_environment.toUpperCase()}
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Index Restrictions */}
-        <div className={styles.section}>
-          <h3>📊 Allowed Indices for Real Trading</h3>
-          <div className={styles.indicesContainer}>
-            {status.allowed_indices.length > 0 ? (
-              <div className={styles.indicesList}>
-                {status.allowed_indices.map((index) => (
-                  <span key={index} className={styles.indexBadge}>
-                    {index}
-                  </span>
-                ))}
+        {/* IP Whitelist & Allowed Indices */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <section className="ts-card-soft rounded-2xl p-5 space-y-4">
+            <h2 className="text-sm font-bold text-slate-100 tracking-tight border-b border-slate-800/80 pb-2.5">
+              IP Whitelist Verification
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Your IP Address
+                </div>
+                <code className="block text-xs text-slate-200 mt-1 font-mono">
+                  {status.client_ip}
+                </code>
               </div>
-            ) : (
-              <p className={styles.warning}>⚠️ No indices allowed for real trading. Only PAPER mode available.</p>
-            )}
-            <p className={styles.helperText}>
-              💡 Real trades can only be executed on these indices. Configure via <code>ALLOWED_REAL_TRADING_INDICES</code> env var.
-            </p>
-          </div>
-        </div>
 
-        {/* Real Trading Approval */}
-        <div className={styles.section}>
-          <h3>✅ Real Trading Approval</h3>
-          <div className={styles.approvalStatus}>
-            <div className={styles.compactGrid}>
-              <div className={styles.fieldShell}>
-                <label className={styles.fieldLabel}>Approval Status</label>
-                <div className={styles.fieldValue}>
-                  {status.real_trading_approved ? (
-                    <span className={styles.approved}>✅ APPROVED</span>
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Whitelisted IP
+                </div>
+                <code className="block text-xs text-slate-200 mt-1 font-mono">
+                  {status.execution_desk_ip}
+                </code>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Dev Mode
+                </div>
+                <div className="text-xs text-slate-200 mt-1 font-mono">
+                  {status.dev_mode ? "localhost (127.0.0.1) allowed" : "Disabled"}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Whitelist Status
+                </div>
+                <div className="mt-1">
+                  {status.ip_verified ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                      VERIFIED
+                    </span>
                   ) : (
-                    <span className={styles.notApproved}>❌ NOT APPROVED</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/25">
+                      NOT VERIFIED
+                    </span>
                   )}
                 </div>
               </div>
-              <div className={`${styles.fieldShell} ${styles.actionSpan}`}>
-                <label className={styles.fieldLabel}>Approval Actions</label>
-                <div className={styles.actionRow}>
-                  <button
-                    onClick={() => handleApproveRealTrading(true)}
-                    disabled={status.real_trading_approved || approving}
-                    className={styles.approveBtn}
-                  >
-                    {approving ? '⏳ Processing...' : '✅ Approve Real Trading'}
-                  </button>
-                  <button
-                    onClick={() => handleApproveRealTrading(false)}
-                    disabled={!status.real_trading_approved || approving}
-                    className={styles.disapproveBtn}
-                  >
-                    {approving ? '⏳ Processing...' : '❌ Disapprove Real Trading'}
-                  </button>
-                </div>
-              </div>
             </div>
+
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3 text-xs text-slate-300">
+              {status.ip_verified
+                ? "IP verification passed for execution checks."
+                : `Your IP does not match. Real trading is disabled.${
+                    status.dev_mode
+                      ? " Try localhost (127.0.0.1) for development."
+                      : ""
+                  }`}
+            </div>
+          </section>
+
+          <div className="space-y-5">
+            {/* Allowed Indices */}
+            <section className="ts-card-soft rounded-2xl p-5 space-y-3">
+              <h2 className="text-sm font-bold text-slate-100 tracking-tight border-b border-slate-800/80 pb-2.5">
+                Allowed Indices for Real Trading
+              </h2>
+              {status.allowed_indices.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {status.allowed_indices.map((index) => (
+                    <span
+                      key={index}
+                      className="px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
+                    >
+                      {index}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-300">
+                  No indices allowed for real trading. Only PAPER mode is
+                  available.
+                </p>
+              )}
+              <p className="text-xs text-slate-400">
+                Real trades can only be executed on these indices. Configure via{" "}
+                <code className="text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded">
+                  ALLOWED_REAL_TRADING_INDICES
+                </code>{" "}
+                env var.
+              </p>
+            </section>
+
+            {/* Real Trading Approval */}
+            <section className="ts-card-soft rounded-2xl p-5 space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                <h2 className="text-sm font-bold text-slate-100 tracking-tight">
+                  Real Trading Approval
+                </h2>
+                {status.real_trading_approved ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                    APPROVED
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/25">
+                    NOT APPROVED
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleApproveRealTrading(true)}
+                  disabled={status.real_trading_approved || approving}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-45 disabled:cursor-not-allowed transition-colors"
+                >
+                  {approving ? "Processing..." : "Approve Real Trading"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApproveRealTrading(false)}
+                  disabled={!status.real_trading_approved || approving}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/35 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 disabled:opacity-45 disabled:cursor-not-allowed transition-colors"
+                >
+                  {approving ? "Processing..." : "Disapprove Real Trading"}
+                </button>
+              </div>
+            </section>
           </div>
         </div>
 
         {/* Signal Quality Gatekeeper & Smart Exit Copilot */}
-        <div className={styles.section}>
-          <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <section className="ts-card-soft rounded-2xl p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
             <div>
-              <h3 className="mb-0">🛡️ Signal Quality Gatekeeper & Smart Exit Copilot</h3>
-              <p className="text-secondary small mb-0 mt-1">
-                Institutional pre-trade screening & profit lock to avoid whipsaws, noon chop, and premature exits.
+              <h2 className="text-sm font-bold text-slate-100 tracking-tight">
+                Signal Quality Gatekeeper & Smart Exit Copilot
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Institutional pre-trade screening & profit lock to avoid
+                whipsaws, noon chop, and premature exits.
               </p>
             </div>
-            <div className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className={`btn btn-sm fw-bold px-3 ${
-                  qualifierSettings?.enabled ? 'btn-success text-white' : 'btn-secondary text-white'
-                }`}
-                onClick={() => handleUpdateQualifier({ enabled: !qualifierSettings?.enabled })}
-                disabled={qualifierUpdating}
-              >
-                {qualifierSettings?.enabled ? '● GATEKEEPER ACTIVE' : '○ GATEKEEPER DISABLED'}
-              </button>
-            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                handleUpdateQualifier({ enabled: !qualifierSettings?.enabled })
+              }
+              disabled={qualifierUpdating}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                qualifierSettings?.enabled
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35 hover:bg-emerald-500/25"
+                  : "bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800"
+              }`}
+            >
+              {qualifierSettings?.enabled
+                ? "● GATEKEEPER ACTIVE"
+                : "○ GATEKEEPER DISABLED"}
+            </button>
           </div>
 
-          <div className={styles.compactGrid}>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Min Conviction Score</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Min Conviction Score
+              </label>
               <select
-                className="form-select form-select-sm"
+                className="w-full rounded-lg bg-slate-950 border border-slate-800 px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
                 value={qualifierSettings?.min_score_threshold ?? 70}
-                onChange={(e) => handleUpdateQualifier({ min_score_threshold: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  handleUpdateQualifier({
+                    min_score_threshold: parseInt(e.target.value, 10),
+                  })
+                }
                 disabled={qualifierUpdating}
               >
                 <option value="60">60% (Moderate)</option>
@@ -349,168 +480,222 @@ export default function ExecutionDashboard() {
               </select>
             </div>
 
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>15M HTF Macro Trend</label>
-              <div className="form-check form-switch pt-1">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                15M HTF Macro Trend
+              </label>
+              <label className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer">
                 <input
-                  className="form-check-input"
                   type="checkbox"
-                  id="reqHtfTrend"
                   checked={qualifierSettings?.require_htf_trend ?? true}
-                  onChange={(e) => handleUpdateQualifier({ require_htf_trend: e.target.checked })}
+                  onChange={(e) =>
+                    handleUpdateQualifier({
+                      require_htf_trend: e.target.checked,
+                    })
+                  }
                   disabled={qualifierUpdating}
+                  className="rounded border-slate-700 bg-slate-950 text-emerald-500"
                 />
-                <label className="form-check-label small" htmlFor="reqHtfTrend">
-                  {qualifierSettings?.require_htf_trend ? 'Enabled (No Counter-Trend)' : 'Disabled'}
-                </label>
-              </div>
+                <span>
+                  {qualifierSettings?.require_htf_trend
+                    ? "Enabled (No Counter-Trend)"
+                    : "Disabled"}
+                </span>
+              </label>
             </div>
 
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>S/R Headroom (R:R)</label>
-              <div className="form-check form-switch pt-1">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                S/R Headroom (R:R)
+              </label>
+              <label className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer">
                 <input
-                  className="form-check-input"
                   type="checkbox"
-                  id="reqSrHeadroom"
                   checked={qualifierSettings?.require_sr_headroom ?? true}
-                  onChange={(e) => handleUpdateQualifier({ require_sr_headroom: e.target.checked })}
+                  onChange={(e) =>
+                    handleUpdateQualifier({
+                      require_sr_headroom: e.target.checked,
+                    })
+                  }
                   disabled={qualifierUpdating}
+                  className="rounded border-slate-700 bg-slate-950 text-emerald-500"
                 />
-                <label className="form-check-label small" htmlFor="reqSrHeadroom">
-                  {qualifierSettings?.require_sr_headroom ? 'Enabled (No Barrier Block)' : 'Disabled'}
-                </label>
-              </div>
+                <span>
+                  {qualifierSettings?.require_sr_headroom
+                    ? "Enabled (No Barrier Block)"
+                    : "Disabled"}
+                </span>
+              </label>
             </div>
 
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Option Chain PCR</label>
-              <div className="form-check form-switch pt-1">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Option Chain PCR
+              </label>
+              <label className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer">
                 <input
-                  className="form-check-input"
                   type="checkbox"
-                  id="reqPcr"
                   checked={qualifierSettings?.require_option_chain_pcr ?? true}
-                  onChange={(e) => handleUpdateQualifier({ require_option_chain_pcr: e.target.checked })}
+                  onChange={(e) =>
+                    handleUpdateQualifier({
+                      require_option_chain_pcr: e.target.checked,
+                    })
+                  }
                   disabled={qualifierUpdating}
+                  className="rounded border-slate-700 bg-slate-950 text-emerald-500"
                 />
-                <label className="form-check-label small" htmlFor="reqPcr">
-                  {qualifierSettings?.require_option_chain_pcr ? 'Enabled (OI Sentiment)' : 'Disabled'}
-                </label>
-              </div>
+                <span>
+                  {qualifierSettings?.require_option_chain_pcr
+                    ? "Enabled (OI Sentiment)"
+                    : "Disabled"}
+                </span>
+              </label>
             </div>
 
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Noon Chop Filter</label>
-              <div className="form-check form-switch pt-1">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Noon Chop Filter
+              </label>
+              <label className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer">
                 <input
-                  className="form-check-input"
                   type="checkbox"
-                  id="chopFilter"
                   checked={qualifierSettings?.chop_filter_enabled ?? true}
-                  onChange={(e) => handleUpdateQualifier({ chop_filter_enabled: e.target.checked })}
+                  onChange={(e) =>
+                    handleUpdateQualifier({
+                      chop_filter_enabled: e.target.checked,
+                    })
+                  }
                   disabled={qualifierUpdating}
+                  className="rounded border-slate-700 bg-slate-950 text-emerald-500"
                 />
-                <label className="form-check-label small" htmlFor="chopFilter">
-                  {qualifierSettings?.chop_filter_enabled ? '11:30 - 13:15 Guard' : 'Disabled'}
-                </label>
-              </div>
+                <span>
+                  {qualifierSettings?.chop_filter_enabled
+                    ? "11:30 - 13:15 Guard"
+                    : "Disabled"}
+                </span>
+              </label>
             </div>
 
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>T1 Auto-Breakeven SL</label>
-              <div className="form-check form-switch pt-1">
+            <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3.5 space-y-2">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                T1 Auto-Breakeven SL
+              </label>
+              <label className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer">
                 <input
-                  className="form-check-input"
                   type="checkbox"
-                  id="autoBe"
                   checked={qualifierSettings?.auto_breakeven_on_t1 ?? true}
-                  onChange={(e) => handleUpdateQualifier({ auto_breakeven_on_t1: e.target.checked })}
+                  onChange={(e) =>
+                    handleUpdateQualifier({
+                      auto_breakeven_on_t1: e.target.checked,
+                    })
+                  }
                   disabled={qualifierUpdating}
+                  className="rounded border-slate-700 bg-slate-950 text-emerald-500"
                 />
-                <label className="form-check-label small" htmlFor="autoBe">
-                  {qualifierSettings?.auto_breakeven_on_t1 ? 'Trail SL to Cost on +15%' : 'Disabled'}
-                </label>
-              </div>
+                <span>
+                  {qualifierSettings?.auto_breakeven_on_t1
+                    ? "Trail SL to Cost on +15%"
+                    : "Disabled"}
+                </span>
+              </label>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Main Toggle Button */}
-        <div className={styles.section}>
-          <h3>⚙️ Mode Switch</h3>
-          <div className={styles.compactGrid}>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Ready For Real Trading</label>
-              <div className={styles.fieldValue}>
-                {status.ip_verified && status.real_trading_approved ? 'Yes' : 'No'}
-              </div>
-            </div>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>IP Verified</label>
-              <div className={styles.fieldValue}>{status.ip_verified ? 'Yes' : 'No'}</div>
-            </div>
-            <div className={styles.fieldShell}>
-              <label className={styles.fieldLabel}>Approval Granted</label>
-              <div className={styles.fieldValue}>{status.real_trading_approved ? 'Yes' : 'No'}</div>
-            </div>
-            <div className={`${styles.fieldShell} ${styles.actionSpan}`}>
-              <label className={styles.fieldLabel}>Mode Action</label>
-              <div className={styles.actionRow}>
-                <button
-                  onClick={() => handleToggleMode()}
-                  disabled={
-                    toggling ||
-                    (status.mode === 'paper' && (!status.ip_verified || !status.real_trading_approved))
-                  }
-                  className={`${styles.toggleBtn} ${styles[status.mode]}`}
-                >
-                  {toggling ? '⏳ Switching...' :
-                   status.mode === 'paper' ? '🟢 → 🔴 Switch to REAL Trading' : '🔴 → 🟢 Switch to PAPER Trading'}
-                </button>
-              </div>
-            </div>
-            {status.mode === 'paper' && (!status.ip_verified || !status.real_trading_approved) && (
-              <div className={`${styles.fieldShell} ${styles.spanFull}`}>
-                <label className={styles.fieldLabel}>Switch Warning</label>
-                <div className={`${styles.fieldValue} ${styles.warningInline}`}>
-                  Cannot switch to real trading:
-                  {!status.ip_verified && ' Your IP is not whitelisted.'}
-                  {!status.real_trading_approved && ' Real trading is not approved.'}
+        {/* Mode Switch & How It Works */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <section className="ts-card-soft rounded-2xl p-5 space-y-4">
+            <h2 className="text-sm font-bold text-slate-100 tracking-tight border-b border-slate-800/80 pb-2.5">
+              Mode Switch
+            </h2>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Ready For Real
+                </div>
+                <div className="text-xs font-bold text-slate-200 mt-1">
+                  {status.ip_verified && status.real_trading_approved
+                    ? "Yes"
+                    : "No"}
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className={styles.errorMessage}>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* Info Section */}
-        <div className={styles.infoSection}>
-          <h4>ℹ️ How It Works</h4>
-          <ol>
-            <li>
-              <strong>🟢 PAPER TRADING:</strong> Simulated trades. Always available. Perfect for testing strategies.
-            </li>
-            <li>
-              <strong>🔴 REAL TRADING:</strong> Actual orders via Kotak Neo API. Requires 3 conditions:
-              <ul>
-                <li>✅ Your IP must be whitelisted (or localhost in DEV mode)</li>
-                <li>✅ Real trading must be explicitly approved</li>
-                <li>✅ Symbol must be in the allowed indices list</li>
-              </ul>
-            </li>
-          </ol>
-          {status.dev_mode && (
-            <div className={styles.devModeInfo}>
-              <strong>🛠️ Development Mode Active:</strong> Localhost (127.0.0.1) is whitelisted for testing real trading locally.
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  IP Verified
+                </div>
+                <div className="text-xs font-bold text-slate-200 mt-1">
+                  {status.ip_verified ? "Yes" : "No"}
+                </div>
+              </div>
+              <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Approved
+                </div>
+                <div className="text-xs font-bold text-slate-200 mt-1">
+                  {status.real_trading_approved ? "Yes" : "No"}
+                </div>
+              </div>
             </div>
-          )}
+
+            <button
+              type="button"
+              onClick={() => handleToggleMode()}
+              disabled={
+                toggling ||
+                (status.mode === "paper" &&
+                  (!status.ip_verified || !status.real_trading_approved))
+              }
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold border transition-colors disabled:opacity-45 disabled:cursor-not-allowed ${
+                isRealMode
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35 hover:bg-emerald-500/25"
+                  : "bg-rose-500/15 text-rose-300 border-rose-500/35 hover:bg-rose-500/25"
+              }`}
+            >
+              {toggling
+                ? "Switching..."
+                : isRealMode
+                  ? "Switch to PAPER Trading"
+                  : "Switch to REAL Trading"}
+            </button>
+
+            {status.mode === "paper" &&
+              (!status.ip_verified || !status.real_trading_approved) && (
+                <p className="text-xs text-amber-300">
+                  Cannot switch to real trading:
+                  {!status.ip_verified && " Your IP is not whitelisted."}
+                  {!status.real_trading_approved &&
+                    " Real trading is not approved."}
+                </p>
+              )}
+          </section>
+
+          <section className="ts-card-soft rounded-2xl p-5 space-y-3">
+            <h2 className="text-sm font-bold text-slate-100 tracking-tight border-b border-slate-800/80 pb-2.5">
+              How It Works
+            </h2>
+            <ol className="text-xs text-slate-300 space-y-2 list-decimal list-inside">
+              <li>
+                <strong className="text-emerald-300">PAPER TRADING:</strong>{" "}
+                Simulated trades. Always available for testing strategies.
+              </li>
+              <li>
+                <strong className="text-rose-300">REAL TRADING:</strong> Actual
+                orders via Kotak Neo API. Requires 3 conditions:
+                <ul className="mt-1.5 ml-5 space-y-1 list-disc text-slate-400">
+                  <li>Your IP must be whitelisted (or localhost in DEV mode)</li>
+                  <li>Real trading must be explicitly approved</li>
+                  <li>Symbol must be in the allowed indices list</li>
+                </ul>
+              </li>
+            </ol>
+            {status.dev_mode && (
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-xs text-amber-300">
+                Development Mode Active: Localhost (127.0.0.1) is whitelisted
+                for testing real trading locally.
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

@@ -151,9 +151,9 @@ export const PLATFORM_MODULES: PlatformModule[] = [
   {
     id: "execution-accordion",
     href: "/execution-dashboard",
-    label: "Execution Accordion",
-    caption: "Multi-bot launcher & monitor",
-    description: "Multi-bot launcher and monitor workflows.",
+    label: "Execution Mode",
+    caption: "Paper/Real mode & gatekeeper",
+    description: "Paper/real trading mode, IP whitelist & signal gatekeeper.",
     categoryId: "trade-execute",
     icon: Layers3Icon,
     iconBg: "bg-[#62C7D8]/10",

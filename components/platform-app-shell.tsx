@@ -112,8 +112,8 @@ const routeMeta: Record<string, { title: string; subtitle: string; icon: React.C
     icon: HistoryIcon,
   },
   "/execution-dashboard": {
-    title: "Execution Accordion",
-    subtitle: "Multi-bot launcher and monitor workflows",
+    title: "Execution Mode",
+    subtitle: "Paper/real trading mode, IP whitelist & signal gatekeeper",
     icon: Layers3Icon,
   },
   "/multi-stock-monitor": {
