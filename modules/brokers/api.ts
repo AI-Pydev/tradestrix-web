@@ -36,6 +36,7 @@ export const BROKER_HEALTH_BROKERS = [
   "upstox",
   "kite",
   "shoonya",
+  "fyers",
 ] as const;
 
 export function canonicalHealthBrokerId(value: string): string {
@@ -54,6 +55,9 @@ export function canonicalHealthBrokerId(value: string): string {
   }
   if (normalized === "kite") {
     return "kite";
+  }
+  if (normalized === "fyers" || normalized === "fyres") {
+    return "fyers";
   }
   return normalized;
 }
