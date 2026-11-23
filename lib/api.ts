@@ -1681,6 +1681,45 @@ async function getBackendJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type LandingMetrics = {
+  execution_mode: "paper" | "live";
+  as_of: string;
+  active_bots: number;
+  open_positions: number;
+  realized_today: number;
+  unrealized_pnl: number | null;
+  day_pnl: number | null;
+  missing_quotes: number;
+  win_rate: number | null;
+  closed_trades_30d: number;
+};
+
+// Keep landing-page polling bounded and cancellable on scope changes/unmount.
+async function landingRequest<T>(path: string, signal: AbortSignal): Promise<T> {
+  const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: buildAuthorizedHeaders(),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(12000)]),
+  });
+  await throwIfApiError(response);
+  return response.json() as Promise<T>;
+}
+
+export function fetchLandingMetrics(mode: "paper" | "live", signal: AbortSignal) {
+  return landingRequest<LandingMetrics>(`/api/v1/platform/metrics?execution_mode=${mode}`, signal);
+}
+
+export function fetchLandingBrokerHealth(signal: AbortSignal) {
+  return landingRequest<BrokerHealth[]>("/api/v1/broker-health?refresh=false", signal);
+}
+
+export async function fetchLandingApiHealth(signal: AbortSignal) {
+  const start = performance.now();
+  const result = await landingRequest<{ status: string }>("/health", signal);
+  if (result.status !== "ok") throw new Error("API health check failed");
+  return Math.round(performance.now() - start);
+}
+
 async function postBackendJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: "POST",
@@ -3191,5 +3230,163 @@ export async function analyzeEngine26(body: {
   return postBackendJsonWithBody<Engine26Analysis, typeof body>(
     "/engine26/analyze",
     body,
+  );
+}
+
+export type OptionDeskUnderlying = {
+  instrument_key: string;
+  symbol: string;
+  label: string;
+  category: "index" | "stock";
+  exchange: string;
+  lot_size: number;
+  strike_step: number;
+};
+
+export type OptionDeskUniverseResponse = {
+  indices: OptionDeskUnderlying[];
+  stocks: OptionDeskUnderlying[];
+  all_items: OptionDeskUnderlying[];
+  default_budget_inr: number;
+  default_execution_mode: "paper" | "live";
+  live_trading_enabled: boolean;
+};
+
+export type OptionDeskLeg = {
+  instrument_key?: string | null;
+  strike: number;
+  expiry: string;
+  option_type: "CE" | "PE";
+  ltp?: number | null;
+  bid_price?: number | null;
+  ask_price?: number | null;
+  bid_qty?: number | null;
+  ask_qty?: number | null;
+  spread_pct?: number | null;
+  volume?: number | null;
+  oi?: number | null;
+  prev_oi?: number | null;
+  iv?: number | null;
+  delta?: number | null;
+  gamma?: number | null;
+  theta?: number | null;
+  vega?: number | null;
+  rho?: number | null;
+  intrinsic_value: number;
+  extrinsic_value: number;
+  fair_value?: number | null;
+  mispricing_vs_ask?: number | null;
+  lot_cost?: number | null;
+  liquidity_grade: "A" | "B" | "C" | "REJECT";
+  greeks_provenance: "BROKER_LIVE" | "MODEL_ESTIMATED" | "UNAVAILABLE";
+  quote_provenance: "BROKER_LIVE" | "MODEL_ESTIMATED" | "UNAVAILABLE";
+};
+
+export type OptionDeskRankedCandidate = OptionDeskLeg & {
+  moneyness: "ITM" | "ATM" | "OTM";
+  selection_score: number;
+  selection_components: Record<string, number>;
+  net_rr_after_costs: number;
+  estimated_charges: number;
+  why_selected: string;
+};
+
+export type OptionDeskRejectedCandidate = {
+  strike: number;
+  option_type: "CE" | "PE";
+  expiry: string;
+  ltp?: number | null;
+  ask_price?: number | null;
+  lot_cost?: number | null;
+  delta?: number | null;
+  reasons: string[];
+};
+
+export type OptionDeskChainAnalyzeResponse = {
+  instrument_key: string;
+  underlying: OptionDeskUnderlying;
+  decision: "BUY_CE" | "BUY_PE" | "WAIT" | "NO_TRADE";
+  confidence?: number;
+  verdict_reasons: string[];
+  intelligence?: {
+    verdict: string;
+    confidence: number;
+    bullish_score: number;
+    bearish_score: number;
+    vix_regime: string;
+    signals: Record<string, unknown>;
+  };
+  available_expiries: string[];
+  selected_expiry?: string | null;
+  expiry_regime: string;
+  dte: number;
+  spot_price?: number | null;
+  selected_candidate?: OptionDeskRankedCandidate | null;
+  ranked_candidates: OptionDeskRankedCandidate[];
+  rejected_candidates: OptionDeskRejectedCandidate[];
+  chain_rows: Array<{
+    strike: number;
+    expiry: string;
+    call: OptionDeskLeg | null;
+    put: OptionDeskLeg | null;
+  }>;
+};
+
+export type OptionDeskScenarioResponse = {
+  breakeven: number;
+  max_loss: number;
+  quantity: number;
+  payoff_curve: Array<{
+    spot_shock_pct: number;
+    spot_price: number;
+    expiry_value: number;
+    expiry_net_pnl: number;
+  }>;
+  scenarios: Array<{
+    hours_elapsed: number;
+    iv_shock_pct: number;
+    cells: Array<{
+      spot_shock_pct: number;
+      projected_premium: number;
+      net_pnl: number;
+    }>;
+  }>;
+};
+
+export async function fetchOptionDeskUniverse(): Promise<OptionDeskUniverseResponse> {
+  return getBackendJson<OptionDeskUniverseResponse>("/api/v1/option-desk/universe");
+}
+
+export async function analyzeOptionDeskChain(payload: {
+  instrument_key: string;
+  expiry?: string | null;
+  side_override?: "AUTO" | "CE" | "PE";
+  max_premium_budget?: number;
+  expected_move_pct?: number;
+  sl_pct?: number;
+  lots?: number;
+  allow_0dte_afternoon?: boolean;
+  market_data_broker?: "upstox" | "kite" | "shoonya";
+  candle_interval?: string;
+}): Promise<OptionDeskChainAnalyzeResponse> {
+  return postBackendJsonWithBody<OptionDeskChainAnalyzeResponse, typeof payload>(
+    "/api/v1/option-desk/chain/analyze",
+    payload,
+  );
+}
+
+export async function simulateOptionDeskScenarios(payload: {
+  spot: number;
+  strike: number;
+  expiry: string;
+  option_type: "CE" | "PE";
+  entry_ask: number;
+  iv_pct: number;
+  lots: number;
+  lot_size: number;
+}): Promise<OptionDeskScenarioResponse> {
+  return postBackendJsonWithBody<OptionDeskScenarioResponse, typeof payload>(
+    "/api/v1/option-desk/scenarios",
+    payload,
   );
 }
