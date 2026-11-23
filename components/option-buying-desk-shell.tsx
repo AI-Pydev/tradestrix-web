@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import {
   analyzeOptionDeskChain,
+  emergencyStopOptionDesk,
+  fetchOptionDeskJobs,
+  fetchOptionDeskSummary,
   fetchOptionDeskUniverse,
   OptionDeskChainAnalyzeResponse,
+  OptionDeskJob,
+  OptionDeskRankedCandidate,
   OptionDeskScenarioResponse,
+  OptionDeskSummary,
   OptionDeskUniverseResponse,
+  runOptionDeskJob,
   simulateOptionDeskScenarios,
+  squareOffOptionDeskJob,
 } from "@/lib/api";
 
 function fmtMoney(value?: number | null) {
@@ -39,18 +47,38 @@ export function OptionBuyingDeskShell() {
 
   const [analysis, setAnalysis] = useState<OptionDeskChainAnalyzeResponse | null>(null);
   const [scenarios, setScenarios] = useState<OptionDeskScenarioResponse | null>(null);
+  const [summary, setSummary] = useState<OptionDeskSummary | null>(null);
+  const [jobs, setJobs] = useState<OptionDeskJob[]>([]);
+  const [jobsTab, setJobsTab] = useState<"all" | "active" | "history">("all");
+  const [expandedJobId, setExpandedJobId] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
+
+  async function refreshExecutionDesk(tab: "all" | "active" | "history" = jobsTab) {
+    const [sumRes, jobsRes] = await Promise.all([
+      fetchOptionDeskSummary(),
+      fetchOptionDeskJobs({ status_group: tab, page: 1, limit: 20 }),
+    ]);
+    setSummary(sumRes);
+    setJobs(jobsRes.items);
+  }
 
   useEffect(() => {
     let active = true;
     async function init() {
       try {
         setLoading(true);
-        const uni = await fetchOptionDeskUniverse();
+        const [uni, sumRes, jobsRes] = await Promise.all([
+          fetchOptionDeskUniverse(),
+          fetchOptionDeskSummary(),
+          fetchOptionDeskJobs({ status_group: "all", page: 1, limit: 20 }),
+        ]);
         if (!active) return;
         setUniverse(uni);
+        setSummary(sumRes);
+        setJobs(jobsRes.items);
         if (uni.default_budget_inr) setBudgetInr(uni.default_budget_inr);
       } catch (err) {
         if (!active) return;
@@ -137,16 +165,68 @@ export function OptionBuyingDeskShell() {
       tone: "positive",
     },
     {
-      label: "Net R:R (After Costs)",
-      display: analysis?.selected_candidate ? `${analysis.selected_candidate.net_rr_after_costs}x` : "—",
-      tone: "",
+      label: "Active / Open Positions",
+      display: `${summary?.active_jobs ?? 0} / ${summary?.open_positions ?? 0}`,
+      tone: (summary?.active_jobs ?? 0) > 0 ? "positive" : "",
     },
     {
-      label: "Execution Mode",
-      display: "PAPER (READ-ONLY PHASE 1)",
-      tone: "",
+      label: "Today Realized P/L",
+      display: fmtMoney(summary?.today_realized_pnl ?? 0),
+      tone: (summary?.today_realized_pnl ?? 0) > 0 ? "positive" : (summary?.today_realized_pnl ?? 0) < 0 ? "negative" : "",
     },
   ];
+
+  async function handleExecutePaper(candidate: OptionDeskRankedCandidate) {
+    if (!analysis) return;
+    try {
+      setError("");
+      setStatusMessage("");
+      const job = await runOptionDeskJob({
+        instrument_key: analysis.instrument_key,
+        underlying_symbol: analysis.underlying.symbol,
+        option_type: candidate.option_type,
+        strike: candidate.strike,
+        expiry: candidate.expiry,
+        moneyness: candidate.moneyness,
+        entry_ask: candidate.ask_price || candidate.ltp || 100,
+        lots: 1,
+        lot_size: analysis.underlying.lot_size,
+        target_pct: 0.35,
+        sl_pct: 0.20,
+        trailing_sl_pct: 0.10,
+        max_premium_budget: budgetInr,
+        execution_mode: "paper",
+        selection_score: candidate.selection_score,
+        why_selected: candidate.why_selected,
+      });
+      setStatusMessage(`Paper trade launched: ${job.option_symbol} @ ${fmtMoney(job.entry_price)}`);
+      await refreshExecutionDesk();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to launch paper option trade");
+    }
+  }
+
+  async function handleSquareOff(jobId: string) {
+    if (!window.confirm("Square off this option position?")) return;
+    try {
+      await squareOffOptionDeskJob(jobId);
+      setStatusMessage("Option position squared off.");
+      await refreshExecutionDesk();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to square off position");
+    }
+  }
+
+  async function handleEmergencyStop() {
+    if (!window.confirm("EMERGENCY STOP: Square off ALL active option positions?")) return;
+    try {
+      const res = await emergencyStopOptionDesk();
+      setStatusMessage(`Emergency stop executed: closed ${res.closed_count} position(s).`);
+      await refreshExecutionDesk();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Emergency stop failed");
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -176,11 +256,21 @@ export function OptionBuyingDeskShell() {
                 Multi-factor CE/PE intelligence, Greeks &amp; IV valuation, expiry-aware strike ranking, and cost-aware risk preview.
               </p>
             </div>
-            <span className="badge-soft gold">PAPER DEFAULT • LIVE GATED</span>
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge-soft gold">PAPER DEFAULT • LIVE GATED</span>
+              <button
+                className="btn btn-sm btn-danger fw-semibold"
+                onClick={() => void handleEmergencyStop()}
+                type="button"
+              >
+                Emergency Stop All
+              </button>
+            </div>
           </div>
 
           <div className="p-3" id="overview">
             {loading && <div className="muted">Loading F&amp;O universe...</div>}
+            {statusMessage && <div className="alert alert-success mb-3">{statusMessage}</div>}
             {error && <div className="alert alert-danger mb-3">{error}</div>}
             {!loading && (
               <div className="row g-3">
@@ -348,6 +438,7 @@ export function OptionBuyingDeskShell() {
                       <th>Grade</th>
                       <th>Score</th>
                       <th>Explanation</th>
+                      <th className="text-end">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -372,6 +463,15 @@ export function OptionBuyingDeskShell() {
                         </td>
                         <td className="fw-bold text-success">{c.selection_score}</td>
                         <td className="small">{c.why_selected}</td>
+                        <td className="text-end">
+                          <button
+                            className="btn btn-sm btn-warning fw-semibold"
+                            onClick={() => void handleExecutePaper(c)}
+                            type="button"
+                          >
+                            Paper Buy
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -459,6 +559,111 @@ export function OptionBuyingDeskShell() {
             </div>
           </section>
         )}
+
+        {/* Active & Historical Option Bots */}
+        <section className="dashboard-panel" id="active-bots">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h2 className="panel-title mb-0">Active &amp; Historical Option Trades</h2>
+            <div className="btn-group btn-group-sm">
+              {(["all", "active", "history"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  className={`btn ${jobsTab === tab ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => {
+                    setJobsTab(tab);
+                    void refreshExecutionDesk(tab);
+                  }}
+                  type="button"
+                >
+                  {tab.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {jobs.length === 0 ? (
+            <div className="text-center p-4 muted">
+              No option trades recorded yet. Analyze a symbol and click Paper Buy on a ranked candidate.
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-dark table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Contract</th>
+                    <th>Mode</th>
+                    <th>Entry</th>
+                    <th>LTP</th>
+                    <th>Target / SL</th>
+                    <th>Realized P/L</th>
+                    <th className="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((job) => {
+                    const isExpanded = expandedJobId === job.job_id;
+                    return (
+                      <Fragment key={job.job_id}>
+                        <tr>
+                          <td>
+                            <span className={`badge-soft ${job.status === "running" ? "green" : "blue"}`}>
+                              {job.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fw-bold">{job.option_symbol}</div>
+                            <div className="small muted">{job.moneyness} • {job.quantity} qty</div>
+                          </td>
+                          <td>
+                            <span className="badge-soft gold">{job.execution_mode.toUpperCase()}</span>
+                          </td>
+                          <td className="font-mono">{fmtMoney(job.entry_price)}</td>
+                          <td className="font-mono">{fmtMoney(job.current_ltp)}</td>
+                          <td className="font-mono small">
+                            T: {fmtMoney(job.target_price)} / SL: {fmtMoney(job.sl_price)}
+                          </td>
+                          <td className={`fw-bold ${job.realized_pnl >= 0 ? "text-success" : "text-danger"}`}>
+                            {fmtMoney(job.realized_pnl)}
+                          </td>
+                          <td className="text-end">
+                            <div className="btn-group btn-group-sm">
+                              {job.status === "running" && (
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => void handleSquareOff(job.job_id)}
+                                  type="button"
+                                >
+                                  Square Off
+                                </button>
+                              )}
+                              <button
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() => setExpandedJobId(isExpanded ? "" : job.job_id)}
+                                type="button"
+                              >
+                                {isExpanded ? "Hide" : "Audit"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={8} className="bg-dark p-3 font-monospace small">
+                              {job.logs.map((line, i) => (
+                                <div key={i}>{line}</div>
+                              ))}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );

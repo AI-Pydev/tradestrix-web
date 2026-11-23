@@ -3390,3 +3390,95 @@ export async function simulateOptionDeskScenarios(payload: {
     payload,
   );
 }
+
+
+export type OptionDeskJob = {
+  job_id: string;
+  job_name: string;
+  status: "running" | "completed" | "stopped" | "failed";
+  execution_mode: "paper" | "live";
+  instrument_key: string;
+  underlying_symbol: string;
+  option_symbol: string;
+  option_type: "CE" | "PE";
+  strike: number;
+  expiry: string;
+  moneyness: string;
+  lots: number;
+  lot_size: number;
+  quantity: number;
+  entry_price: number;
+  current_ltp: number;
+  target_price: number;
+  sl_price: number;
+  unrealized_pnl: number;
+  realized_pnl: number;
+  exit_reason?: string | null;
+  logs: string[];
+  started_at: string;
+  stopped_at?: string | null;
+};
+
+export type OptionDeskSummary = {
+  managed_jobs: number;
+  active_jobs: number;
+  open_positions: number;
+  deployed_capital: number;
+  unrealized_pnl: number;
+  today_realized_pnl: number;
+  win_rate: number;
+  daily_loss_limit: number;
+  daily_loss_remaining: number;
+};
+
+export async function runOptionDeskJob(payload: {
+  instrument_key: string;
+  underlying_symbol: string;
+  option_type: "CE" | "PE";
+  strike: number;
+  expiry: string;
+  moneyness: "ITM" | "ATM" | "OTM";
+  entry_ask: number;
+  lots: number;
+  lot_size: number;
+  target_pct: number;
+  sl_pct: number;
+  trailing_sl_pct?: number | null;
+  max_premium_budget: number;
+  execution_mode: "paper" | "live";
+  selection_score: number;
+  why_selected: string;
+}): Promise<OptionDeskJob> {
+  return postBackendJsonWithBody<OptionDeskJob, typeof payload>(
+    "/api/v1/option-desk/jobs/run",
+    payload,
+  );
+}
+
+export async function fetchOptionDeskSummary(): Promise<OptionDeskSummary> {
+  return getBackendJson<OptionDeskSummary>("/api/v1/option-desk/dashboard/summary");
+}
+
+export async function fetchOptionDeskJobs(params: {
+  status_group: "all" | "active" | "history";
+  page: number;
+  limit: number;
+}): Promise<{ items: OptionDeskJob[]; total_count: number; page: number; total_pages: number }> {
+  const qs = new URLSearchParams({
+    status_group: params.status_group,
+    page: String(params.page),
+    limit: String(params.limit),
+  });
+  return getBackendJson(`/api/v1/option-desk/dashboard/jobs?${qs.toString()}`);
+}
+
+export async function squareOffOptionDeskJob(jobId: string): Promise<OptionDeskJob> {
+  return postBackendJsonWithBody<OptionDeskJob, Record<string, never>>(
+    `/api/v1/option-desk/jobs/${encodeURIComponent(jobId)}/square-off`,
+    {},
+  );
+}
+
+export async function emergencyStopOptionDesk(): Promise<{ closed_count: number; closed_job_ids: string[] }> {
+  return postBackendJsonWithBody("/api/v1/option-desk/emergency-stop", {});
+}
