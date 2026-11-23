@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 
 import {
@@ -248,6 +249,9 @@ export function OptionBuyingDeskShell() {
             <a className="hero-tab" href="#scenarios">
               Payoff &amp; Scenarios
             </a>
+            <Link className="hero-tab" href="/option-buying-desk/history">
+              Trade History
+            </Link>
           </div>
           <div className="hero-header d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>

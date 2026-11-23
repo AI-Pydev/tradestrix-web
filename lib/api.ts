@@ -3482,3 +3482,39 @@ export async function squareOffOptionDeskJob(jobId: string): Promise<OptionDeskJ
 export async function emergencyStopOptionDesk(): Promise<{ closed_count: number; closed_job_ids: string[] }> {
   return postBackendJsonWithBody("/api/v1/option-desk/emergency-stop", {});
 }
+
+
+export type OptionDeskTradeHistoryResponse = {
+  summary: {
+    total_trades: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    net_pnl: number;
+  };
+  trades: Array<{
+    id: number;
+    job_id: string;
+    underlying_symbol: string;
+    option_symbol: string;
+    option_type: string;
+    moneyness: string;
+    strike: number;
+    expiry: string;
+    execution_mode: string;
+    quantity: number;
+    entry_price: number;
+    exit_price?: number | null;
+    charges: number;
+    raw_pnl: number;
+    net_pnl: number;
+    status: string;
+    exit_reason?: string | null;
+    opened_at: string;
+    closed_at?: string | null;
+  }>;
+};
+
+export async function fetchOptionDeskTradeHistory(): Promise<OptionDeskTradeHistoryResponse> {
+  return getBackendJson<OptionDeskTradeHistoryResponse>("/api/v1/option-desk/trade-history");
+}
