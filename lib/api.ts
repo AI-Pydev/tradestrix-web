@@ -3518,3 +3518,84 @@ export type OptionDeskTradeHistoryResponse = {
 export async function fetchOptionDeskTradeHistory(): Promise<OptionDeskTradeHistoryResponse> {
   return getBackendJson<OptionDeskTradeHistoryResponse>("/api/v1/option-desk/trade-history");
 }
+
+
+export type OptionAutoBot = {
+  bot_id: string;
+  status: "running" | "stopped" | "error";
+  phase: "SCANNING" | "IN_POSITION" | "STOPPED";
+  active_job_id?: string | null;
+  last_verdict: string;
+  last_message: string;
+  last_checked_at?: string | null;
+  trades_opened: number;
+  started_at: string;
+  config: {
+    instrument_key: string;
+    symbol: string;
+    side_override: "AUTO" | "CE" | "PE";
+    candle_interval: string;
+    market_data_broker: string;
+    execution_mode: "paper" | "live";
+    max_premium_budget: number;
+    max_risk_per_trade: number;
+    target_pct: number;
+    sl_pct: number;
+    trailing_sl_pct: number;
+    auto_reenter: boolean;
+  };
+};
+
+export type OptionAutoBotsResponse = {
+  autopilot_enabled: boolean;
+  running_count: number;
+  bots: OptionAutoBot[];
+};
+
+export async function fetchOptionAutoBots(): Promise<OptionAutoBotsResponse> {
+  return getBackendJson<OptionAutoBotsResponse>("/api/v1/option-desk/auto-bots");
+}
+
+export async function startOptionAutoBot(payload: {
+  instrument_key: string;
+  side_override: "AUTO" | "CE" | "PE";
+  candle_interval: string;
+  market_data_broker: "upstox" | "kite" | "shoonya";
+  execution_mode: "paper" | "live";
+  max_premium_budget: number;
+  max_risk_per_trade: number;
+  lots: number;
+  target_pct: number;
+  sl_pct: number;
+  trailing_sl_pct: number;
+  poll_interval_sec: number;
+  auto_reenter: boolean;
+}): Promise<OptionAutoBot> {
+  return postBackendJsonWithBody<OptionAutoBot, typeof payload>(
+    "/api/v1/option-desk/auto-bots/start",
+    payload,
+  );
+}
+
+export async function stopOptionAutoBot(botId: string): Promise<OptionAutoBot> {
+  return postBackendJsonWithBody<OptionAutoBot, Record<string, never>>(
+    `/api/v1/option-desk/auto-bots/${encodeURIComponent(botId)}/stop`,
+    {},
+  );
+}
+
+export async function launchOptionIndexAutopilot(payload: {
+  candle_interval: string;
+  market_data_broker: "upstox" | "kite" | "shoonya";
+  max_premium_budget: number;
+  max_risk_per_trade: number;
+  target_pct: number;
+  sl_pct: number;
+  trailing_sl_pct: number;
+}): Promise<{ autopilot_enabled: boolean; launched_count: number; already_running_count: number }> {
+  return postBackendJsonWithBody("/api/v1/option-desk/auto-pilot/launch-indices", payload);
+}
+
+export async function stopAllOptionAutoBots(): Promise<{ stopped_count: number }> {
+  return postBackendJsonWithBody("/api/v1/option-desk/auto-pilot/stop-all", {});
+}
