@@ -173,6 +173,18 @@ export const PLATFORM_MODULES: PlatformModule[] = [
     iconColor: "text-[#55D6A0]",
   },
   {
+    id: "option-buying-desk",
+    href: "/option-buying-desk",
+    label: "Option Buying Desk",
+    caption: "CE/PE Intelligence & Chain",
+    description: "Intelligent CE/PE selection, Greeks, scenarios, and risk-gated option buying.",
+    categoryId: "trade-execute",
+    icon: ChartCandlestickIcon,
+    iconBg: "bg-[#E8BC55]/10",
+    iconBorder: "border-[#E8BC55]/25",
+    iconColor: "text-[#E8BC55]",
+  },
+  {
     id: "multi-bot-launcher",
     href: "/multi-bot-launcher",
     label: "Multi-Bot Launcher",
